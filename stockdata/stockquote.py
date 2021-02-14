@@ -19,6 +19,8 @@ class StockQuote:
         # response = requests.get(self.BASEQUOTE, headers=self.HEADERS)
         response = requests.get(self.BASEQUOTE, params=params)
         status = response.status_code
+        # if status != 200:
+        #     raise 
         return response.json()
 
 
@@ -44,11 +46,11 @@ def runit():
     
 if __name__ == '__main__':
     print(getSaConn())
-    # mq = ManageQuotes(getSaConn())
+    mq = ManageQuotes(getSaConn())
     # mq = ManageQuotes('sqlite:///quotes.sqlite', True)
     # mq = ManageQuotes('sqlite:///quotes.sqlite', True)
-    lh = "mysql+pymysql://stockdbuser:Kwk78?l8@localhost/stockdb"
-    mq = ManageQuotes(lh, True)
+    # lh = "mysql+pymysql://stockdbuser:Kwk78?l8@localhost/stockdb"
+    # mq = ManageQuotes(lh, True)
     sq = StockQuote()
     json = sq.runquote()
     QuotesModel.addQuotes(json, mq.engine)
