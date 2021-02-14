@@ -16,8 +16,6 @@ class Keys(Base):
     name = Column(String, unique=True, nullable=False)
     key = Column(String)
 
-
-
     @classmethod
     def getKey(cls, name, engine):
         s = Session(bind=engine)
@@ -79,6 +77,6 @@ def fortesting():
     
 
 if __name__ == '__main__':
-    # test_ManageKeysAddKey()
-
-    fortesting()
+    mk = ManageKeys('sqlite:///test_keys.sqlite', True)
+    print('done')
+    print('done')
