@@ -28,10 +28,23 @@ class Mysqlconn:
         return Keys.getKey('fh_token', self.mk.engine)
 
     def getSaMysqlConn(self):
-        return f'mysql+pymysql:///{self.getUser()}:{self.getPw()}@{self.getHost()}/{self.getDb()}'
+        return f'mysql+pymysql://{self.getUser()}:{self.getPw()}@{self.getHost()}/{self.getDb()}'
+
+def getSaConn():
+    '''
+    Get the Sqlalchemy Mysql connection string using the pymysql module
+    '''
+    msc = Mysqlconn()
+    return msc.getSaMysqlConn()
+
+def getFhToken():
+    '''
+    Get the finnhub token
+    '''
+    msc = Mysqlconn()
+    return msc.getFhToken()
 
 
 if __name__ == '__main__':
-    msc = Mysqlconn()
-    print(msc.getSaMysqlConn())
+    print(getSaConn())
 
