@@ -17,14 +17,15 @@ class StockQuote:
     BASEURL = "https://finnhub.io/api/v1/"
     QUOTES = BASEURL + "quote/us?"
     CANDLES = BASEURL+ "stock/candle?"
-    SINGLEQUOTE  = BASEURL+ "quote?"
+    SINGLEQUOTE = BASEURL+ "quote?"
     HEADERS = {'Content-Type': 'application/json', 'X-Finnhub-Token': getFhToken()}
 
     def getSingleQuote(self, symbol):
         
         base = self.SINGLEQUOTE
         params = {}
-        response = requests.get(self.QUOTES, params=params, headers=self.HEADERS)
+        params['symbol'] = symbol
+        response = requests.get(self.SINGLEQUOTE, params=params, headers=self.HEADERS)
         status = response.status_code
         if status != 200:
             raise InvalidServerResponseException(f'Server returned status {status}')
@@ -137,7 +138,8 @@ def example():
 
 def example2():
     sq = StockQuote()
-    sq.getSingleQuote('APPL')
+    j = sq.getSingleQuote('APPL')
+    print(j)
     
         
 if __name__ == '__main__':
