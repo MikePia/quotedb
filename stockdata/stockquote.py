@@ -6,7 +6,7 @@ import time
 import datetime as dt
 
 from models.quotemodel import QuotesModel, ManageQuotes
-from stockdata.dbconnection import getFhToken, getSaConn
+from stockdata.dbconnection import getFhToken, getSaConn, getCsvDirectory
 from utils.util import dt2unix
 
 class InvalidServerResponseException(Exception):
@@ -42,8 +42,33 @@ class StockQuote:
             #     break
 
 
-    def storeCondles(self, symbol, start, end, resolution, key=None):
-        pass
+    def storeCandles(self, symbol, start, end, resolution, key=None, store=['csv']):
+        '''
+        Many ways to handle this. Just going to implement one till for now
+        :params store: arr containing combination of ['csv', 'db']
+        Note that the 
+        '''
+        j = self.getCandles(symbol, start, end, resolution, key)
+        if not j:
+            return
+        if 'csv' in store:
+            fn = getCsvDirectory() + f'/{symbol}_{start}_{end}_{resolution}.csv'
+            # If the exact fn exists, the data should be the same
+            with open(fn, 'w', newline='') as csvfile:
+                csv_writer = csv.writer(csvfile)
+                # ['symbol', 'close', 'high', 'low', 'open', 'price', 'time', 'vol']
+                header =  ['close', 'high', 'low', 'open', 'time', 'vol']
+                i = 0
+                for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v']):
+                    if i == 0:
+                        csv_writer.writerow(header)
+                        i = 1234
+                    csv_writer.writerow([c, h, l, o, t, v])
+        if 'db' in store:
+            print('Database storage is not implemented')
+        print()
+        
+
     def getCandles(self, symbol, start, end, resolution, key=None):
         '''
         :symbol: The ticker to get
@@ -58,7 +83,7 @@ class StockQuote:
         params['to'] = end
         params['resolution'] = resolution
 
-        # params['token'] = getFhToken() if key is None else key
+        params['token'] = getFhToken() if key is None else key
         
         response = requests.get(self.BASECANDLE, params=params)
 
@@ -100,8 +125,8 @@ if __name__ == '__main__':
     start = dt2unix(dt.datetime.now()-dt.timedelta(days=3))
     end = dt2unix(dt.datetime.now())
     resolution = 15
-    x = sq.getCandles(symbol, start, end, resolution)
+    sq.storeCandles(symbol, start, end, resolution)
 
-    j = sq.getCandles()
-    QuotesModel.addQuotes(j, mq.engine)
+    # j = sq.getCandles()
+    # QuotesModel.addQuotes(j, mq.engine)
     print('done')

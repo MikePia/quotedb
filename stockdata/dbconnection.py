@@ -25,17 +25,24 @@ class Mysqlconn:
     def getDb(self):
         return Keys.getKey('mysql_db', self.mk.engine)
 
+    def getSaMysqlConn(self):
+        return f'mysql+pymysql://{self.getUser()}:{self.getPw()}@{self.getHost()}/{self.getDb()}'
+
+    # Couple of non mysql items
+    def getCsvDirectory(self):
+        d =  Keys.getKey('csv_directory', self.mk.engine)
+        return d
+
     def getFhToken(self):
         '''Out of place but easy'''
         return Keys.getKey('fh_token', self.mk.engine)
 
-    def getSaMysqlConn(self):
-        return f'mysql+pymysql://{self.getUser()}:{self.getPw()}@{self.getHost()}/{self.getDb()}'
 
-    def getCsvDirectory(self):
-        d =  Keys.getKey('csv_directory')
-        return d
         
+def getCsvDirectory():
+    msc = Mysqlconn()
+    return msc.getCsvDirectory()
+
 def getSaConn():
     '''
     Get the Sqlalchemy Mysql connection string using the pymysql module
