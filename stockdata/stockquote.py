@@ -53,12 +53,6 @@ class StockQuote:
             # if time.time() stop:
             #     break
 
-    def getSingleQuote(self, symbol):
-        '''
-        Gets the latest value of a single quote
-        '''
-
-
     def storeCandles(self, symbol, start, end, resolution, key=None, store=['csv']):
         '''
         Many ways to handle this. Just going to implement one till for now
@@ -139,11 +133,16 @@ def example():
     # This is an example of how to call store Candles. The result is currently to save a file
     sq.storeCandles(symbol, start, end, resolution)
     # QuotesModel.addQuotes(sq.runquotes(), mq.engine)
+
+
+def example2():
+    sq = StockQuote()
+    sq.getSingleQuote('APPL')
     
         
 if __name__ == '__main__':
     print(getSaConn())
-    example()
+    example2()
     # mq = ManageQuotes('sqlite:///quotes.sqlite', True)
     # mq = ManageQuotes('sqlite:///quotes.sqlite', True)
     # lh = "mysql+pymysql://stockdbuser:Kwk78?l8@localhost/stockdb"
