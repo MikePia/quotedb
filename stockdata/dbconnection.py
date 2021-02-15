@@ -1,6 +1,8 @@
 """
 Get the db connection string. Depends on the localconfig to get the keys
 """
+import logging
+import os
 from models.managekeys import ManageKeys, Keys
 
 sdb = 'sqlite:///keys.sqlite'
@@ -30,6 +32,10 @@ class Mysqlconn:
     def getSaMysqlConn(self):
         return f'mysql+pymysql://{self.getUser()}:{self.getPw()}@{self.getHost()}/{self.getDb()}'
 
+    def getCsvDirectory(self):
+        d =  Keys.getKey('csv_directory')
+        return d
+        
 def getSaConn():
     '''
     Get the Sqlalchemy Mysql connection string using the pymysql module
