@@ -15,16 +15,27 @@ class InvalidServerResponseException(Exception):
 class StockQuote:
 
     BASEURL = "https://finnhub.io/api/v1/"
-    BASEQUOTE = BASEURL + "quote/us?"
-    BASECANDLE = BASEURL+ "stock/candle?"
-    HEADERS = {'Content-Type': 'application/json', 'Authorization' : 'Token '+ getFhToken()}
+    QUOTES = BASEURL + "quote/us?"
+    CANDLES = BASEURL+ "stock/candle?"
+    SINGLEQUOTE  = BASEURL+ "quote?"
+    HEADERS = {'Content-Type': 'application/json', 'X-Finnhub-Token': getFhToken()}
 
-    def runquote(self):
-        base = self.BASEQUOTE
+    def getSingleQuote(self, symbol):
+        
+        base = self.SINGLEQUOTE
         params = {}
-        params['token'] = 'c0b4p7748v6sc0gs4oq0'
-        # response = requests.get(self.BASEQUOTE, headers=self.HEADERS)
-        response = requests.get(self.BASEQUOTE, params=params)
+        response = requests.get(self.QUOTES, params=params, headers=self.HEADERS)
+        status = response.status_code
+        if status != 200:
+            raise InvalidServerResponseException(f'Server returned status {status}')
+        return response.json()
+
+    def runquotes(self):
+        base = self.QUOTES
+        params = {}
+        # params['token'] = 'c0b4p7748v6sc0gs4oq0'
+        response = requests.get(self.QUOTES, headers=self.HEADERS)
+        # response = requests.get(self.QUOTES, params=params)
         status = response.status_code
         # if status != 200:
         #     raise 
@@ -33,13 +44,19 @@ class StockQuote:
 
     # TODO: use Twitsted or Chronus
     def getQuotes(self, start:dt.datetime, stop:dt.datetime, freq:float):
-        starttime = time.time()
-        while start >= starttime:
-            j = runquote()
+
+        # starttime = time.time()
+        # while start >= starttime:
+            j = runquotes()
             # print (len)
             # time.sleep(freq - ((time.time() - starttime)))
             # if time.time() stop:
             #     break
+
+    def getSingleQuote(self, symbol):
+        '''
+        Gets the latest value of a single quote
+        '''
 
 
     def storeCandles(self, symbol, start, end, resolution, key=None, store=['csv']):
@@ -85,7 +102,7 @@ class StockQuote:
 
         params['token'] = getFhToken() if key is None else key
         
-        response = requests.get(self.BASECANDLE, params=params)
+        response = requests.get(self.CANDLES, params=params)
 
         meta = {'code': response.status_code}
         if response.status_code != 200:
@@ -110,22 +127,28 @@ def runit():
     sq.getQuotes(start, stop, freq)
 
 
+def example():
+    symbol = 'NIO'
+    start = dt2unix(dt.datetime.now()-dt.timedelta(days=10))
+    end = dt2unix(dt.datetime.now()-dt.timedelta(days=5))
+    resolution = 5
+
+    sq = StockQuote()
+    mq = ManageQuotes(getSaConn())
+
+    # This is an example of how to call store Candles. The result is currently to save a file
+    sq.storeCandles(symbol, start, end, resolution)
+    # QuotesModel.addQuotes(sq.runquotes(), mq.engine)
     
         
 if __name__ == '__main__':
     print(getSaConn())
-    # mq = ManageQuotes(getSaConn())
+    example()
     # mq = ManageQuotes('sqlite:///quotes.sqlite', True)
     # mq = ManageQuotes('sqlite:///quotes.sqlite', True)
     # lh = "mysql+pymysql://stockdbuser:Kwk78?l8@localhost/stockdb"
     # mq = ManageQuotes(lh, True)
-    sq = StockQuote()
 
-    symbol = 'ROKU'
-    start = dt2unix(dt.datetime.now()-dt.timedelta(days=3))
-    end = dt2unix(dt.datetime.now())
-    resolution = 15
-    sq.storeCandles(symbol, start, end, resolution)
 
     # j = sq.getCandles()
     # QuotesModel.addQuotes(j, mq.engine)

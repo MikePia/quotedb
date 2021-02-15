@@ -1,0 +1,10 @@
+#!/bin/bash
+export PROJECTDIR=/usr/local/quotedb
+
+if test -z "$PYTHONPATH"
+then
+
+	export PYTHONPATH=/usr/local/quotedb
+else
+	export PYTHONPATH=/usr/local/quotedb:$PYTHONPATH
+fi
