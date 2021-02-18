@@ -6,11 +6,10 @@ import time
 import datetime as dt
 
 from models.quotemodel import QuotesModel, ManageQuotes
+from qexceptions.qexception import InvalidServerResponseException
 from stockdata.dbconnection import getFhToken, getSaConn, getCsvDirectory
 from utils.util import dt2unix
 
-class InvalidServerResponseException(Exception):
-    pass
 
 class StockQuote:
 
@@ -22,14 +21,25 @@ class StockQuote:
 
     def getSingleQuote(self, symbol):
         
-        base = self.SINGLEQUOTE
         params = {}
         params['symbol'] = symbol
         response = requests.get(self.SINGLEQUOTE, params=params, headers=self.HEADERS)
         status = response.status_code
         if status != 200:
-            raise InvalidServerResponseException(f'Server returned status {status}')
+            raise InvalidServerResponseException(f'Server returned status {status}:{response.message}')
         return response.json()
+
+    def runSingleQuotes(self, symbols):
+        q = []
+        for i, symbol in enumerate(symbols[100:200]):
+            # if not i % 10:
+            #     print(f'retrieving {symbol}, number {i}')
+            try:
+                q.append(self.getSingleQuote(symbol))
+            except InvalidServerResponseException as ex:
+                print(ex)
+                continue
+
 
     def runquotes(self):
         base = self.QUOTES
@@ -112,6 +122,10 @@ class StockQuote:
             logging.info('Error-- no data')
         return j
 
+    def getTickers(self):
+        j = self.runquotes()
+        return list(j.keys())
+        
 
 def runit():
     start = dt.datetime.now() + dt.deltatime(seconds=90)
@@ -120,6 +134,7 @@ def runit():
 
     sq = StockQuote()
     sq.getQuotes(start, stop, freq)
+
 
 
 def example():
@@ -138,8 +153,13 @@ def example():
 
 def example2():
     sq = StockQuote()
-    j = sq.getSingleQuote('APPL')
-    print(j)
+    tick = sq.getTickers()
+    before = time.perf_counter()
+    j = sq.runSingleQuotes(tick)
+    print(time.perf_counter() - before)
+
+
+
     
         
 if __name__ == '__main__':
