@@ -6,7 +6,9 @@ import time
 import datetime as dt
 
 from models.quotemodel import QuotesModel, ManageQuotes
+from models.candlesmodel import CandlesModel, ManageCandles
 from qexceptions.qexception import InvalidServerResponseException
+from stockdata.sp500 import sp500symbols, nasdaq100symbols
 from stockdata.dbconnection import getFhToken, getSaConn, getCsvDirectory
 from utils.util import dt2unix
 
@@ -84,10 +86,15 @@ class StockQuote:
                 for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v']):
                     if i == 0:
                         csv_writer.writerow(header)
-                        i = 1234
                     csv_writer.writerow([c, h, l, o, t, v])
+                    i += 1
+                print(f'Wrote {i} records to {fn}')
         if 'db' in store:
-            print('Database storage is not implemented')
+            mc = ManageCandles(getSaConn())
+            candles = []
+            for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v']):
+                candles.append([symbol, c, h, l, o, t, v])
+            CandlesModel.addCandles(candles, mc.engine)
         print()
         
 
@@ -138,10 +145,10 @@ def runit():
 
 
 def example():
-    symbol = 'NIO'
-    start = dt2unix(dt.datetime.now()-dt.timedelta(days=10))
-    end = dt2unix(dt.datetime.now()-dt.timedelta(days=5))
-    resolution = 5
+    symbol = 'ATVI'
+    start = dt2unix(dt.datetime(2019, 1, 1))
+    end = dt2unix(dt.datetime.now())
+    resolution = 1
 
     sq = StockQuote()
     mq = ManageQuotes(getSaConn())
@@ -158,13 +165,18 @@ def example2():
     j = sq.runSingleQuotes(tick)
     print(time.perf_counter() - before)
 
+def example3():
+    sq = StockQuote()
+    for ticker in nasdaq100symbols:
+        sq.storeCandles(ticker, dt2unix(dt.datetime(2019, 1, 1)), dt2unix(dt.datetime.now()), 1, store=['csv', 'db'])
+
 
 
     
         
 if __name__ == '__main__':
-    print(getSaConn())
-    example2()
+    # print(getSaConn())
+    example3()
     # mq = ManageQuotes('sqlite:///quotes.sqlite', True)
     # mq = ManageQuotes('sqlite:///quotes.sqlite', True)
     # lh = "mysql+pymysql://stockdbuser:Kwk78?l8@localhost/stockdb"

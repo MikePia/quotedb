@@ -24,18 +24,25 @@ class CandlesModel(Base):
 
     @classmethod
     def addCandles(cls, arr, engine):
+        '''
+        [symbol, c, h, l, o, t, v]
+        '''
         s = Session(bind=engine)
-        x = [CandlesModel(
-            symbol = t,
-            close = arr[t]['c'],
-            high = arr[t]['h'],
-            low = arr[t]['l'],
-            open = arr[t]['o'],
-            time = arr[t]['t'],
-            vol = arr[t]['v']
-        ) for t in arr]
-        s.add_all(x)
+        for i, t in enumerate(arr):
+            s.add(CandlesModel(
+            symbol = t[0],
+            close = t[1],
+            high = t[2],
+            low = t[3],
+            open = t[4],
+            time = t[5],
+            vol = t[6]))
+            if not i % 200:
+                s.commit()
+                print(f'commited {i} records')
         s.commit()
+
+
 
 
 class ManageCandles:
