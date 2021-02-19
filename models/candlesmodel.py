@@ -68,6 +68,8 @@ class CandlesModel(Base):
         return list(td.values())
 
 
+
+
 class ManageCandles:
     def __init__(self, db, create=False):
         '''
