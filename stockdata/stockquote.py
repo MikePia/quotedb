@@ -6,9 +6,11 @@ import time
 import datetime as dt
 
 from models.quotemodel import QuotesModel, ManageQuotes
+from models.candlesmodel import CandlesModel, ManageCandles
 from qexceptions.qexception import InvalidServerResponseException
+from stockdata.sp500 import sp500symbols, nasdaq100symbols
 from stockdata.dbconnection import getFhToken, getSaConn, getCsvDirectory
-from utils.util import dt2unix
+from utils.util import dt2unix, unix2date
 
 
 class StockQuote:
@@ -66,9 +68,9 @@ class StockQuote:
 
     def storeCandles(self, symbol, start, end, resolution, key=None, store=['csv']):
         '''
-        Many ways to handle this. Just going to implement one till for now
+        Query data for candle data for symbol at given start, end and resolution.
+        Store it in csv and/or db
         :params store: arr containing combination of ['csv', 'db']
-        Note that the 
         '''
         j = self.getCandles(symbol, start, end, resolution, key)
         if not j:
@@ -84,12 +86,15 @@ class StockQuote:
                 for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v']):
                     if i == 0:
                         csv_writer.writerow(header)
-                        i = 1234
                     csv_writer.writerow([c, h, l, o, t, v])
+                    i += 1
+                print(f'Wrote {i} records to {fn}')
         if 'db' in store:
-            print('Database storage is not implemented')
-        print()
-        
+            mc = ManageCandles(getSaConn())
+            candles = []
+            for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v']):
+                candles.append([c, h, l, o, t, v])
+            CandlesModel.addCandles(symbol, candles, mc.engine)
 
     def getCandles(self, symbol, start, end, resolution, key=None):
         '''
@@ -117,6 +122,10 @@ class StockQuote:
                 d = dt.datetime.now()
             return None
         j = response.json()
+        dmin, dmax = min(j['t']), max(j['t'])
+        
+        print(f'request data  {unix2date(start)} to {unix2date(end)}')
+        print(f'got data from {unix2date(dmin)} to {unix2date(dmax)}')
         meta['message'] = j['s']
         if 'o' not in j.keys():
             logging.info('Error-- no data')
@@ -138,10 +147,10 @@ def runit():
 
 
 def example():
-    symbol = 'NIO'
-    start = dt2unix(dt.datetime.now()-dt.timedelta(days=10))
-    end = dt2unix(dt.datetime.now()-dt.timedelta(days=5))
-    resolution = 5
+    symbol = 'ATVI'
+    start = dt2unix(dt.datetime(2019, 1, 1))
+    end = dt2unix(dt.datetime.now())
+    resolution = 1
 
     sq = StockQuote()
     mq = ManageQuotes(getSaConn())
@@ -158,13 +167,24 @@ def example2():
     j = sq.runSingleQuotes(tick)
     print(time.perf_counter() - before)
 
+def example3():
+    sq = StockQuote()
+    for ticker in nasdaq100symbols[::-1][:50]:
+        sq.storeCandles(ticker, dt2unix(dt.datetime(2019, 1, 1)), dt2unix(dt.datetime.now()), 1, store=['csv', 'db'])
+
+
+def devexamp():
+    sq = StockQuote()
+    start = dt2unix(dt.datetime(2020,11,13))
+    end = dt2unix(dt.datetime(2020, 12, 7))
+    sq.storeCandles('APHA', start, end, 1, store=['db'])
 
 
     
-        
 if __name__ == '__main__':
-    print(getSaConn())
-    example2()
+    # print(getSaConn())
+    # example3()
+    devexamp()
     # mq = ManageQuotes('sqlite:///quotes.sqlite', True)
     # mq = ManageQuotes('sqlite:///quotes.sqlite', True)
     # lh = "mysql+pymysql://stockdbuser:Kwk78?l8@localhost/stockdb"

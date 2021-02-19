@@ -23,4 +23,8 @@ stockdata.dbconnection.getSaConn()
 which correspond to 2/13/21 0:0:0 and 2/11/21 0:0:0
 On the other hand those are closing times on the last day those stocks were active so maybe on Monday at premarket or open they will stream
 
-## Implement the single quote and the repeat at frequency
+## Implementfilling the candle data\
+* finnhub candle data is available for 1 year (~13 mo)
+* Current obstacle is duplicates
+    * Get rid of 90% of problem by finding duplicates before makeing db objects
+    * Plan to create a duplicate remover. The problem is that it will break any indexes set on the db

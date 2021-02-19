@@ -7,6 +7,9 @@ def dt2unix(adate):
     print(adate)
     return int((adate - EPOC).total_seconds())
 
+def unix2date(u):
+    return EPOC + dt.timedelta(seconds=u)
+
 if __name__ == '__main__':
     assert dt2unix(dt.datetime(2021,2,13)) == 1613174400
     assert dt2unix(dt.datetime(2021,2,11)) == 1613001600
