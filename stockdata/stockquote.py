@@ -72,29 +72,40 @@ class StockQuote:
         Store it in csv and/or db
         :params store: arr containing combination of ['csv', 'db']
         '''
-        j = self.getCandles(symbol, start, end, resolution, key)
-        if not j:
-            return
-        if 'csv' in store:
-            fn = getCsvDirectory() + f'/{symbol}_{start}_{end}_{resolution}.csv'
-            # If the exact fn exists, the data should be the same
-            with open(fn, 'w', newline='') as csvfile:
-                csv_writer = csv.writer(csvfile)
-                # ['symbol', 'close', 'high', 'low', 'open', 'price', 'time', 'vol']
-                header =  ['close', 'high', 'low', 'open', 'time', 'vol']
-                i = 0
+        origstart = start
+        origend = end
+        while True:
+            j = self.getCandles(symbol, start, end, resolution, key)
+            if not j or j['s']== 'no_data':
+                return
+            if 'csv' in store:
+                fn = getCsvDirectory() + f'/{symbol}_{start}_{end}_{resolution}.csv'
+                # If the exact fn exists, the data should be the same
+                with open(fn, 'w', newline='') as csvfile:
+                    csv_writer = csv.writer(csvfile)
+                    # ['symbol', 'close', 'high', 'low', 'open', 'price', 'time', 'vol']
+                    header =  ['close', 'high', 'low', 'open', 'time', 'vol']
+                    i = 0
+                    for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v']):
+                        if i == 0:
+                            csv_writer.writerow(header)
+                        csv_writer.writerow([c, h, l, o, t, v])
+                        i += 1
+                    print(f'Wrote {i} records to {fn}')
+            if 'db' in store:
+
+                mc = ManageCandles(getSaConn())
+                candles = []
                 for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v']):
-                    if i == 0:
-                        csv_writer.writerow(header)
-                    csv_writer.writerow([c, h, l, o, t, v])
-                    i += 1
-                print(f'Wrote {i} records to {fn}')
-        if 'db' in store:
-            mc = ManageCandles(getSaConn())
-            candles = []
-            for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v']):
-                candles.append([c, h, l, o, t, v])
-            CandlesModel.addCandles(symbol, candles, mc.engine)
+                    candles.append([c, h, l, o, t, v])
+                CandlesModel.addCandles(symbol, candles, mc.engine)
+            dmin, dmax = min(j['t']), max(j['t'])
+            if dmin > origstart:
+                end = dmin-1
+                start = max((end -  int(dt.timedelta(days=29).total_seconds())), origstart)
+            else:
+                break
+    
 
     def getCandles(self, symbol, start, end, resolution, key=None):
         '''
@@ -122,10 +133,7 @@ class StockQuote:
                 d = dt.datetime.now()
             return None
         j = response.json()
-        dmin, dmax = min(j['t']), max(j['t'])
         
-        print(f'request data  {unix2date(start)} to {unix2date(end)}')
-        print(f'got data from {unix2date(dmin)} to {unix2date(dmax)}')
         meta['message'] = j['s']
         if 'o' not in j.keys():
             logging.info('Error-- no data')
@@ -167,30 +175,23 @@ def example2():
     j = sq.runSingleQuotes(tick)
     print(time.perf_counter() - before)
 
-def example3():
+def nasdaq(start, end):
     sq = StockQuote()
-    for ticker in nasdaq100symbols[::-1][:50]:
-        sq.storeCandles(ticker, dt2unix(dt.datetime(2019, 1, 1)), dt2unix(dt.datetime.now()), 1, store=['csv', 'db'])
+    for ticker in nasdaq100symbols[::-1]:
+        sq.storeCandles(ticker, dt2unix(dt.datetime(2019, 1, 1)), dt2unix(dt.datetime.now()), 1, store=['db'])
 
 
 def devexamp():
     sq = StockQuote()
-    start = dt2unix(dt.datetime(2020,11,13))
-    end = dt2unix(dt.datetime(2020, 12, 7))
-    sq.storeCandles('APHA', start, end, 1, store=['db'])
+    start = dt2unix(dt.datetime.now() - dt.timedelta(days=180))
+    end = dt2unix(dt.datetime.now())
+    sq.storeCandles('AAPL', start, end, 1, store=['db'])
 
 
     
 if __name__ == '__main__':
-    # print(getSaConn())
-    # example3()
-    devexamp()
-    # mq = ManageQuotes('sqlite:///quotes.sqlite', True)
-    # mq = ManageQuotes('sqlite:///quotes.sqlite', True)
-    # lh = "mysql+pymysql://stockdbuser:Kwk78?l8@localhost/stockdb"
-    # mq = ManageQuotes(lh, True)
-
-
-    # j = sq.getCandles()
-    # QuotesModel.addQuotes(j, mq.engine)
+    # devexamp()
+    start = dt2unix(dt.datetime.now() - dt.timedelta(days=60))
+    end = dt2unix(dt.datetime.now())
+    nasdaq(start, end)
     print('done')

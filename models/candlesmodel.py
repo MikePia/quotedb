@@ -39,7 +39,7 @@ class CandlesModel(Base):
             open = t[3],
             time = t[4],
             vol = t[5]))
-            if not i % 200:
+            if not i % 500:
                 s.commit()
                 print(f'commited {i} records for symbol {symbol}')
 
