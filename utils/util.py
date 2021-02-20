@@ -4,7 +4,6 @@ EPOC = dt.datetime(1970,1,1)
 
 def dt2unix(adate):
     # assert isinstance(adate, dt.datetime)
-    print(adate)
     return int((adate - EPOC).total_seconds())
 
 def unix2date(u):

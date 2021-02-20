@@ -74,6 +74,8 @@ class StockQuote:
         '''
         origstart = start
         origend = end
+        print()
+        print(f'Beginning requests for {symbol}')
         while True:
             j = self.getCandles(symbol, start, end, resolution, key)
             if not j or j['s']== 'no_data':
@@ -128,9 +130,7 @@ class StockQuote:
         meta = {'code': response.status_code}
         if response.status_code != 200:
             logging.error(response.content)
-            if response.status_code == 429:
-                # TODO
-                d = dt.datetime.now()
+            print("ERROR", response.content)
             return None
         j = response.json()
         
@@ -177,7 +177,7 @@ def example2():
 
 def nasdaq(start, end):
     sq = StockQuote()
-    for ticker in nasdaq100symbols[::-1]:
+    for ticker in nasdaq100symbols[::-1][12:]:
         sq.storeCandles(ticker, dt2unix(dt.datetime(2019, 1, 1)), dt2unix(dt.datetime.now()), 1, store=['db'])
 
 
@@ -191,7 +191,7 @@ def devexamp():
     
 if __name__ == '__main__':
     # devexamp()
-    start = dt2unix(dt.datetime.now() - dt.timedelta(days=60))
+    start = dt2unix(dt.datetime.now() - dt.timedelta(days=365))
     end = dt2unix(dt.datetime.now())
     nasdaq(start, end)
     print('done')
