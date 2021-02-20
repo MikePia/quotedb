@@ -39,7 +39,7 @@ class CandlesModel(Base):
             open = t[3],
             time = t[4],
             vol = t[5]))
-            if not i % 500:
+            if not i % 1000:
                 s.commit()
                 print(f'commited {i} records for symbol {symbol}')
 
@@ -65,6 +65,8 @@ class CandlesModel(Base):
         times2 = set([x[0] for x in q])
         for tt in (times & times2):
             del td[tt]
+        if len(times) > len(td):
+            print(f'Found {len(times) - len(td)} duplicates')
         return list(td.values())
 
 

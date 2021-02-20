@@ -74,6 +74,8 @@ class StockQuote:
         '''
         origstart = start
         origend = end
+        print()
+        print(f'Beginning requests for {symbol}')
         while True:
             j = self.getCandles(symbol, start, end, resolution, key)
             if not j or j['s']== 'no_data':
@@ -115,6 +117,8 @@ class StockQuote:
         :interval: The candle interval. Must be one of [1, 5, 15, 30, 60, 'D', 'W', 'M']
         '''
         # base = 'https://finnhub.io/api/v1/stock/candle?'
+        retries = 5
+        sleeptime = 5
         params = {} 
         params['symbol'] = symbol
         params['from'] = start
@@ -126,17 +130,22 @@ class StockQuote:
         response = requests.get(self.CANDLES, params=params)
 
         meta = {'code': response.status_code}
-        if response.status_code != 200:
-            logging.error(response.content)
-            if response.status_code == 429:
-                # TODO
-                d = dt.datetime.now()
-            return None
-        j = response.json()
+        while retries > 0:
+            if response.status_code != 200:
+                logging.error(response.content)
+                print("ERROR", response.content)
+                return None
+            j = response.json()
         
-        meta['message'] = j['s']
-        if 'o' not in j.keys():
-            logging.info('Error-- no data')
+            meta['message'] = j['s']
+            if 'o' not in j.keys():
+                if retries > 0:
+                    print(f'Error-- no data for {symbol}. Retrying after a short sleep', symbol)
+                    print(response.url)
+                    time.sleep(sleeptime)
+                retries -= 1
+            else: 
+                retries = 0
         return j
 
     def getTickers(self):
@@ -177,21 +186,23 @@ def example2():
 
 def nasdaq(start, end):
     sq = StockQuote()
-    for ticker in nasdaq100symbols[::-1]:
+    for ticker in nasdaq100symbols[::-1][13:]:
         sq.storeCandles(ticker, dt2unix(dt.datetime(2019, 1, 1)), dt2unix(dt.datetime.now()), 1, store=['db'])
 
 
-def devexamp():
+def devexamp(symbol, start, end):
     sq = StockQuote()
     start = dt2unix(dt.datetime.now() - dt.timedelta(days=180))
     end = dt2unix(dt.datetime.now())
-    sq.storeCandles('AAPL', start, end, 1, store=['db'])
+    sq.storeCandles(symbol, start, end, 1, store=['db'])
 
 
     
 if __name__ == '__main__':
     # devexamp()
-    start = dt2unix(dt.datetime.now() - dt.timedelta(days=60))
+    start = dt2unix(dt.datetime.now() - dt.timedelta(days=90))
     end = dt2unix(dt.datetime.now())
     nasdaq(start, end)
+    symbol = 'ROST'
+    # devexamp(symbol, start, end)
     print('done')
