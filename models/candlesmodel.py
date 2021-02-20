@@ -84,17 +84,18 @@ class CandlesModel(Base):
         s = Session(bind=engine)
         if tickers == None:
             tickers = s.query(distinct(CandlesModel.symbol)).all()
+            tickers = [x[0] for x in tickers]
         # There is probably some cool way to get all the data in one sql statement. THIS COULD BE VERY TIME CONSUMING
         for tick in tickers:
             # I think first thing is just change this to a sql execute without ORM (did not help much)
             # select min(time), max(time), count(time) from candles where symbol="SIRI";
           
             with engine.connect() as con:    
-                statement = text(f"""SELECT min(time), max(time), count(time) FROM candles WHERE symbol="{tick[0]}";""")
+                statement = text(f"""SELECT min(time), max(time), count(time) FROM candles WHERE symbol="{tick}";""")
                 q = con.execute(statement).fetchall()
-                # q = s.query(func.min(CandlesModel.time), func.max(CandlesModel.time), func.count(CandlesModel.time)).filter_by(symbol=tick[0]).all()
-                d[tick[0]] = [q[0][0], q[0][1], q[0][2]]
-                print(f'{tick[0]}: {unix2date(q[0][0])}: {unix2date(q[0][1])}: {q[0][2]} ')
+                # q = s.query(func.min(CandlesModel.time), func.max(CandlesModel.time), func.count(CandlesModel.time)).filter_by(symbol=tick).all()
+                d[tick] = [q[0][0], q[0][1], q[0][2]]
+                print(f'{tick}: {unix2date(q[0][0])}: {unix2date(q[0][1])}: {q[0][2]} ')
         return d
 
 
@@ -117,8 +118,8 @@ class ManageCandles:
         Could analyze differences in db holdings here, For now just print it out
         """
         d = CandlesModel.getReport(self.engine, tickers)
-        for k, v, in d.items():
-            print(f'{k}: {unix2date(v[0])}: {unix2date(v[1])}: {v[2]} ')
+        # for k, v, in d.items():
+        #     print(f'{k}: {unix2date(v[0])}: {unix2date(v[1])}: {v[2]} ')
 
 
 if __name__ == '__main__':

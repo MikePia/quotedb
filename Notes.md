@@ -28,3 +28,13 @@ On the other hand those are closing times on the last day those stocks were acti
 * Current obstacle is duplicates
     * Get rid of 90% of problem by finding duplicates before makeing db objects
     * Plan to create a duplicate remover. The problem is that it will break any indexes set on the db
+
+### Query to find duplicates
+```sql
+ select symbol, time, count(*) from candles group by symbol, time having count(*) > 1;
+ ```
+ These should be the same
+ ```sql
+ select count(distinct time) from candles;
+ select count(timetime) from candles;
+ ```

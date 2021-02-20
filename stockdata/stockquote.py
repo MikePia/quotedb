@@ -202,9 +202,11 @@ def devexamp(symbol, start, end):
     
 if __name__ == '__main__':
     # devexamp()
-    start = dt2unix(dt.datetime(2019, 1, 1))
+    start = dt2unix(dt.datetime(2020, 1, 1))
     end = dt2unix(dt.datetime.now())
-    tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
+    # tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
+    # tickers = ['PTON', 'CMCSA', 'GOOGL']
+    tickers = sp500symbols
     nasdaq(start, end, tickers=tickers)
     # symbol = 'ROST'
     # devexamp(symbol, start, end)
