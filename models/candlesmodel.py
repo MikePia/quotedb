@@ -2,12 +2,14 @@
 Use a sqlite db to store tokens and keys including password
 to the mysql db
 """
+import csv
+
 from sqlalchemy import create_engine, Column, String, Integer, Float, func, distinct
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 
-from stockdata.dbconnection import getSaConn
+from stockdata.dbconnection import getSaConn, getCsvDirectory
 from stockdata.sp500 import sp500symbols, nasdaq100symbols
 from utils.util import dt2unix, unix2date
 
@@ -122,11 +124,7 @@ class ManageCandles:
         """
         Could analyze differences in db holdings here, For now just print it out
         """
-        from stockdata.dbconnection import getCsvDirectory
-        import csv
         d = CandlesModel.getReport(self.engine, tickers)
-
-
 
         fn = getCsvDirectory() + "/report.csv"
         with open(fn, 'a', newline='') as file:
@@ -136,12 +134,13 @@ class ManageCandles:
                 # print(f'{tick}: {unix2date(q[0][0])}: {unix2date(q[0][1])}: {q[0][2]} ')
                 print(f'{k}: {v[0]}: {v[1]}: {v[2]} ')
 
-
-
-
-
-
-
+    def chooseFromReport(self, fn, numRecords = 0, minDate=None):
+        csvfile = []
+        with open(fn, 'r') as file:
+            reader = csv.reader(file, dialect="excel")
+            for row in reader:
+                csvfile.append(row)
+        print()
 
 
     def getQ100_Sp500(self):
@@ -153,9 +152,13 @@ class ManageCandles:
 
 if __name__ == '__main__':
     mc = ManageCandles(getSaConn())
-    tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
-    mc.reportShape(tickers=mc.getQ100_Sp500())
-    # # Create a classa or method to house jsoninfy Sqlalchemy results
+    mc.chooseFromReport(getCsvDirectory() + '/report.csv')
+    # tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
+    # mc.reportShape(tickers=mc.getQ100_Sp500())
+
+
+    # #################################################################
+    #  Create a classa or method to house jsoninfy Sqlalchemy results
     # import datetime as dt
     # import json
     # from stockdata.dbconnection import getCsvDirectory
