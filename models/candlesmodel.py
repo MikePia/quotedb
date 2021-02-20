@@ -154,7 +154,7 @@ class ManageCandles:
 if __name__ == '__main__':
     mc = ManageCandles(getSaConn())
     tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
-    mc.reportShape(tickers=mc.getQ100_Sp500()[:10])
+    mc.reportShape(tickers=mc.getQ100_Sp500())
     # # Create a classa or method to house jsoninfy Sqlalchemy results
     # import datetime as dt
     # import json
