@@ -74,6 +74,8 @@ class CandlesModel(Base):
     def getReport(cls, engine, tickers=None):
         """
         Currently developers tool only, it's too slow. It's Query problems and maybe some SA tweaking
+        But it is really useful even looking over it with eyes can see potential missing data based on 
+        beginning dates. It will need to be automated. 100 stocks is very different than 8000
         Get the min and max dates of tickers.
         :params tickers: list, if tickers is None, report on every ticker in the db
         :return: {ticker:[mindate<int>, maxdate<int>, numrec:<int>], ...}
@@ -92,6 +94,7 @@ class CandlesModel(Base):
                 q = con.execute(statement).fetchall()
                 # q = s.query(func.min(CandlesModel.time), func.max(CandlesModel.time), func.count(CandlesModel.time)).filter_by(symbol=tick[0]).all()
                 d[tick[0]] = [q[0][0], q[0][1], q[0][2]]
+                print(f'{tick[0]}: {unix2date(q[0][0])}: {unix2date(q[0][1])}: {q[0][2]} ')
         return d
 
 
@@ -120,7 +123,8 @@ class ManageCandles:
 
 if __name__ == '__main__':
     mc = ManageCandles(getSaConn())
-    mc.reportShape()
+    tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
+    mc.reportShape(tickers=tickers)
     # # Create a classa or method to house jsoninfy Sqlalchemy results
     # import datetime as dt
     # import json

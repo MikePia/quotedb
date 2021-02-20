@@ -104,7 +104,7 @@ class StockQuote:
             dmin, dmax = min(j['t']), max(j['t'])
             if dmin > origstart:
                 end = dmin-1
-                start = max((end -  int(dt.timedelta(days=29).total_seconds())), origstart)
+                start = end -  int(dt.timedelta(days=29).total_seconds())
             else:
                 break
     
@@ -184,10 +184,12 @@ def example2():
     j = sq.runSingleQuotes(tick)
     print(time.perf_counter() - before)
 
-def nasdaq(start, end):
+def nasdaq(start, end, tickers=None):
     sq = StockQuote()
-    for ticker in nasdaq100symbols[::-1][13:]:
-        sq.storeCandles(ticker, dt2unix(dt.datetime(2019, 1, 1)), dt2unix(dt.datetime.now()), 1, store=['db'])
+    if tickers == None:
+        tickers = nasdaq100symbols[::-1]
+    for ticker in tickers:
+        sq.storeCandles(ticker, start, end, 1, store=['db'])
 
 
 def devexamp(symbol, start, end):
@@ -200,9 +202,10 @@ def devexamp(symbol, start, end):
     
 if __name__ == '__main__':
     # devexamp()
-    start = dt2unix(dt.datetime.now() - dt.timedelta(days=90))
+    start = dt2unix(dt.datetime(2019, 1, 1))
     end = dt2unix(dt.datetime.now())
-    nasdaq(start, end)
-    symbol = 'ROST'
+    tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
+    nasdaq(start, end, tickers=tickers)
+    # symbol = 'ROST'
     # devexamp(symbol, start, end)
     print('done')
