@@ -2,9 +2,10 @@
 Use a sqlite db to store tokens and keys including password
 to the mysql db
 """
-from sqlalchemy import create_engine, Column, String, Integer, Float, func
+from sqlalchemy import create_engine, Column, String, Integer, Float, func, distinct
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import text
 
 from stockdata.dbconnection import getSaConn
 from utils.util import dt2unix, unix2date
@@ -69,7 +70,29 @@ class CandlesModel(Base):
             print(f'Found {len(times) - len(td)} duplicates')
         return list(td.values())
 
-
+    @classmethod
+    def getReport(cls, engine, tickers=None):
+        """
+        Currently developers tool only, it's too slow. It's Query problems and maybe some SA tweaking
+        Get the min and max dates of tickers.
+        :params tickers: list, if tickers is None, report on every ticker in the db
+        :return: {ticker:[mindate<int>, maxdate<int>, numrec:<int>], ...}
+        """
+        d = {}
+        s = Session(bind=engine)
+        if tickers == None:
+            tickers = s.query(distinct(CandlesModel.symbol)).all()
+        # There is probably some cool way to get all the data in one sql statement. THIS COULD BE VERY TIME CONSUMING
+        for tick in tickers:
+            # I think first thing is just change this to a sql execute without ORM (did not help much)
+            # select min(time), max(time), count(time) from candles where symbol="SIRI";
+          
+            with engine.connect() as con:    
+                statement = text(f"""SELECT min(time), max(time), count(time) FROM candles WHERE symbol="{tick[0]}";""")
+                q = con.execute(statement).fetchall()
+                # q = s.query(func.min(CandlesModel.time), func.max(CandlesModel.time), func.count(CandlesModel.time)).filter_by(symbol=tick[0]).all()
+                d[tick[0]] = [q[0][0], q[0][1], q[0][2]]
+        return d
 
 
 class ManageCandles:
@@ -86,26 +109,36 @@ class ManageCandles:
         session = Session(bind=self.engine)
         Base.metadata.create_all(self.engine)
 
+    def reportShape(self, tickers=None):
+        """
+        Could analyze differences in db holdings here, For now just print it out
+        """
+        d = CandlesModel.getReport(self.engine, tickers)
+        for k, v, in d.items():
+            print(f'{k}: {unix2date(v[0])}: {unix2date(v[1])}: {v[2]} ')
+
 
 if __name__ == '__main__':
-    # Create a classa or method to house jsoninfy Sqlalchemy results
-    import datetime as dt
-    import json
-    from stockdata.dbconnection import getCsvDirectory
-    print(getSaConn())
-    mk = ManageCandles(getSaConn(), True)
-    start = dt.datetime(2021,1,20,10,30,0)
-    end = dt.datetime(2021,1,20,16,30,0)
-    x = CandlesModel.getTimeRange(dt2unix(start), dt2unix(end), mk.engine)
-    xlist = [z.__dict__ for z in x]
-    for xd in xlist:
-        del xd['_sa_instance_state']
+    mc = ManageCandles(getSaConn())
+    mc.reportShape()
+    # # Create a classa or method to house jsoninfy Sqlalchemy results
+    # import datetime as dt
+    # import json
+    # from stockdata.dbconnection import getCsvDirectory
+    # print(getSaConn())
+    # mk = ManageCandles(getSaConn(), True)
+    # start = dt.datetime(2021,1,20,10,30,0)
+    # end = dt.datetime(2021,1,20,16,30,0)
+    # x = CandlesModel.getTimeRange(dt2unix(start), dt2unix(end), mk.engine)
+    # xlist = [z.__dict__ for z in x]
+    # for xd in xlist:
+    #     del xd['_sa_instance_state']
     
-    j = json.dumps(xlist)
-    fn = getCsvDirectory() + f'file.json'
-    with open(fn, 'w', newline='') as f:
-        f.write(j)
+    # j = json.dumps(xlist)
+    # fn = getCsvDirectory() + f'file.json'
+    # with open(fn, 'w', newline='') as f:
+    #     f.write(j)
     
 
-    print()
-    print()
+    # print()
+    # print()
