@@ -206,7 +206,10 @@ if __name__ == '__main__':
     end = dt2unix(dt.datetime.now())
     # tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
     # tickers = ['PTON', 'CMCSA', 'GOOGL']
-    tickers = sp500symbols
+    # tickers = sp500symbols
+    mc = ManageCandles(getSaConn())
+    fn = getCsvDirectory() + '/report.csv'
+    tickers = mc.chooseFromReport(fn, numRecords=0)
     nasdaq(start, end, tickers=tickers)
     # symbol = 'ROST'
     # devexamp(symbol, start, end)

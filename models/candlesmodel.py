@@ -134,14 +134,15 @@ class ManageCandles:
                 # print(f'{tick}: {unix2date(q[0][0])}: {unix2date(q[0][1])}: {q[0][2]} ')
                 print(f'{k}: {v[0]}: {v[1]}: {v[2]} ')
 
-    def chooseFromReport(self, fn, numRecords = 0, minDate=None):
+    def chooseFromReport(self, fn, numRecords=None, minDate=None):
         csvfile = []
         with open(fn, 'r') as file:
             reader = csv.reader(file, dialect="excel")
             for row in reader:
                 csvfile.append(row)
-        print()
-
+        
+        if numRecords is not None:
+            return [x[0] for x in csvfile if int(x[3]) <= numRecords]
 
     def getQ100_Sp500(self):
         st = set(sp500symbols).union(set(nasdaq100symbols))
@@ -152,7 +153,7 @@ class ManageCandles:
 
 if __name__ == '__main__':
     mc = ManageCandles(getSaConn())
-    mc.chooseFromReport(getCsvDirectory() + '/report.csv')
+    print(mc.chooseFromReport(getCsvDirectory() + '/report.csv', numRecords=0))
     # tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
     # mc.reportShape(tickers=mc.getQ100_Sp500())
 
