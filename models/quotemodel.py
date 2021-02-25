@@ -14,7 +14,7 @@ Session = sessionmaker()
 class QuotesModel(Base):
     __tablename__ = "quotes"
     id = Column(Integer, primary_key=True)
-    symbol = Column(String(8), nullable=False)
+    symbol = Column(String(8), nullable=False, index=True)
     close = Column(Float, nullable=False)
     high = Column(Float, nullable=False)
     low = Column(Float, nullable=False)

@@ -3,6 +3,7 @@ Use a sqlite db to store tokens and keys including password
 to the mysql db
 """
 import csv
+import datetime as dt
 
 from sqlalchemy import create_engine, Column, String, Integer, Float, func, distinct
 from sqlalchemy.ext.declarative import declarative_base
@@ -19,12 +20,12 @@ Session = sessionmaker()
 class CandlesModel(Base):
     __tablename__ = "candles"
     id = Column(Integer, primary_key=True)
-    symbol = Column(String(8), nullable=False)
+    symbol = Column(String(8), nullable=False, index=True)
     close = Column(Float, nullable=False)
     high = Column(Float, nullable=False)
     low = Column(Float, nullable=False)
     open = Column(Float, nullable=False)
-    time = Column(Integer, nullable=False)
+    time = Column(Integer, nullable=False, index=True)
     vol = Column(Integer, nullable=False)
 
     @classmethod
@@ -148,12 +149,25 @@ class ManageCandles:
         st = set(sp500symbols).union(set(nasdaq100symbols))
         st = sorted(list(st))
         return st
-
+    
+    def getLargestTimeGap(self, ticker):
+        s = Session(bind=self.engine)
+        q = s.query(CandlesModel.time).filter_by(symbol="ZM").order_by(CandlesModel.time).all()
+        maxsize = (0, 0)
+        prevtime  = q[0][0]
+        for t in q:
+            newtime = t[0]
+            if newtime-prevtime > maxsize[0]:
+                maxsize = (newtime-prevtime, newtime)
+            prevtime=newtime
+        print('max time is ', dt.timedelta(seconds=maxsize[0]))
+        print('Occurs at ', unix2date(maxsize[1]))
 
 
 if __name__ == '__main__':
-    mc = ManageCandles(getSaConn())
-    print(mc.chooseFromReport(getCsvDirectory() + '/report.csv', numRecords=0))
+    mc = ManageCandles(getSaConn(), True)
+    mc.getLargestTimeGap('ZM')
+    # mc.chooseFromReport(getCsvDirectory() + '/report.csv')
     # tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
     # mc.reportShape(tickers=mc.getQ100_Sp500())
 
