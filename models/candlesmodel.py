@@ -4,15 +4,17 @@ to the mysql db
 """
 import csv
 import datetime as dt
+import numpy as np
+import pandas as pd
 
-from sqlalchemy import create_engine, Column, String, Integer, Float, func, distinct
+from sqlalchemy import create_engine, Column, String, Integer, Float, func, distinct, desc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 
 from stockdata.dbconnection import getSaConn, getCsvDirectory
 from stockdata.sp500 import sp500symbols, nasdaq100symbols
-from utils.util import dt2unix, unix2date
+from utils.util import dt2unix, unix2date, resample
 
 Base = declarative_base()
 Session = sessionmaker()
@@ -51,10 +53,33 @@ class CandlesModel(Base):
         s.commit()
 
     @classmethod
-    def getTimeRange(cls, start, end, engine):
+    def getTimeRange(cls, symbol, start, end, engine):
         s = Session(bind=engine)
-        q = s.query(CandlesModel).filter(CandlesModel.time>=start).filter(CandlesModel.time<=end).all()
+        q = s.query(CandlesModel).filter_by(symbol=symbol).filter(CandlesModel.time>=start).filter(CandlesModel.time<=end).all()
         return q
+
+    @classmethod
+    def getTimeRangePlus(cls, symbol, start, end, engine):
+        '''
+        Retrieve the time range but guarantee that the first time has either a current value
+        or a previous value
+        '''
+        data = CandlesModel.getTimeRange(symbol, start-(60*30), end, engine)
+        if data and data[0].time > start:
+            s = Session(bind=engine)
+            q = s.query(CandlesModel).filter(CandlesModel.time<start).order_by(desc(CandlesModel.time)).first()
+            if q:
+                data.insert(0, q)
+            else:
+                # TODO
+                print('No current or earlier data for start')
+                raise ValueError('Programmers Exception, Here is the case to deal with')
+        elif data:
+            # TODO
+            print('No current or earlier data for start')
+            raise ValueError('Programmers Exception, Here is the case to deal with')
+        return data
+
 
     @classmethod
     def cleanDuplicatesFromResults(cls, symbol, arr, engine):
@@ -163,10 +188,82 @@ class ManageCandles:
         print('max time is ', dt.timedelta(seconds=maxsize[0]))
         print('Occurs at ', unix2date(maxsize[1]))
 
+    def getFilledData(self, symbol, begin, end, format='json'):
+        '''
+        The atomic method to Query db for data between begin and end and return one record
+        for each minute. Note that this is atomic because it is intended for data on a single day. Use
+        getFilledDataDays for multiday
+        '''
+        data = CandlesModel.getTimeRangePlus(symbol, begin, end, self.engine)
+        if not data:
+            return None
+        datadict = [x.__dict__ for x in data]
+        cols = ['open', 'high', 'low', 'close', 'time', 'vol']
+        datadict = pd.DataFrame.from_dict(datadict)[cols]
+        data = resample(datadict, 'time', dt.timedelta(seconds=60))
+        data.close = data.close.fillna(method='ffill')
+        data.open = data.open.fillna(data.close)
+        data.high = data.high.fillna(data.close)
+        data.low = data.low.fillna(data.close)
+        data.vol = data.vol.fillna(0)
+        if format == 'csv':
+            return data
+        return data.to_json()
+
+    def getFilledDataDays(self, symbol, startdate, enddate, policy='extended', custom=None, format='json'):
+        '''
+        :params startdate: <date> Get data beginning on this day
+        :params enddate: <date> Get data ending on this day (inclusive)
+        :params policy: One of [market, extended, 24_7]
+            'market' will return data between 9:30 and 16:00
+            'extended' will return data between 7:00 and 19:00
+            '24_7' will return the entire day  (Actually 24-5, no weekends)
+        :params custom: (begin<time>, end<time>) Overrides policy to return using data between begin and end
+        '''
+        delt = dt.timedelta(days=1)
+        current = startdate
+        if custom:
+            begin = custom[0]
+            end = custom[1]
+        else:
+            if policy  == 'extended':
+                begin = dt.time(7, 0, 0)
+                end = dt.time(19, 0, 0)
+            elif policy == 'market':
+                begin = dt.time(9, 30, 0)
+                end = dt.time(16, 0, 0)
+            elif policy == '24_7':
+                begin = dt.time(0, 0, 0)
+                end = dt.time(23, 59, 0)
+        df = None
+        while current <= enddate:
+            if current.weekday() < 5:
+                curstart = int(pd.Timestamp(current.year, current.month, current.day, begin.hour, begin.minute, begin.second).timestamp())
+                curend = int(pd.Timestamp(current.year, current.month, current.day, end.hour, end.minute, end.second).timestamp())
+                newdf = self.getFilledData(symbol,curstart, curend, format='csv')
+                if df is None and newdf is not None:
+                    df = newdf
+                elif newdf is not None:
+                    df = df.append(newdf, ignore_index=True)
+            current +=  delt
+        if format == 'csv':
+            return df
+        return df.to_json() if df is not None else df
+
+
+
+def getRange():
+    d1 = dt.date(2021,1,17)
+    d2 = dt.date(2021,1,23)
+    mc = ManageCandles(getSaConn())
+    symbol = 'ZM'
+    x = mc.getFilledDataDays(symbol, d1, d2)
+    print()
 
 if __name__ == '__main__':
-    mc = ManageCandles(getSaConn(), True)
-    mc.getLargestTimeGap('ZM')
+    getRange()
+    # mc = ManageCandles(getSaConn(), True)
+    # mc.getLargestTimeGap('ZM')
     # mc.chooseFromReport(getCsvDirectory() + '/report.csv')
     # tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
     # mc.reportShape(tickers=mc.getQ100_Sp500())
