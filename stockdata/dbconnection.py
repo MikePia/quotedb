@@ -5,7 +5,14 @@ import logging
 import os
 from models.managekeys import ManageKeys, Keys
 
+
+
 sdb = 'sqlite:///keys.sqlite'
+#  Make these sqlite accessors singletons
+MYSQL_CON = None
+FH_TOKEN = None
+PG_TOKEN = None
+CSV_DIRECTORY = None
 
 class Mysqlconn:
     mk = ManageKeys(sdb)
@@ -41,30 +48,45 @@ class Mysqlconn:
         return Keys.getKey('poly_token', self.mk.engine)
 
         
+# ====================== singleton accessors =========================  
 def getCsvDirectory():
-    msc = Mysqlconn()
-    return msc.getCsvDirectory()
+    global CSV_DIRECTORY
+    if CSV_DIRECTORY is None:
+        msc = Mysqlconn()
+        CSV_DIRECTORY = msc.getCsvDirectory()
+    return CSV_DIRECTORY
 
 def getSaConn():
     '''
     Get the Sqlalchemy Mysql connection string using the pymysql module
     '''
-    msc = Mysqlconn()
-    return msc.getSaMysqlConn()
+    global MYSQL_CON
+    if MYSQL_CON is None:
+        msc = Mysqlconn()
+        MYSQL_CON = msc.getSaMysqlConn()
+    return MYSQL_CON
 
 def getFhToken():
     '''
     Get the finnhub token
     '''
-    msc = Mysqlconn()
-    return msc.getFhToken()
+    global FH_TOKEN
+    if FH_TOKEN is None:
+        msc = Mysqlconn()
+        FH_TOKEN =  msc.getFhToken()
+    return FH_TOKEN
 
 def getPolygonToken():
-    msc = Mysqlconn()
-    return msc.getPolygonToken()
-
+    global PG_TOKEN
+    if PG_TOKEN is None:
+        msc = Mysqlconn()
+        PG_TOKEN = msc.getPolygonToken()
+    return PG_TOKEN
+    
+__all__ =  [getCsvDirectory, getSaConn, getFhToken, getPolygonToken]
 
 if __name__ == '__main__':
     print(getSaConn())
+    print(getPolygonToken())
     print(getPolygonToken())
 
