@@ -14,6 +14,7 @@ class PolygonApi:
     # /v2/ticks/stocks/trades/AAPL/2020-10-14?reverse=true&limit=5000&apiKey=FF3L2jIzaz621a5yNwdsA7FWhkRZcO3z"
 
     TRADES = BASEURL + "/v2/ticks/stocks/trades/{ticker}/{date}"
+    mpt = ManagePolyTrade(getSaConn())
 
     def getTrades(self, ticker, date, reverse='false', limit=50000, offset=0):
         url = self.TRADES.format(ticker=ticker, date=date)
@@ -50,8 +51,8 @@ class PolygonApi:
                 # We've come to the end of the data
                 break
         
-        mpt = ManagePolyTrade(getSaConn())
-        PolyTradeModel.addTrades(ticker, total, mpt.engine)
+        # mpt = ManagePolyTrade(getSaConn())
+        PolyTradeModel.addTrades(ticker, total, self.mpt.engine)
         return total
 
     def getTradeRange(self, ticker, date, start, stop=None, reverse='false', limit=50000):
@@ -80,20 +81,23 @@ class PolygonApi:
         if not total:
             return None, -1
         df = self.resampleit(total, pd.Timedelta(seconds=0.25))
-        mpt = ManagePolyTrade(getSaConn())
+        # mpt = ManagePolyTrade(getSaConn())
         # PolyTradeModel.addTrades(ticker, total, mpt.engine)
-        PolyTradeModel.addTradesFromDf(ticker, df, mpt.engine)
+        PolyTradeModel.addTradesFromDf(ticker, df, self.mpt.engine)
         # getTimeDifferences([x['t'] for x in total])
         lasttime = total[-1]['t']
         return df, lasttime
 
-    def cycleStocksToCurrent(self, tickers, adate,  start):
+    def cycleStocksToCurrent(self, tickers, adate,  start, beginmin=False):
         '''
         Generally adate should be today. 
         :params adate: date
         :params start: datetime needs to be a datetime that occurs on same day as adate
         '''
         self.cycle = {k:0 for k in tickers}
+        if beginmin:
+            for k, v in self.mpt.getMaxTimeForEachTicker(tickers=tickers).items():
+                self.cycle[k] = v
         while True:
             for i, tick in enumerate(tickers):
                 if self.cycle[tick] > 0:
@@ -146,7 +150,7 @@ if __name__ == '__main__':
     start = pd.Timestamp.today() - pd.Timedelta(hours=3 + nydiff)
     tdate = dt.date(start.year, start.month, start.day)
     print(start)
-    pa.cycleStocksToCurrent(random50(numstocks=50), tdate, start)
+    pa.cycleStocksToCurrent(random50(numstocks=50), tdate, start, beginmin=True)
     # # pa.cycleStocksToCurrent(['FISV'], tdate, start)
     # print()
 
