@@ -102,8 +102,6 @@ class PolyTradeModel(Base):
         q =  s.query(PolyTradeModel).order_by(desc(PolyTradeModel.time_ns)).limit(numrec).all()
         return q
 
-
-
     @classmethod
     def getReport(cls, engine, tickers=None):
         """
@@ -135,6 +133,13 @@ class PolyTradeModel(Base):
                     d[tick] = [unix2date(q[0][0]), unix2date(q[0][1]), q[0][2]]
                     print(f'{tick}: {unix2date(q[0][0])}: {unix2date(q[0][1])}: {q[0][2]} ')
         return d
+
+    @classmethod
+    def getMaxTime(cls, ticker, engine):
+        s = Session(bind=engine)
+        q = s.query(func.min(PolyTradeModel.time_ns)).filter_by(symbol=ticker).one_or_none()
+        return q[0]
+
 
 
 class ManagePolyTrade:
@@ -174,7 +179,19 @@ class ManagePolyTrade:
         
         if numRecords is not None:
             return [x[0] for x in csvfile if int(x[3]) <= numRecords]
+
+    def getMaxTimeForEachTicker(self, tickers=None):
+        maxdict = dict()
+        if tickers == None:
+            tickers = PolyTradeModel.getTickers(self.engine)
+        for tick in tickers:
+            t = PolyTradeModel.getMaxTime("BIDU", self.engine)
+            if t:
+                maxdict[tick] = t
+        return maxdict
     
 
 if __name__ == '__main__':
-    mt = ManagePolyTrade(getSaConn(), create=True)
+    # mt = ManagePolyTrade(getSaConn(), create=True)
+    mt = ManagePolyTrade(getSaConn())
+    mt.getMaxTimeForEachTicker()
