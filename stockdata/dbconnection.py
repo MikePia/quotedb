@@ -37,6 +37,8 @@ class Mysqlconn:
         '''Out of place but easy'''
         return Keys.getKey('fh_token', self.mk.engine)
 
+    def getPolygonToken(self):
+        return Keys.getKey('poly_token', self.mk.engine)
 
         
 def getCsvDirectory():
@@ -57,7 +59,12 @@ def getFhToken():
     msc = Mysqlconn()
     return msc.getFhToken()
 
+def getPolygonToken():
+    msc = Mysqlconn()
+    return msc.getPolygonToken()
+
 
 if __name__ == '__main__':
     print(getSaConn())
+    print(getPolygonToken())
 

@@ -2,11 +2,19 @@ import datetime as dt
 
 EPOC = dt.datetime(1970,1,1)
 
-def dt2unix(adate):
+def dt2unix(adate, unit='s'):
     # assert isinstance(adate, dt.datetime)
+    if unit=='n':
+        return int((adate - EPOC).total_seconds() * 1000000000) 
+
     return int((adate - EPOC).total_seconds())
 
-def unix2date(u):
+def unix2date(u, unit='s'):
+    '''s for seconds, m for microseconds, n for nanoseconds'''
+    if unit == 'n':
+        u = u/1000000000
+    elif unit == 'm':
+        u = u /1000
     return EPOC + dt.timedelta(seconds=u)
 
 
