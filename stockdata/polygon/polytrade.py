@@ -25,7 +25,7 @@ class PolygonApi:
         response = requests.get(url, params=params)
         status = response.status_code
         if status != 200:
-            raise InvalidServerResponseException(f'Server returned status {status}:{response.message}')
+            raise InvalidServerResponseException(f'Server returned status {status}:{response.text}')
         return response.json()
 
     def getAllTradesOnDay(self, ticker, date, reverse='false', limit=50000):
@@ -100,13 +100,10 @@ class PolygonApi:
                     start = unix2date(self.cycle[tick], unit='n')
                 df, lasttime = self.getTradeRange(tick, adate, start)
                 if df is None:
-                    print('no new trades', tick)
                     continue
                 self.cycle[tick] = lasttime+1
                 
-                print(f'{i}: {tick}: completed')
-                print()
-            print('\n=====Completed a cycle=====\n')
+            print('\n========================= Completed a cycle=========================\n')
 
     def resampleit(self, j, delt):
         df = pd.DataFrame(j)[['t', 's', 'p']]
@@ -141,12 +138,16 @@ def getActualTime(timestamp_nano):
     print(d.strftime('%A %B %d %H:%M:%S'))
 
 if __name__ == '__main__':
+    # Server is on Berlin time, hmmm
+    nydiff = 6
     pa =  PolygonApi()
-    ticker = 'DLTR'
-    tdate = dt.date.today()
-    start = dt.datetime.now() - dt.timedelta(hours=3)
+    # ticker = 'DLTR'
+    tttdate = pd.Timestamp.today()
+    start = pd.Timestamp.today() - pd.Timedelta(hours=3 + nydiff)
+    tdate = dt.date(start.year, start.month, start.day)
+    print(start)
     pa.cycleStocksToCurrent(random50(numstocks=50), tdate, start)
-    # pa.cycleStocksToCurrent(['FISV'], tdate, start)
-    print()
+    # # pa.cycleStocksToCurrent(['FISV'], tdate, start)
+    # print()
 
 
