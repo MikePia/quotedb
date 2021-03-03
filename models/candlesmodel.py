@@ -253,8 +253,8 @@ class ManageCandles:
 
 
 def getRange():
-    d1 = dt.date(2021,1,17)
-    d2 = dt.date(2021,1,23)
+    d1 = dt.date(2021,1,23)
+    d2 = dt.date(2021,2,10)
     mc = ManageCandles(getSaConn())
     symbol = 'ZM'
     x = mc.getFilledDataDays(symbol, d1, d2)

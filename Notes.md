@@ -38,6 +38,46 @@ On the other hand those are closing times on the last day those stocks were acti
  select count(distinct time) from candles;
  select count(timetime) from candles;
  ```
+### Important points of email cc Note this is not stone, just the thinking so-far
+#### Three accounts with 3 running queries
+* We will have three different accounts that will be used for queries. 
+    * The first will cycle through all stocks at 300 calls per minute to be able to change-in-price data for each stock about every 20 minutes. From that data, a list will be created of the top 100 movers. 
+    * This list will be cycled through using a second account yielding a quote every 20 seconds. 
+    * From that list, the top 10 movers will be flagged and using a third account to generate quotes every 2 seconds. 
+* Each quote from each account will be appended to the same table to create a master table of raw data with stocksymbol, time, quote, and volume as columns. 
+
+#### The deltas:
+* Using that raw quote data table, a second table will be created to calculate the delta between current and the last two quotes. This will result in columns stocksymbol, timestamp, time_since_last_quote, percent change in price from last quote, percent change in volume since last quote. 
+
+* Lastly, a third table will be created to fill in missing data points. For each stock, if the time interval between two points is greater than 1 seconds, then it will copy the prior quote and create a new row with an artificial quote for the second(s) in between actual quotes. This will be the table used for rendering the visual.  
+
+#### The visual
+Jan's proposal includes
+* The application will be built to the specifications of a data file that you provide. Subsequent integration with your back-end infrastructure is outside of my scope for this project.
+    * So I have no idea how to integrate with his stuff and even less on how he wants to access it. He has not been forthcoming with any signs of collaboration and this bullet point suggests he plans not to collaborate.
+    * Maybe this is where Aaron comes in.
+* In a previous email I highlighted the gaps in the intraday data being a challenge. I have some sample minute-tick data of my own that I can use to demonstrate what your animated chart will look like.
+    * I need to see an example of that data
+
+* provide sample data in .json format, 
+    * ??? structured in the same way that it will appear when pulled from your data provider or back-end API. 
+    •	Date and time
+    •	Ticker
+    •	Volume
+    •	Price
+        * That excludes the quote endpoint as it has no volume
+        * Candle endpoint has volume, close would be price
+        * This websocket wss://ws.finnhub.io  is the endpoint for Trades. This may be the better candidate
+        * [Tick data](https://finnhub.io/docs/api/stock-tick) is maybe possible: XXX ***not realtime data***
+            *  https://tick.finnhub.io/  or 'https://finnhub.io/api/v1/stock/tick?
+            * symbol is request
+            * volume, price, time are in responsees
+
+
+
+
+
+
 
  ### Milestone 7 Duplicating rows for time gaps
  * Current decision is ot leave the data in the database and 
@@ -66,4 +106,37 @@ Without the input of how the visual needs the data, I just have to make some sen
 * getDaysofFilledInData(self, data, begin, end, policy=extended)
     * Get the data for the days between begin and end inclusive
     * policy is [extended, market, asis, 247]
+
+### Milestone 8 High Frequency Quotes for fast movers.
+* Dilemma Which endpoint. I am thinking the trades websocket endpoint will be the right one
+* Bit annoyed that I may have to start over to make this work and it is not fair that I will probably have to absorb the time because I am being paid by Milestone.
+    * This is probably not a long term thing unless it moves to a full time kind of thing. DC has not the experience to direct exactly what I need to do but yet pays by completing his instructions.
+    * I had hoped that working on a team would fix that but I have seen no indication of any kind of collaboration.
+    * ***The best course of action is to over produce at this point.***
+        * Some work is better than no work and I need work
+        * The experience is extermely valuable
+        * The blips on Upwork are extremely valuable
+
+#### How to implement
+* Use the Trade endpoint, websocket interface
+    * class MyWebSocket
+        * Takes an array of tickers to subscribe data to
+        * Saves all to trades table
+* Create a new TradeModel to write to db
+
+#### Notes on implementation
+The trade endpoint gets current data including tim, price, symbol and volume. 
+***But filling in the historical data is a problem***
+* trade is current data
+* quote doesn't have volume
+* quote/us is only end of day
+* stock/candle has volume but it's figured differently than trade
+* Maybe tick data can fill 
+    * It has volume data. I assume it is based on trades at that current tick price.
+
+##### Alternative is to use polygon
+* Preliminary. trade endpoint looks promising
+* There is a websocket interce, The cdocs are not helpful, going to have to figure it out
+* The trade quote has a lot of what is needed. One day of SQ retrieves more than 200k quotes between 2AM till 11PM
+    * If we store it we should probably resample to 1 a second (?)
 
