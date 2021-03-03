@@ -37,8 +37,8 @@ class PolyTradeModel(Base):
     @classmethod
     def addTradesFromDf(cls, symbol, df, engine):
         '''
-        The dataframe has likely been resampled. The condition field has little meaning
-        and will be left Null (default)
+        :params df: Dataframe of results from polygon trade endpoint. But the data has likely 
+        been resampled, rendering the condition field of little use. Will be left Null (Default)
         '''
         s = Session(bind=engine)
         for i, row in enumerate(df.itertuples(), start=1):
@@ -47,14 +47,17 @@ class PolyTradeModel(Base):
                 price = row.price,
                 time_ns = row.time,
                 volume = row.volume ))
-            if not i % 1000:
+            if not i % 10000:
                 s.commit()
-                print(f'commited {i} records to polytrade table')
+                print(f'commited {i} records to {symbol}')
+        print(f'Commited {len(df)} rows for {symbol}\n')
         s.commit()
 
     @classmethod
     def addTrades(cls,symbol, arr, engine):
         '''
+        Use this to process the json results from polygon trade endpoint
+        :params arr: A list of dict. The result of calling results.json()
         '''
         s = Session(bind=engine)
         # arr = TradesModel.cleanDuplicatesFromResults(symbol, arr, engine)

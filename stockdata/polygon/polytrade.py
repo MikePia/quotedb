@@ -78,13 +78,14 @@ class PolygonApi:
                 break
         
         if not total:
-            return None
-        df = self.resampleit(total, dt.timedelta(seconds=1))
+            return None, -1
+        df = self.resampleit(total, pd.Timedelta(seconds=0.25))
         mpt = ManagePolyTrade(getSaConn())
-        PolyTradeModel.addTrades(ticker, total, mpt.engine)
-        # PolyTradeModel.addTradesFromDf(ticker, df, mpt.engine)
+        # PolyTradeModel.addTrades(ticker, total, mpt.engine)
+        PolyTradeModel.addTradesFromDf(ticker, df, mpt.engine)
         # getTimeDifferences([x['t'] for x in total])
-        return df
+        lasttime = total[-1]['t']
+        return df, lasttime
 
     def cycleStocksToCurrent(self, tickers, adate,  start):
         '''
@@ -94,22 +95,24 @@ class PolygonApi:
         '''
         self.cycle = {k:0 for k in tickers}
         while True:
-            for tick in tickers:
+            for i, tick in enumerate(tickers):
                 if self.cycle[tick] > 0:
                     start = unix2date(self.cycle[tick], unit='n')
-                df = self.getTradeRange(tick, adate, start)
+                df, lasttime = self.getTradeRange(tick, adate, start)
                 if df is None:
+                    print('no new trades', tick)
                     continue
-                self.cycle[tick] = df.time.tail(1).values[0]
+                self.cycle[tick] = lasttime+1
                 
-                print(tick, 'completed')
+                print(f'{i}: {tick}: completed')
                 print()
+            print('\n=====Completed a cycle=====\n')
 
     def resampleit(self, j, delt):
         df = pd.DataFrame(j)[['t', 's', 'p']]
         df.rename(columns={'t': 'time', 's': 'volume', 'p': 'price'}, inplace=True)
-        return df
-        df.time = df.time.apply(lambda ts: dt.datetime.utcfromtimestamp(ts/1000000000))
+        # return df
+        df.time = df.time.apply(lambda ts: pd.Timestamp(ts, unit='ns'))
         df.set_index('time', inplace=True, drop=False)
         df = df.resample(delt).agg({'price': 'mean', 'volume': 'sum', 'time': 'first'}).asfreq(delt)
         epoch = dt.datetime.utcfromtimestamp(0)
@@ -117,7 +120,7 @@ class PolygonApi:
         df.volume = df.volume.fillna(0)
         df.price = df.price.fillna(method='ffill')
         epoch = dt.datetime.fromtimestamp(0)
-        df.time = df.time.apply( lambda ts: (ts - epoch).total_seconds())
+        df.time = df.time.apply(lambda ts: dt2unix(ts, unit='n'))
         return df
         
 def getTimeDifferences(times):
@@ -141,8 +144,9 @@ if __name__ == '__main__':
     pa =  PolygonApi()
     ticker = 'DLTR'
     tdate = dt.date.today()
-    start = dt.datetime.now() - dt.timedelta(hours=1)
-    pa.cycleStocksToCurrent(random50(numstocks=30), tdate, start)
+    start = dt.datetime.now() - dt.timedelta(hours=3)
+    pa.cycleStocksToCurrent(random50(numstocks=50), tdate, start)
+    # pa.cycleStocksToCurrent(['FISV'], tdate, start)
     print()
 
 
