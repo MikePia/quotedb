@@ -1,3 +1,4 @@
+import logging
 import datetime as dt
 import pandas as pd
 import requests
@@ -9,12 +10,29 @@ from stockdata.sp500 import random50
 
 
 class PolygonApi:
+    """
+    """
 
     BASEURL = "https://api.polygon.io"
-    # /v2/ticks/stocks/trades/AAPL/2020-10-14?reverse=true&limit=5000&apiKey=FF3L2jIzaz621a5yNwdsA7FWhkRZcO3z"
 
     TRADES = BASEURL + "/v2/ticks/stocks/trades/{ticker}/{date}"
     mpt = ManagePolyTrade(getSaConn())
+
+    def __init__(self, tickers, begdate, resamprate=pd.Timedelta(seconds=0.25), timer=None):
+        if timer:
+            if isinstance(timer, dt.datetime):
+                self.timer = timer 
+            elif isinstance (timer, dt.timedelta):
+                self.timer = pd.Timestamp.now() + timer
+            else:
+                raise ValueError('Illegal type. Must be either datetitme, timedelta or None')
+        else:
+            self.timer = None
+        self.now = dt.datetime.now().date()
+        self.begdate = begdate
+        self.rate = resamprate
+        self.tickers = tickers
+        self.cycle = {k:[0,self.begdate] for k in tickers}
 
     def getTrades(self, ticker, date, reverse='false', limit=50000, offset=0):
         url = self.TRADES.format(ticker=ticker, date=date)
@@ -26,7 +44,8 @@ class PolygonApi:
         response = requests.get(url, params=params)
         status = response.status_code
         if status != 200:
-            raise InvalidServerResponseException(f'Server returned status {status}:{response.text}')
+            logging.error("server error while trying", response.url)
+            raise InvalidServerResponseException(f'Server returned status {status}:{response.text} {response.url}')
         return response.json()
 
     def getAllTradesOnDay(self, ticker, date, reverse='false', limit=50000):
@@ -55,14 +74,17 @@ class PolygonApi:
         PolyTradeModel.addTrades(ticker, total, self.mpt.engine)
         return total
 
-    def getTradeRange(self, ticker, date, start, stop=None, reverse='false', limit=50000):
+    def getTradeRange(self, ticker, stop=None, reverse='false', limit=50000):
         '''
         Get an intraday range of Trades
         :params date: datetime.date, The day to retrieve trades from
-        :params start: datetime.datetime, The precise datetime to start retrieving
         :params stop: datetime.datetime, Thie end datetime to retrieve or, if None, the end of the data for the day
         '''
-        offset = dt2unix(start, unit='n')
+        offset = self.cycle[ticker][0]
+        date = self.cycle[ticker][1]
+
+        offset = dt2unix(offset, unit='n') if offset else 0
+
         total = []
         if stop == None:
             stop = dt.datetime(date.year, date.month, date.day, 23, 59, 59)
@@ -75,39 +97,52 @@ class PolygonApi:
 
             total.extend(j['results'])
             if len(j['results']) < limit or offset >= stop:
-                # We've come to the end of the data or the end of the requested data.
-                break
+                # Go to the next day until we get to the current day.
+                # Skip Weekends and Known holidays to avoid 404s
+                # We've come to the end of the day or end of data we are at the bleeding edge of data
+                if self.cycle[ticker][1] < self.now:
+                    self.cycle[ticker][0] = offset = 0
+                    # Skip the weekends
+                    nextbiz = self.nextBizDay(self.cycle[ticker][1])
+                    if nextbiz <= stop:
+                        self.cycle[ticker][1] = date = nextbiz
+                    else:
+                        breakz
+                else:
+                    break
         
         if not total:
             return None, -1
-        df = self.resampleit(total, pd.Timedelta(seconds=0.25))
-        # mpt = ManagePolyTrade(getSaConn())
-        # PolyTradeModel.addTrades(ticker, total, mpt.engine)
+        df = self.resampleit(total, pd.Timedelta(minutes=5))
         PolyTradeModel.addTradesFromDf(ticker, df, self.mpt.engine)
-        # getTimeDifferences([x['t'] for x in total])
-        lasttime = total[-1]['t']
-        return df, lasttime
+        return df
 
-    def cycleStocksToCurrent(self, tickers, adate,  start, beginmin=False):
+    def cycleStocksToCurrent(self, beginmin=False):
         '''
-        Generally adate should be today. 
-        :params adate: date
+
+        Cycle through stocks and add tem to the db`
         :params start: datetime needs to be a datetime that occurs on same day as adate
         '''
-        self.cycle = {k:0 for k in tickers}
         if beginmin:
-            for k, v in self.mpt.getMaxTimeForEachTicker(tickers=tickers).items():
-                self.cycle[k] = v
+            for k, v in self.mpt.getMaxTimeForEachTicker(tickers=self.tickers).items():
+                self.cycle[k] = [v, self.begdate]
         while True:
-            for i, tick in enumerate(tickers):
-                if self.cycle[tick] > 0:
-                    start = unix2date(self.cycle[tick], unit='n')
-                df, lasttime = self.getTradeRange(tick, adate, start)
+            for i, tick in enumerate(self.tickers):
+                df = self.getTradeRange(tick)
                 if df is None:
-                    continue
-                self.cycle[tick] = lasttime+1
+                    raise ValueError("Programmers Raise. What to do here?")
                 
             print('\n========================= Completed a cycle=========================\n')
+
+    def nextBizDay(self, d):
+        '''
+        Get the next market day from d
+        :params d: date
+        '''        
+        dw = d.day_of_week
+        days = 1 if dw < 5 else (7 - 5)
+        return dw
+        
 
     def resampleit(self, j, delt):
         df = pd.DataFrame(j)[['t', 's', 'p']]
@@ -144,13 +179,15 @@ def getActualTime(timestamp_nano):
 if __name__ == '__main__':
     # Server is on Berlin time, hmmm
     nydiff = 6
-    pa =  PolygonApi()
     # ticker = 'DLTR'
     tttdate = pd.Timestamp.today()
     start = pd.Timestamp.today() - pd.Timedelta(hours=3 + nydiff)
-    tdate = dt.date(start.year, start.month, start.day)
+    # tdate = dt.date(start.year, start.month, start.day)
+    tdate = dt.date(2021, 2, 25)
     print(start)
-    pa.cycleStocksToCurrent(random50(numstocks=50), tdate, start, beginmin=True)
+    # pa.cycleStocksToCurrent(['BNGO'], tdate, 0)
+    pa =  PolygonApi(random50(numstocks=20), tdate)
+    pa.cycleStocksToCurrent()
     # # pa.cycleStocksToCurrent(['FISV'], tdate, start)
     # print()
 

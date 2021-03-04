@@ -140,6 +140,13 @@ class PolyTradeModel(Base):
         q = s.query(func.min(PolyTradeModel.time_ns)).filter_by(symbol=ticker).one_or_none()
         return q[0]
 
+    @classmethod
+    def selectTicker(cls, ticker, engine):
+        s = Session(bind=engine)
+        q = s.query(PolyTradeModel).filter_by(symbol=ticker).all()
+        return q
+
+
 
 
 class ManagePolyTrade:
@@ -185,7 +192,7 @@ class ManagePolyTrade:
         if tickers == None:
             tickers = PolyTradeModel.getTickers(self.engine)
         for tick in tickers:
-            t = PolyTradeModel.getMaxTime("BIDU", self.engine)
+            t = PolyTradeModel.getMaxTime(tick, self.engine)
             if t:
                 maxdict[tick] = t
         return maxdict
