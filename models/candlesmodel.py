@@ -4,20 +4,20 @@ to the mysql db
 """
 import csv
 import datetime as dt
-import numpy as np
 import pandas as pd
 
-from sqlalchemy import create_engine, Column, String, Integer, Float, func, distinct, desc
+from sqlalchemy import create_engine, Column, String, Integer, Float, distinct, desc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 
 from stockdata.dbconnection import getSaConn, getCsvDirectory
 from stockdata.sp500 import sp500symbols, nasdaq100symbols
-from utils.util import dt2unix, unix2date, resample
+from utils.util import unix2date, resample
 
 Base = declarative_base()
 Session = sessionmaker()
+
 
 class CandlesModel(Base):
     __tablename__ = "candles"
@@ -39,13 +39,13 @@ class CandlesModel(Base):
         arr = CandlesModel.cleanDuplicatesFromResults(symbol, arr, engine)
         for i, t in enumerate(arr):
             s.add(CandlesModel(
-            symbol = symbol,
-            close = t[0],
-            high = t[1],
-            low = t[2],
-            open = t[3],
-            time = t[4],
-            vol = t[5]))
+                  symbol=symbol,
+                  close=t[0],
+                  high=t[1],
+                  low=t[2],
+                  open=t[3],
+                  time=t[4],
+                  vol=t[5]))
             if not i % 1000:
                 s.commit()
                 print(f'commited {i} records for symbol {symbol}')
@@ -55,7 +55,7 @@ class CandlesModel(Base):
     @classmethod
     def getTimeRange(cls, symbol, start, end, engine):
         s = Session(bind=engine)
-        q = s.query(CandlesModel).filter_by(symbol=symbol).filter(CandlesModel.time>=start).filter(CandlesModel.time<=end).all()
+        q = s.query(CandlesModel).filter_by(symbol=symbol).filter(CandlesModel.time >= start).filter(CandlesModel.time <= end).all()
         return q
 
     @classmethod
@@ -67,7 +67,7 @@ class CandlesModel(Base):
         data = CandlesModel.getTimeRange(symbol, start-(60*30), end, engine)
         if data and data[0].time > start:
             s = Session(bind=engine)
-            q = s.query(CandlesModel).filter(CandlesModel.time<start).order_by(desc(CandlesModel.time)).first()
+            q = s.query(CandlesModel).filter(CandlesModel.time < start).order_by(desc(CandlesModel.time)).first()
             if q:
                 data.insert(0, q)
             else:
@@ -80,18 +80,17 @@ class CandlesModel(Base):
             raise ValueError('Programmers Exception, Here is the case to deal with')
         return data
 
-
     @classmethod
     def cleanDuplicatesFromResults(cls, symbol, arr, engine):
         """
         Remove results from arr that have a duplicate time and symbol in the db
         """
         s = Session(bind=engine)
-        td = {t[4]:t for t in arr}
+        td = {t[4]: t for t in arr}
         times = set(list(td.keys()))
         q = s.query(CandlesModel.time).filter_by(symbol=symbol).filter(
-                CandlesModel.time>=min(times)).filter(
-                CandlesModel.time<=max(times)).order_by(CandlesModel.time).all()
+                CandlesModel.time >= min(times)).filter(
+                CandlesModel.time <= max(times)).order_by(CandlesModel.time).all()
         times2 = set([x[0] for x in q])
         for tt in (times & times2):
             del td[tt]
@@ -103,7 +102,7 @@ class CandlesModel(Base):
     def getReport(cls, engine, tickers=None):
         """
         Currently developers tool only, it's too slow. It's Query problems and maybe some SA tweaking
-        But it is really useful even looking over it with eyes can see potential missing data based on 
+        But it is really useful even looking over it with eyes can see potential missing data based on
         beginning dates. It will need to be automated. 100 stocks is very different than 8000
         Get the min and max dates of tickers.
         :params tickers: list, if tickers is None, report on every ticker in the db
@@ -111,15 +110,15 @@ class CandlesModel(Base):
         """
         d = {}
         s = Session(bind=engine)
-        if tickers == None:
+        if tickers is None:
             tickers = s.query(distinct(CandlesModel.symbol)).all()
             tickers = [x[0] for x in tickers]
         # There is probably some cool way to get all the data in one sql statement. THIS COULD BE VERY TIME CONSUMING
         for tick in tickers[::-1]:
             # I think first thing is just change this to a sql execute without ORM (did not help much)
             # select min(time), max(time), count(time) from candles where symbol="SIRI";
-          
-            with engine.connect() as con:    
+
+            with engine.connect() as con:
                 statement = text(f"""SELECT min(time), max(time), count(time) FROM candles WHERE symbol="{tick}";""")
                 q = con.execute(statement).fetchall()
                 # q = s.query(func.min(CandlesModel.time), func.max(CandlesModel.time), func.count(CandlesModel.time)).filter_by(symbol=tick).all()
@@ -135,7 +134,7 @@ class CandlesModel(Base):
 class ManageCandles:
     def __init__(self, db, create=False):
         '''
-        :params db: a SQLalchemy connection string. 
+        :params db: a SQLalchemy connection string.
         '''
         self.db = db
         self.engine = create_engine(self.db)
@@ -143,7 +142,7 @@ class ManageCandles:
             self.createTables()
 
     def createTables(self):
-        session = Session(bind=self.engine)
+        self.session = Session(bind=self.engine)
         Base.metadata.create_all(self.engine)
 
     def reportShape(self, tickers=None):
@@ -166,7 +165,7 @@ class ManageCandles:
             reader = csv.reader(file, dialect="excel")
             for row in reader:
                 csvfile.append(row)
-        
+
         if numRecords is not None:
             return [x[0] for x in csvfile if int(x[3]) <= numRecords]
 
@@ -174,17 +173,17 @@ class ManageCandles:
         st = set(sp500symbols).union(set(nasdaq100symbols))
         st = sorted(list(st))
         return st
-    
+
     def getLargestTimeGap(self, ticker):
         s = Session(bind=self.engine)
         q = s.query(CandlesModel.time).filter_by(symbol="ZM").order_by(CandlesModel.time).all()
         maxsize = (0, 0)
-        prevtime  = q[0][0]
+        prevtime = q[0][0]
         for t in q:
             newtime = t[0]
             if newtime-prevtime > maxsize[0]:
                 maxsize = (newtime-prevtime, newtime)
-            prevtime=newtime
+            prevtime = newtime
         print('max time is ', dt.timedelta(seconds=maxsize[0]))
         print('Occurs at ', unix2date(maxsize[1]))
 
@@ -226,7 +225,7 @@ class ManageCandles:
             begin = custom[0]
             end = custom[1]
         else:
-            if policy  == 'extended':
+            if policy == 'extended':
                 begin = dt.time(7, 0, 0)
                 end = dt.time(19, 0, 0)
             elif policy == 'market':
@@ -240,25 +239,25 @@ class ManageCandles:
             if current.weekday() < 5:
                 curstart = int(pd.Timestamp(current.year, current.month, current.day, begin.hour, begin.minute, begin.second).timestamp())
                 curend = int(pd.Timestamp(current.year, current.month, current.day, end.hour, end.minute, end.second).timestamp())
-                newdf = self.getFilledData(symbol,curstart, curend, format='csv')
+                newdf = self.getFilledData(symbol, curstart, curend, format='csv')
                 if df is None and newdf is not None:
                     df = newdf
                 elif newdf is not None:
                     df = df.append(newdf, ignore_index=True)
-            current +=  delt
+            current += delt
         if format == 'csv':
             return df
         return df.to_json() if df is not None else df
 
 
-
 def getRange():
-    d1 = dt.date(2021,1,23)
-    d2 = dt.date(2021,2,10)
+    d1 = dt.date(2021, 1, 23)
+    d2 = dt.date(2021, 2, 10)
     mc = ManageCandles(getSaConn())
     symbol = 'ZM'
-    x = mc.getFilledDataDays(symbol, d1, d2)
+    mc.getFilledDataDays(symbol, d1, d2)
     print()
+
 
 if __name__ == '__main__':
     getRange()
@@ -267,7 +266,6 @@ if __name__ == '__main__':
     # mc.chooseFromReport(getCsvDirectory() + '/report.csv')
     # tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
     # mc.reportShape(tickers=mc.getQ100_Sp500())
-
 
     # #################################################################
     #  Create a classa or method to house jsoninfy Sqlalchemy results
@@ -282,12 +280,11 @@ if __name__ == '__main__':
     # xlist = [z.__dict__ for z in x]
     # for xd in xlist:
     #     del xd['_sa_instance_state']
-    
+
     # j = json.dumps(xlist)
     # fn = getCsvDirectory() + f'file.json'
     # with open(fn, 'w', newline='') as f:
     #     f.write(j)
-    
 
     # print()
     # print()

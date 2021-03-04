@@ -1,7 +1,7 @@
 import random
 import pandas as pd
 
-tables=pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+tables = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
 sp500 = None
 if tables:
     sp500 = tables[0]
@@ -14,22 +14,20 @@ for table in tables:
     if 'Company' in table.keys() and 'Ticker' in table.keys():
         nasdaq = table
         break
-    
+
 if nasdaq is not None:
     nasdaq100symbols = list(nasdaq['Ticker'])
+
 
 def random50(stocks=nasdaq100symbols, numstocks=50):
     '''
     get 50 stocks. Note stocks should be len 100 or greater
     '''
-    i = 0
     results = set()
     while len(results) < numstocks:
         n = random.randint(0, len(nasdaq100symbols)-1)
         results.add(nasdaq100symbols[n])
     return results
-
-
 
 
 if __name__ == '__main__':

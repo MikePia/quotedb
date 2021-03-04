@@ -10,6 +10,7 @@ constr = "sqlite:///keys.sqlite"
 Base = declarative_base()
 Session = sessionmaker()
 
+
 class Keys(Base):
     __tablename__ = "keys"
     id = Column(Integer, primary_key=True)
@@ -50,7 +51,6 @@ class Keys(Base):
         return q
 
 
-
 class ManageKeys:
     def __init__(self, db, create=False):
         '''
@@ -62,7 +62,7 @@ class ManageKeys:
             self.createTables()
 
     def createTables(self):
-        session = Session(bind=self.engine)
+        self.session = Session(bind=self.engine)
         Base.metadata.create_all(self.engine)
 
 
@@ -74,9 +74,10 @@ def fortesting():
             os.remove(p)
         except PermissionError:
             print('PermissionError. close the gui thing already')
-    
+
 
 if __name__ == '__main__':
     mk = ManageKeys('sqlite:///test_keys.sqlite', True)
+    Keys.getAll(mk.engine)
     print('done')
     print('done')

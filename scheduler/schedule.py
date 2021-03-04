@@ -6,15 +6,17 @@ A mock implemntation of a scheduler. The interface should be the same. Must impl
 import datetime as dt
 import time
 
+
 class Scheduler():
     mock_schedule_data = {}
+
     def __init__(self):
         n = dt.datetime.now()
         self.mock_schedule_data = [
-            {'start': n + dt.timedelta(seconds=10) , 'stop': n + dt.timedelta(seconds=40), 'freq': 2.5},
-            {'start': n + dt.timedelta(seconds=45) , 'stop': n + dt.timedelta(seconds=270), 'freq': 0.9}
+            {'start': n + dt.timedelta(seconds=10), 'stop': n + dt.timedelta(seconds=40), 'freq': 2.5},
+            {'start': n + dt.timedelta(seconds=45), 'stop': n + dt.timedelta(seconds=270), 'freq': 0.9}
         ]
-    
+
     def run(self, meth, arr):
         '''
         Run the series of jobs (currenly just the array mock_schedule_data)
@@ -42,9 +44,10 @@ def testMe(start=None, stop=None, freq=None):
         print(stop.strftime("%B %A, %H:%M%S"))
         print(freq)
         two = time.perf_counter()
-        s = freq -(two-one)
-        time.sleep(s if s>0 else 0)
+        s = freq - (two - one)
+        time.sleep(s if s > 0 else 0)
         n = dt.datetime.now()
+
 
 if __name__ == '__main__':
     s = Scheduler()

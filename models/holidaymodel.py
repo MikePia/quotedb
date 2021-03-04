@@ -1,9 +1,8 @@
 import csv
 import datetime as dt
 import pandas as pd
-import time
 
-from sqlalchemy import create_engine, Column, String, Date
+from sqlalchemy import create_engine, Column, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -11,6 +10,7 @@ from stockdata.dbconnection import getSaConn
 
 Base = declarative_base()
 Session = sessionmaker()
+
 
 class HolidayModel(Base):
     __tablename__ = "holidays"
@@ -20,7 +20,7 @@ class HolidayModel(Base):
     def __repr__(self):
         return f'<holidays({self.name})>'
 
-    @classmethod 
+    @classmethod
     def insertHoliday(cls, day, name, engine):
         s = Session(bind=engine)
         q = s.query(HolidayModel).filter_by(day=day).one_or_none()
@@ -29,7 +29,7 @@ class HolidayModel(Base):
             s.add(h)
             s.commit()
 
-    @classmethod 
+    @classmethod
     def insertHolidays(cls, dayarray, engine):
         s = Session(bind=engine)
         for day in dayarray:
@@ -74,10 +74,10 @@ class ManageHolidayModel:
                 csvfile.append(row)
         HolidayModel.insertHolidays(csvfile, self.engine)
 
-        
+
 def test_isHoliday():
     mh = ManageHolidayModel(getSaConn())
-    d = dt.date(2019,1,1)
+    d = dt.date(2019, 1, 1)
     delt = dt.timedelta(days=1)
     s = Session(bind=mh.engine)
     for i in range(365):
@@ -87,13 +87,8 @@ def test_isHoliday():
         print('.', end='')
         d += delt
 
-        
 
 if __name__ == '__main__':
     mh = ManageHolidayModel(getSaConn(), create=True)
     # mh.saveHolidays('models/holidays.csv')
     test_isHoliday()
-
-
-
-    

@@ -1,28 +1,26 @@
 import csv
-import json
 import logging
 import requests
 import time
 import datetime as dt
 
-from models.quotemodel import QuotesModel, ManageQuotes
 from models.candlesmodel import CandlesModel, ManageCandles
 from qexceptions.qexception import InvalidServerResponseException
-from stockdata.sp500 import sp500symbols, nasdaq100symbols
+from stockdata.sp500 import nasdaq100symbols
 from stockdata.dbconnection import getFhToken, getSaConn, getCsvDirectory
-from utils.util import dt2unix, unix2date
+from utils.util import dt2unix
 
 
 class StockQuote:
 
     BASEURL = "https://finnhub.io/api/v1/"
     QUOTES = BASEURL + "quote/us?"
-    CANDLES = BASEURL+ "stock/candle?"
-    SINGLEQUOTE = BASEURL+ "quote?"
+    CANDLES = BASEURL + "stock/candle?"
+    SINGLEQUOTE = BASEURL + "quote?"
     HEADERS = {'Content-Type': 'application/json', 'X-Finnhub-Token': getFhToken()}
 
     def getSingleQuote(self, symbol):
-        
+
         params = {}
         params['symbol'] = symbol
         response = requests.get(self.SINGLEQUOTE, params=params, headers=self.HEADERS)
@@ -42,29 +40,28 @@ class StockQuote:
                 print(ex)
                 continue
 
-
     def runquotes(self):
-        base = self.QUOTES
-        params = {}
+        pass
+        # base = self.QUOTES
+        # params = {}
         # params['token'] = 'c0b4p7748v6sc0gs4oq0'
-        response = requests.get(self.QUOTES, headers=self.HEADERS)
+        # response = requests.get(self.QUOTES, headers=self.HEADERS)
         # response = requests.get(self.QUOTES, params=params)
-        status = response.status_code
+        # status = response.status_code
         # if status != 200:
-        #     raise 
-        return response.json()
-
+        #     raise
+        # return response.json()
 
     # TODO: use Twitsted or Chronus
-    def getQuotes(self, start:dt.datetime, stop:dt.datetime, freq:float):
-
+    def getQuotes(self, start: dt.datetime, stop: dt.datetime, freq: float):
+        pass
         # starttime = time.time()
         # while start >= starttime:
-            j = runquotes()
-            # print (len)
-            # time.sleep(freq - ((time.time() - starttime)))
-            # if time.time() stop:
-            #     break
+        #     j = runquotes()
+        #     print (len)
+        #     time.sleep(freq - ((time.time() - starttime)))
+        #     if time.time() stop:
+        #         break
 
     def storeCandles(self, symbol, start, end, resolution, key=None, store=['csv']):
         '''
@@ -73,12 +70,11 @@ class StockQuote:
         :params store: arr containing combination of ['csv', 'db']
         '''
         origstart = start
-        origend = end
         print()
         print(f'Beginning requests for {symbol}')
         while True:
             j = self.getCandles(symbol, start, end, resolution, key)
-            if not j or j['s']== 'no_data':
+            if not j or j['s'] == 'no_data':
                 return
             if 'csv' in store:
                 fn = getCsvDirectory() + f'/{symbol}_{start}_{end}_{resolution}.csv'
@@ -86,7 +82,7 @@ class StockQuote:
                 with open(fn, 'w', newline='') as csvfile:
                     csv_writer = csv.writer(csvfile)
                     # ['symbol', 'close', 'high', 'low', 'open', 'price', 'time', 'vol']
-                    header =  ['close', 'high', 'low', 'open', 'time', 'vol']
+                    header = ['close', 'high', 'low', 'open', 'time', 'vol']
                     i = 0
                     for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v']):
                         if i == 0:
@@ -101,13 +97,12 @@ class StockQuote:
                 for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v']):
                     candles.append([c, h, l, o, t, v])
                 CandlesModel.addCandles(symbol, candles, mc.engine)
-            dmin, dmax = min(j['t']), max(j['t'])
+            dmin = min(j['t'])
             if dmin > origstart:
                 end = dmin-1
-                start = end -  int(dt.timedelta(days=29).total_seconds())
+                start = end - int(dt.timedelta(days=29).total_seconds())
             else:
                 break
-    
 
     def getCandles(self, symbol, start, end, resolution, key=None):
         '''
@@ -119,14 +114,14 @@ class StockQuote:
         # base = 'https://finnhub.io/api/v1/stock/candle?'
         retries = 5
         sleeptime = 5
-        params = {} 
+        params = {}
         params['symbol'] = symbol
         params['from'] = start
         params['to'] = end
         params['resolution'] = resolution
 
         params['token'] = getFhToken() if key is None else key
-        
+
         response = requests.get(self.CANDLES, params=params)
 
         meta = {'code': response.status_code}
@@ -136,7 +131,7 @@ class StockQuote:
                 print("ERROR", response.content)
                 return None
             j = response.json()
-        
+
             meta['message'] = j['s']
             if 'o' not in j.keys():
                 if retries > 0:
@@ -144,14 +139,14 @@ class StockQuote:
                     print(response.url)
                     time.sleep(sleeptime)
                 retries -= 1
-            else: 
+            else:
                 retries = 0
         return j
 
     def getTickers(self):
         j = self.runquotes()
         return list(j.keys())
-        
+
 
 def runit():
     start = dt.datetime.now() + dt.deltatime(seconds=90)
@@ -162,7 +157,6 @@ def runit():
     sq.getQuotes(start, stop, freq)
 
 
-
 def example():
     symbol = 'ATVI'
     start = dt2unix(dt.datetime(2019, 1, 1))
@@ -170,23 +164,23 @@ def example():
     resolution = 1
 
     sq = StockQuote()
-    mq = ManageQuotes(getSaConn())
+    # mq = ManageQuotes(getSaConn())
 
     # This is an example of how to call store Candles. The result is currently to save a file
     sq.storeCandles(symbol, start, end, resolution)
     # QuotesModel.addQuotes(sq.runquotes(), mq.engine)
 
 
-def example2():
-    sq = StockQuote()
-    tick = sq.getTickers()
-    before = time.perf_counter()
-    j = sq.runSingleQuotes(tick)
-    print(time.perf_counter() - before)
+# def example2():
+#     sq = StockQuote()
+#     tick = sq.getTickers()
+#     before = time.perf_counter()
+#     j = sq.runSingleQuotes(tick)
+#     print(time.perf_counter() - before)
 
 def nasdaq(start, end, tickers=None):
     sq = StockQuote()
-    if tickers == None:
+    if tickers is None:
         tickers = nasdaq100symbols[::-1]
     for ticker in tickers:
         sq.storeCandles(ticker, start, end, 1, store=['db'])
@@ -199,7 +193,6 @@ def devexamp(symbol, start, end):
     sq.storeCandles(symbol, start, end, 1, store=['db'])
 
 
-    
 if __name__ == '__main__':
     # devexamp()
     start = dt2unix(dt.datetime(2020, 1, 1))

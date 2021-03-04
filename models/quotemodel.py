@@ -11,6 +11,7 @@ from stockdata.dbconnection import getSaConn
 Base = declarative_base()
 Session = sessionmaker()
 
+
 class QuotesModel(Base):
     __tablename__ = "quotes"
     id = Column(Integer, primary_key=True)
@@ -30,29 +31,27 @@ class QuotesModel(Base):
         '''
         s = Session(bind=engine)
         x = [QuotesModel(
-            symbol = t,
-            close = arr[t]['c'],
-            high = arr[t]['h'],
-            low = arr[t]['l'],
-            open = arr[t]['o'],
-            price = arr[t]['pc'],
-            time = arr[t]['t'],
-            vol = arr[t]['v']
+            symbol=t,
+            close=arr[t]['c'],
+            high=arr[t]['h'],
+            low=arr[t]['l'],
+            open=arr[t]['o'],
+            price=arr[t]['pc'],
+            time=arr[t]['t'],
+            vol=arr[t]['v']
         ) for t in arr]
         s.add_all(x)
         s.commit()
 
-    def removeQuotesByDate(cls, unixdate, engine):
-        s = Session(bind=engine)
-        q = s.query(QuotesModel).filter_by(unixdate<time).all()
-
-
+    # def removeQuotesByDate(cls, unixdate, engine):
+    #     s = Session(bind=engine)
+    #     q = s.query(QuotesModel).filter_by(unixdate < time).all()
 
 
 class ManageQuotes:
     def __init__(self, db, create=False):
         '''
-        :params db: a SQLalchemy connection string. 
+        :params db: a SQLalchemy connection string.
         '''
         self.db = db
         self.engine = create_engine(self.db)
@@ -60,7 +59,7 @@ class ManageQuotes:
             self.createTables()
 
     def createTables(self):
-        session = Session(bind=self.engine)
+        self.session = Session(bind=self.engine)
         Base.metadata.create_all(self.engine)
 
 

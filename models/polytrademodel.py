@@ -3,9 +3,6 @@ Use a sqlite db to store tokens and keys including password
 to the mysql db
 """
 import csv
-import datetime as dt
-import numpy as np
-import pandas as pd
 
 from sqlalchemy import create_engine, Column, String, Integer, Float, func, distinct, desc, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
@@ -13,11 +10,11 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 
 from stockdata.dbconnection import getSaConn, getCsvDirectory
-from stockdata.sp500 import sp500symbols, nasdaq100symbols
-from utils.util import dt2unix, unix2date, resample
+from utils.util import unix2date
 
 Base = declarative_base()
 Session = sessionmaker()
+
 
 class PolyTradeModel(Base):
     """
@@ -37,16 +34,16 @@ class PolyTradeModel(Base):
     @classmethod
     def addTradesFromDf(cls, symbol, df, engine):
         '''
-        :params df: Dataframe of results from polygon trade endpoint. But the data has likely 
+        :params df: Dataframe of results from polygon trade endpoint. But the data has likely
         been resampled, rendering the condition field of little use. Will be left Null (Default)
         '''
         s = Session(bind=engine)
         for i, row in enumerate(df.itertuples(), start=1):
             s.add(PolyTradeModel(
-                symbol = symbol,
-                price = row.price,
-                time_ns = row.time,
-                volume = row.volume ))
+                symbol=symbol,
+                price=row.price,
+                time_ns=row.time,
+                volume=row.volume))
             if not i % 10000:
                 s.commit()
                 print(f'commited {i} records to {symbol}')
@@ -54,7 +51,7 @@ class PolyTradeModel(Base):
         s.commit()
 
     @classmethod
-    def addTrades(cls,symbol, arr, engine):
+    def addTrades(cls, symbol, arr, engine):
         '''
         Use this to process the json results from polygon trade endpoint
         :params arr: A list of dict. The result of calling results.json()
@@ -68,13 +65,11 @@ class PolyTradeModel(Base):
             else:
                 condition = ''
             s.add(PolyTradeModel(
-            symbol = symbol,
-            price = t['p'],
-            time_ns = t['t'],
-            volume = t['s'],
-            condition = condition
-            
-            ))
+                  symbol=symbol,
+                  price=t['p'],
+                  time_ns=t['t'],
+                  volume=t['s'],
+                  condition=condition))
             if not i % 5000:
                 s.commit()
                 print(f'commited {i} records to polytrade table')
@@ -84,7 +79,7 @@ class PolyTradeModel(Base):
     @classmethod
     def getTickers(cls, engine):
         s = Session(bind=engine)
-        
+
         tickers = s.query(distinct(PolyTradeModel.symbol)).all()
         tickers = [x[0] for x in tickers]
         return tickers
@@ -99,14 +94,14 @@ class PolyTradeModel(Base):
     @classmethod
     def tail(cls, ticker, engine, numrec=10):
         s = Session(bind=engine)
-        q =  s.query(PolyTradeModel).order_by(desc(PolyTradeModel.time_ns)).limit(numrec).all()
+        q = s.query(PolyTradeModel).order_by(desc(PolyTradeModel.time_ns)).limit(numrec).all()
         return q
 
     @classmethod
     def getReport(cls, engine, tickers=None):
         """
         Currently developers tool only, it's too slow. It's Query problems and maybe some SA tweaking
-        But it is really useful even looking over it with eyes can see potential missing data based on 
+        But it is really useful even looking over it with eyes can see potential missing data based on
         beginning dates. It will need to be automated. 100 stocks is very different than 8000
         Get the min and max dates of tickers.
         :params tickers: list, if tickers is None, report on every ticker in the db
@@ -114,18 +109,17 @@ class PolyTradeModel(Base):
         """
         d = {}
         s = Session(bind=engine)
-        if tickers == None:
+        if tickers is None:
             tickers = s.query(distinct(PolyTradeModel.symbol)).all()
             tickers = [x[0] for x in tickers]
         # There is probably some cool way to get all the data in one sql statement. THIS COULD BE VERY TIME CONSUMING
         for tick in tickers[::-1]:
             # I think first thing is just change this to a sql execute without ORM (did not help much)
             # select min(time_ns), max(time_ns), count(time_ns) from candles where symbol="SIRI";
-          
-            with engine.connect() as con:    
+
+            with engine.connect() as con:
                 statement = text(f"""SELECT min(time_ns), max(time_ns), count(time_ns) FROM polytrade WHERE symbol="{tick}";""")
                 q = con.execute(statement).fetchall()
-                # q = s.query(func.min(CandlesModel.time_ns), func.max(CandlesModel.time_ns), func.count(CandlesModel.time_ns)).filter_by(symbol=tick).all()
                 if q[0][2] == 0:
                     d[tick] = [q[0][0], q[0][1], q[0][2]]
                     print(f'{tick}: {q[0][0]}: {q[0][1]}: {q[0][2]} ')
@@ -147,12 +141,10 @@ class PolyTradeModel(Base):
         return q
 
 
-
-
 class ManagePolyTrade:
     def __init__(self, db, create=False):
         '''
-        :params db: a SQLalchemy connection string. 
+        :params db: a SQLalchemy connection string.
         '''
         self.db = db
         self.engine = create_engine(self.db)
@@ -160,7 +152,7 @@ class ManagePolyTrade:
             self.createTables()
 
     def createTables(self):
-        session = Session(bind=self.engine)
+        self.session = Session(bind=self.engine)
         Base.metadata.create_all(self.engine)
 
     def reportShape(self, tickers=None):
@@ -183,20 +175,20 @@ class ManagePolyTrade:
             reader = csv.reader(file, dialect="excel")
             for row in reader:
                 csvfile.append(row)
-        
+
         if numRecords is not None:
             return [x[0] for x in csvfile if int(x[3]) <= numRecords]
 
     def getMaxTimeForEachTicker(self, tickers=None):
         maxdict = dict()
-        if tickers == None:
+        if tickers is None:
             tickers = PolyTradeModel.getTickers(self.engine)
         for tick in tickers:
             t = PolyTradeModel.getMaxTime(tick, self.engine)
             if t:
                 maxdict[tick] = t
         return maxdict
-    
+
 
 if __name__ == '__main__':
     # mt = ManagePolyTrade(getSaConn(), create=True)

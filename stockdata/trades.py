@@ -13,14 +13,15 @@ class MyWebSocket():
     counter = 0
     bulk = []
     NUMREC = 15
+
     def __init__(self, arr, url=f"wss://ws.finnhub.io?token={getFhToken()}"):
         print('Creating websocket...')
         self.arr = arr
         self.mt = ManageTrade(getSaConn())
         self.ws = websocket.WebSocketApp(f"wss://ws.finnhub.io?token={getFhToken()}",
-                                on_message = self.on_message,
-                                on_error = self.on_error,
-                                on_close = self.on_close)
+                                         on_message=self.on_message,
+                                         on_error=self.on_error,
+                                         on_close=self.on_close)
         self.ws.on_open = self.on_open
 
         self.wst = Thread(target=lambda: self.ws.run_forever())
@@ -44,7 +45,6 @@ class MyWebSocket():
             self.counter = 0
             TradeModel.addTrades(self.bulk, self.mt.engine)
             self.bulk = []
-        
 
     def on_error(self, error):
         print(error)
@@ -66,6 +66,7 @@ class MyWebSocket():
         # self.ws.send(msg4)
         # for ticker in arr:
         #     self.ws.send(f'{{"type":"subscribe","symbol":"{ticker}"}}')
+
 
 if __name__ == "__main__":
     websocket.enableTrace(True)

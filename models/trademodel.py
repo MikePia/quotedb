@@ -3,21 +3,18 @@ Use a sqlite db to store tokens and keys including password
 to the mysql db
 """
 import csv
-import datetime as dt
-import numpy as np
-import pandas as pd
 
-from sqlalchemy import create_engine, Column, String, Integer, Float, func, distinct, desc
+from sqlalchemy import create_engine, Column, String, Integer, Float, distinct
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 
 from stockdata.dbconnection import getSaConn, getCsvDirectory
-from stockdata.sp500 import sp500symbols, nasdaq100symbols
-from utils.util import dt2unix, unix2date, resample
+from utils.util import unix2date
 
 Base = declarative_base()
 Session = sessionmaker()
+
 
 class TradeModel(Base):
     """
@@ -35,7 +32,7 @@ class TradeModel(Base):
     condition = Column(Integer)
 
     @classmethod
-    def addTrades(cls,arr, engine):
+    def addTrades(cls, arr, engine):
         '''
         [p, t, v, c]
         '''
@@ -43,23 +40,22 @@ class TradeModel(Base):
         # arr = TradesModel.cleanDuplicatesFromResults(symbol, arr, engine)
         for i, t in enumerate(arr, 1):
             s.add(TradeModel(
-            symbol = t['s'],
-            price = t['p'],
-            time = t['t'],
-            volume = t['v'],
-            condition = t['c']))
+                  symbol=t['s'],
+                  price=t['p'],
+                  time=t['t'],
+                  volume=t['v'],
+                  condition=t['c']))
             if not i % 50:
                 s.commit()
                 print(f'commited {i} records to trade table')
 
         s.commit()
 
-
     @classmethod
     def getReport(cls, engine, tickers=None):
         """
         Currently developers tool only, it's too slow. It's Query problems and maybe some SA tweaking
-        But it is really useful even looking over it with eyes can see potential missing data based on 
+        But it is really useful even looking over it with eyes can see potential missing data based on
         beginning dates. It will need to be automated. 100 stocks is very different than 8000
         Get the min and max dates of tickers.
         :params tickers: list, if tickers is None, report on every ticker in the db
@@ -67,15 +63,15 @@ class TradeModel(Base):
         """
         d = {}
         s = Session(bind=engine)
-        if tickers == None:
+        if tickers is None:
             tickers = s.query(distinct(TradeModel.symbol)).all()
             tickers = [x[0] for x in tickers]
         # There is probably some cool way to get all the data in one sql statement. THIS COULD BE VERY TIME CONSUMING
         for tick in tickers[::-1]:
             # I think first thing is just change this to a sql execute without ORM (did not help much)
             # select min(time), max(time), count(time) from candles where symbol="SIRI";
-          
-            with engine.connect() as con:    
+
+            with engine.connect() as con:
                 statement = text(f"""SELECT min(time), max(time), count(time) FROM trade WHERE symbol="{tick}";""")
                 q = con.execute(statement).fetchall()
                 # q = s.query(func.min(CandlesModel.time), func.max(CandlesModel.time), func.count(CandlesModel.time)).filter_by(symbol=tick).all()
@@ -91,7 +87,7 @@ class TradeModel(Base):
 class ManageTrade:
     def __init__(self, db, create=False):
         '''
-        :params db: a SQLalchemy connection string. 
+        :params db: a SQLalchemy connection string.
         '''
         self.db = db
         self.engine = create_engine(self.db)
@@ -99,7 +95,7 @@ class ManageTrade:
             self.createTables()
 
     def createTables(self):
-        session = Session(bind=self.engine)
+        self.session = Session(bind=self.engine)
         Base.metadata.create_all(self.engine)
 
     def reportShape(self, tickers=None):
@@ -122,7 +118,7 @@ class ManageTrade:
             reader = csv.reader(file, dialect="excel")
             for row in reader:
                 csvfile.append(row)
-        
+
         if numRecords is not None:
             return [x[0] for x in csvfile if int(x[3]) <= numRecords]
 
