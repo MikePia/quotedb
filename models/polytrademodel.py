@@ -137,7 +137,7 @@ class PolyTradeModel(Base):
     @classmethod
     def getMaxTime(cls, ticker, engine):
         s = Session(bind=engine)
-        q = s.query(func.min(PolyTradeModel.time_ns)).filter_by(symbol=ticker).one_or_none()
+        q = s.query(func.max(PolyTradeModel.time_ns)).filter_by(symbol=ticker).one_or_none()
         return q[0]
 
     @classmethod

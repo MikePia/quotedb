@@ -3,6 +3,7 @@ import datetime as dt
 import pandas as pd
 import requests
 from models.polytrademodel import PolyTradeModel, ManagePolyTrade
+from models.holidaymodel import HolidayModel, ManageHolidayModel
 from stockdata.dbconnection import getPolygonToken, getSaConn, getCsvDirectory
 from qexceptions.qexception import InvalidServerResponseException
 from utils.util import unix2date, dt2unix
@@ -17,6 +18,7 @@ class PolygonApi:
 
     TRADES = BASEURL + "/v2/ticks/stocks/trades/{ticker}/{date}"
     mpt = ManagePolyTrade(getSaConn())
+    holman = ManageHolidayModel(getSaConn())
 
     def __init__(self, tickers, begdate, resamprate=pd.Timedelta(seconds=0.25), timer=None):
         if timer:
@@ -83,7 +85,7 @@ class PolygonApi:
         offset = self.cycle[ticker][0]
         date = self.cycle[ticker][1]
 
-        offset = dt2unix(offset, unit='n') if offset else 0
+        offset = offset if offset else 0
 
         total = []
         if stop == None:
@@ -93,7 +95,12 @@ class PolygonApi:
             j = self.getTrades(ticker, date.strftime("%Y-%m-%d"), reverse, limit, offset)
             if not j or not j['results']:
                 break
-            offset = j['results'][-1]['t']
+            if j['results'][0]['t'] <= offset:
+                print('We need to fix this now')
+            assert j['results'][-1]['t'] > offset
+            offset = j['results'][-1]['t'] +1
+
+            self.cycle[ticker][0] = max(self.cycle[ticker][0], offset)
 
             total.extend(j['results'])
             if len(j['results']) < limit or offset >= stop:
@@ -102,18 +109,18 @@ class PolygonApi:
                 # We've come to the end of the day or end of data we are at the bleeding edge of data
                 if self.cycle[ticker][1] < self.now:
                     self.cycle[ticker][0] = offset = 0
-                    # Skip the weekends
+                    
                     nextbiz = self.nextBizDay(self.cycle[ticker][1])
-                    if nextbiz <= stop:
+                    if nextbiz <= self.now:
                         self.cycle[ticker][1] = date = nextbiz
                     else:
-                        breakz
+                        break
                 else:
                     break
         
         if not total:
             return None, -1
-        df = self.resampleit(total, pd.Timedelta(minutes=5))
+        df = self.resampleit(total, self.rate)
         PolyTradeModel.addTradesFromDf(ticker, df, self.mpt.engine)
         return df
 
@@ -131,6 +138,8 @@ class PolygonApi:
                 df = self.getTradeRange(tick)
                 if df is None:
                     raise ValueError("Programmers Raise. What to do here?")
+                if self.cycle[tick][1] ==  self.now:
+                    self.cycle[tick][0] = PolyTradeModel.getMaxTime(tick, self.mpt.engine)
                 
             print('\n========================= Completed a cycle=========================\n')
 
@@ -138,10 +147,15 @@ class PolygonApi:
         '''
         Get the next market day from d
         :params d: date
-        '''        
-        dw = d.day_of_week
-        days = 1 if dw < 5 else (7 - 5)
-        return dw
+        ''' 
+        if HolidayModel.isHoliday(d, self.holman.session):
+            d += dt.timedelta(days=1)
+        days = 1 if d.weekday() < 4 else (7 - d.weekday())
+        d += dt.timedelta(days=days)
+        if HolidayModel.isHoliday(d, self.holman.session):
+            d += dt.timedelta(days=1)
+        
+        return d
         
 
     def resampleit(self, j, delt):
@@ -186,7 +200,7 @@ if __name__ == '__main__':
     tdate = dt.date(2021, 2, 25)
     print(start)
     # pa.cycleStocksToCurrent(['BNGO'], tdate, 0)
-    pa =  PolygonApi(random50(numstocks=20), tdate)
+    pa =  PolygonApi(random50(numstocks=5), tdate)
     pa.cycleStocksToCurrent()
     # # pa.cycleStocksToCurrent(['FISV'], tdate, start)
     # print()
