@@ -145,7 +145,7 @@ class PolygonApi:
                 if self.cycle[tick][1] == self.now:
                     self.cycle[tick][0] = PolyTradeModel.getMaxTime(tick, self.mpt.session)
 
-            print('\n========================= Completed a cycle=========================\n')
+            print(f'\n=================== Completed a cycle of {len(self.tickers)} stocks =========================\n')
 
     def nextBizDay(self, d):
         '''
@@ -209,8 +209,8 @@ if __name__ == '__main__':
     print(start)
     # pa.cycleStocksToCurrent(['BNGO'], tdate, 0)
     # pa = PolygonApi(random50(numstocks=5), tdate, filternull=True)
-    # pa = PolygonApi(nasdaq100symbols, tdate, filternull=True)
-    pa = PolygonApi(["FOX", "ILMN", "ISRG", "JD", "MXIM"], tdate, filternull=True)
+    pa = PolygonApi(nasdaq100symbols, tdate, filternull=True)
+    # pa = PolygonApi(["FOX", "ILMN", "ISRG", "JD", "MXIM"], tdate, filternull=True)
     pa.cycleStocksToCurrent(beginmin=True)
     # # pa.cycleStocksToCurrent(['FISV'], tdate, start)
     # print()
