@@ -19,19 +19,21 @@ if nasdaq is not None:
     nasdaq100symbols = list(nasdaq['Ticker'])
 
 
-def random50(stocks=nasdaq100symbols, numstocks=50):
+def random50(stocks=nasdaq100symbols, numstocks=50, exclude=[]):
     '''
     get 50 stocks. Note stocks should be len 100 or greater
     '''
     results = set()
     while len(results) < numstocks:
-        n = random.randint(0, len(nasdaq100symbols)-1)
-        results.add(nasdaq100symbols[n])
+        n = random.randint(0, len(stocks)-1)
+        if not stocks[n] in exclude:
+            results.add(stocks[n])
     return results
 
 
 if __name__ == '__main__':
     # print(sp500symbols[:10])
     # print(nasdaq100symbols[:10])
+    
     x = random50(nasdaq100symbols)
     print(len(x))

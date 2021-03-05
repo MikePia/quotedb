@@ -20,7 +20,7 @@ class PolygonApi:
     mpt = ManagePolyTrade(getSaConn())
     holman = ManageHolidayModel(getSaConn())
 
-    def __init__(self, tickers, begdate, resamprate=pd.Timedelta(seconds=0.25), timer=None):
+    def __init__(self, tickers, begdate, resamprate=pd.Timedelta(seconds=0.25), filternull=False, timer=None):
         if timer:
             if isinstance(timer, dt.datetime):
                 self.timer = timer
@@ -35,6 +35,7 @@ class PolygonApi:
         self.rate = resamprate
         self.tickers = tickers
         self.cycle = {k: [0, self.begdate] for k in tickers}
+        self.filternull = filternull
 
     def getTrades(self, ticker, date, reverse='false', limit=50000, offset=0):
         url = self.TRADES.format(ticker=ticker, date=date)
@@ -122,7 +123,7 @@ class PolygonApi:
 
         if not total:
             return None, -1
-        df = self.resampleit(total, self.rate)
+        df = self.resampleit(total, self.rate, filternull=self.filternull)
         PolyTradeModel.addTradesFromDf(ticker, df, self.mpt.engine)
         return df
 
@@ -159,7 +160,7 @@ class PolygonApi:
 
         return d
 
-    def resampleit(self, j, delt):
+    def resampleit(self, j, delt, filternull=False):
         df = pd.DataFrame(j)[['t', 's', 'p']]
         df.rename(columns={'t': 'time', 's': 'volume', 'p': 'price'}, inplace=True)
         # return df
@@ -171,6 +172,8 @@ class PolygonApi:
         df.volume = df.volume.fillna(0)
         df.price = df.price.fillna(method='ffill')
         # epoch = dt.datetime.fromtimestamp(0)
+        if filternull:
+            df = df[df.volume != 0]
         df.time = df.time.apply(lambda ts: dt2unix(ts, unit='n'))
         return df
 
@@ -204,7 +207,8 @@ if __name__ == '__main__':
     tdate = dt.date(2021, 2, 25)
     print(start)
     # pa.cycleStocksToCurrent(['BNGO'], tdate, 0)
-    pa = PolygonApi(random50(numstocks=5), tdate)
+    pa = PolygonApi(random50(numstocks=5), tdate, filternull=True)
+    # pa = PolygonApi(["SQ"], tdate, filternull=True)
     pa.cycleStocksToCurrent()
     # # pa.cycleStocksToCurrent(['FISV'], tdate, start)
     # print()

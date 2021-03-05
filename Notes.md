@@ -111,7 +111,8 @@ Without the input of how the visual needs the data, I just have to make some sen
 * Dilemma Which endpoint. I am thinking the trades websocket endpoint will be the right one
 * Bit annoyed that I may have to start over to make this work and it is not fair that I will probably have to absorb the time because I am being paid by Milestone.
     * This is probably not a long term thing unless it moves to a full time kind of thing. DC has not the experience to direct exactly what I need to do but yet pays by completing his instructions.
-    * I had hoped that working on a team would fix that but I have seen no indication of any kind of collaboration.
+    * I had hoped that working on a team would fix that. There are some indications with Jans latest report -- phase 2 of his is to integrate.
+
     * ***The best course of action is to over produce at this point.***
         * Some work is better than no work and I need work
         * The experience is extermely valuable
@@ -133,10 +134,23 @@ The trade endpoint gets current data including tim, price, symbol and volume.
 * stock/candle has volume but it's figured differently than trade
 * Maybe tick data can fill 
     * It has volume data. I assume it is based on trades at that current tick price.
+* ***New version of CycleTrades is working to get historical data***
+* Takes an array  of stock a begin date and samplerate 
+* Fills in the data and then continuously updates todays data
+###### What it is lacking
+* A reasonable update that avoids duplicating data
+* The results may have alot of 0 volumes (like most entries) from the resample 
+    * Ran 5 stocks for about a week of data resamplled .25 seconds, entries with 0 volume at ~97% with about 13 million records
+    * Going to implement a removal of data with 0 volume as an option
+* A way to fill in data prior to what is already there.
+* Bullet proofness
+* Need to rework the sqlalchemy sessions to try and create fewer of them.
 
 ##### Alternative is to use polygon
 * Preliminary. trade endpoint looks promising
 * There is a websocket interce, The cdocs are not helpful, going to have to figure it out
 * The trade quote has a lot of what is needed. One day of SQ retrieves more than 200k quotes between 2AM till 11PM
     * If we store it we should probably resample to 1 a second (?)
+
+    
 
