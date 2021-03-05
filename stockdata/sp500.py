@@ -34,6 +34,6 @@ def random50(stocks=nasdaq100symbols, numstocks=50, exclude=[]):
 if __name__ == '__main__':
     # print(sp500symbols[:10])
     # print(nasdaq100symbols[:10])
-    
+
     x = random50(nasdaq100symbols)
     print(len(x))

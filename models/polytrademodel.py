@@ -130,7 +130,7 @@ class PolyTradeModel(Base):
 
     @classmethod
     def getMaxTime(cls, ticker, session):
-        s =session
+        s = session
         q = s.query(func.max(PolyTradeModel.time_ns)).filter_by(symbol=ticker).one_or_none()
         return q[0]
 
@@ -142,15 +142,16 @@ class PolyTradeModel(Base):
 
 
 class ManagePolyTrade:
-    self.engine = None
-    self.session = None
+    engine = None
+    session = None
+
     def __init__(self, db, create=False):
         '''
         :params db: a SQLalchemy connection string.
         '''
         self.db = db
         self.engine = create_engine(self.db)
-        self.session = Session(bind=engine)
+        self.session = Session(bind=self.engine)
         if create:
             self.createTables()
 

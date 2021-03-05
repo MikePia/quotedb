@@ -6,7 +6,7 @@ from models.polytrademodel import PolyTradeModel, ManagePolyTrade
 from models.holidaymodel import HolidayModel, ManageHolidayModel
 from stockdata.dbconnection import getPolygonToken, getSaConn
 from qexceptions.qexception import InvalidServerResponseException
-from utils.util import dt2unix
+from utils.util import dt2unix, unix2date
 from stockdata.sp500 import random50, nasdaq100symbols
 
 
@@ -30,7 +30,7 @@ class PolygonApi:
                 raise ValueError('Illegal type. Must be either datetitme, timedelta or None')
         else:
             self.timer = None
-        self.now = dt.datetime.now().date()
+        self.now = dt.datetime.utcnow().date()
         self.begdate = begdate
         self.rate = resamprate
         self.tickers = tickers
@@ -135,7 +135,8 @@ class PolygonApi:
         '''
         if beginmin:
             for k, v in self.mpt.getMaxTimeForEachTicker(tickers=self.tickers).items():
-                self.cycle[k] = [v, self.begdate]
+                begdate = pd.Timestamp(v, tz="US/Eastern").date()
+                self.cycle[k] = [v+1, begdate]
         while True:
             for i, tick in enumerate(self.tickers):
                 df = self.getTradeRange(tick)
@@ -208,8 +209,8 @@ if __name__ == '__main__':
     print(start)
     # pa.cycleStocksToCurrent(['BNGO'], tdate, 0)
     # pa = PolygonApi(random50(numstocks=5), tdate, filternull=True)
-    pa = PolygonApi(nasdaq100symbols, tdate, filternull=True)
-    # pa = PolygonApi(["SQ"], tdate, filternull=True)
-    pa.cycleStocksToCurrent()
+    # pa = PolygonApi(nasdaq100symbols, tdate, filternull=True)
+    pa = PolygonApi(["FOX", "ILMN", "ISRG", "JD", "MXIM"], tdate, filternull=True)
+    pa.cycleStocksToCurrent(beginmin=True)
     # # pa.cycleStocksToCurrent(['FISV'], tdate, start)
     # print()

@@ -6,7 +6,7 @@ import logging
 import websocket
 from stockdata.dbconnection import getFhToken, getSaConn
 from models.trademodel import TradeModel, ManageTrade
-from threading import Thread
+# from threading import Thread
 
 
 class MyWebSocket():
@@ -24,13 +24,7 @@ class MyWebSocket():
                                          on_close=self.on_close)
         self.ws.on_open = self.on_open
 
-        self.wst = Thread(target=lambda: self.ws.run_forever())
-        self.wst.daemon = True
-        self.wst.start()
-        # self.ws.run_forever()
-
-    def close(self):
-        self.ws.close()
+        self.ws.run_forever()
 
     def on_message(self, message):
         print('==========================================================================')
