@@ -7,7 +7,7 @@ from models.holidaymodel import HolidayModel, ManageHolidayModel
 from stockdata.dbconnection import getPolygonToken, getSaConn
 from qexceptions.qexception import InvalidServerResponseException
 from utils.util import dt2unix
-from stockdata.sp500 import random50
+from stockdata.sp500 import random50, nasdaq100symbols
 
 
 class PolygonApi:
@@ -142,7 +142,7 @@ class PolygonApi:
                 if df is None:
                     raise ValueError("Programmers Raise. What to do here?")
                 if self.cycle[tick][1] == self.now:
-                    self.cycle[tick][0] = PolyTradeModel.getMaxTime(tick, self.mpt.engine)
+                    self.cycle[tick][0] = PolyTradeModel.getMaxTime(tick, self.mpt.session)
 
             print('\n========================= Completed a cycle=========================\n')
 
@@ -207,7 +207,8 @@ if __name__ == '__main__':
     tdate = dt.date(2021, 2, 25)
     print(start)
     # pa.cycleStocksToCurrent(['BNGO'], tdate, 0)
-    pa = PolygonApi(random50(numstocks=5), tdate, filternull=True)
+    # pa = PolygonApi(random50(numstocks=5), tdate, filternull=True)
+    pa = PolygonApi(nasdaq100symbols, tdate, filternull=True)
     # pa = PolygonApi(["SQ"], tdate, filternull=True)
     pa.cycleStocksToCurrent()
     # # pa.cycleStocksToCurrent(['FISV'], tdate, start)
