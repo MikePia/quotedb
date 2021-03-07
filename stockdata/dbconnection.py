@@ -1,11 +1,7 @@
 """
 Get the db connection string. Depends on the localconfig to get the keys
 """
-import logging
-import os
 from models.managekeys import ManageKeys, Keys
-
-
 
 sdb = 'sqlite:///keys.sqlite'
 #  Make these sqlite accessors singletons
@@ -13,6 +9,7 @@ MYSQL_CON = None
 FH_TOKEN = None
 PG_TOKEN = None
 CSV_DIRECTORY = None
+
 
 class Mysqlconn:
     mk = ManageKeys(sdb)
@@ -37,7 +34,7 @@ class Mysqlconn:
 
     # Couple of non mysql items
     def getCsvDirectory(self):
-        d =  Keys.getKey('csv_directory', self.mk.engine)
+        d = Keys.getKey('csv_directory', self.mk.engine)
         return d
 
     def getFhToken(self):
@@ -47,14 +44,15 @@ class Mysqlconn:
     def getPolygonToken(self):
         return Keys.getKey('poly_token', self.mk.engine)
 
-        
-# ====================== singleton accessors =========================  
+
+# ====================== singleton accessors =========================
 def getCsvDirectory():
     global CSV_DIRECTORY
     if CSV_DIRECTORY is None:
         msc = Mysqlconn()
         CSV_DIRECTORY = msc.getCsvDirectory()
     return CSV_DIRECTORY
+
 
 def getSaConn():
     '''
@@ -66,6 +64,7 @@ def getSaConn():
         MYSQL_CON = msc.getSaMysqlConn()
     return MYSQL_CON
 
+
 def getFhToken():
     '''
     Get the finnhub token
@@ -73,8 +72,9 @@ def getFhToken():
     global FH_TOKEN
     if FH_TOKEN is None:
         msc = Mysqlconn()
-        FH_TOKEN =  msc.getFhToken()
+        FH_TOKEN = msc.getFhToken()
     return FH_TOKEN
+
 
 def getPolygonToken():
     global PG_TOKEN
@@ -82,11 +82,12 @@ def getPolygonToken():
         msc = Mysqlconn()
         PG_TOKEN = msc.getPolygonToken()
     return PG_TOKEN
-    
-__all__ =  [getCsvDirectory, getSaConn, getFhToken, getPolygonToken]
+
+
+__all__ = [getCsvDirectory, getSaConn, getFhToken, getPolygonToken]
+
 
 if __name__ == '__main__':
     print(getSaConn())
     print(getPolygonToken())
     print(getPolygonToken())
-

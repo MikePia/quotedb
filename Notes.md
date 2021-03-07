@@ -80,7 +80,7 @@ Jan's proposal includes
 
 
  ### Milestone 7 Duplicating rows for time gaps
- * Current decision is ot leave the data in the database and 
+ * Current decision is to leave the data in the database and 
     * generate the rows in the results of an accessor.
 * Decisions: 
     * Fill in all times 24/7, 
@@ -152,5 +152,44 @@ The trade endpoint gets current data including tim, price, symbol and volume.
 * The trade quote has a lot of what is needed. One day of SQ retrieves more than 200k quotes between 2AM till 11PM
     * If we store it we should probably resample to 1 a second (?)
 
-    
+### 3/5/21
+### Completed milestone 7 and 8 -- (But neither one is what is currently needed)
+* ***State of 8 - fast moving quotes***
+    * Using trade endpoint from polygon, ```PolygonApi.cycleStocksToCurrent()```
+        * ```PolygonApi(array, begdate, resamprate, filternull, timer=None)```
+            * (timer unimplemented)
+        * Currently  set to raise exception when Polygon server returns non 200 status and not yet handling the retries
+        * Status is stop develpment in favor of tick data -- volume not required
+    * Features include
+        * Will take and array of stocks any size but only tested with nasdaq100
+        * set the day  to start gathering data, will get to current day and continue with real time gathering
+        * Set the time to start for current day
+        * allow it to gather from the most recent date in the db for the current stock
+        * Set the sample rate to aggregate calls (Turning off resampling not enabled but would be simple)
+        * Turn on or off to trim the resampled data in which vol is 0 (recommended to always trim -- or remove resample to get raw trades)
 
+
+* ***State of 7 -- Duplicating rows for time gaps***
+* Using finnhub candle endpoint from ```ManageCandles.getFilledData()``` or ```ManageCandles.getFilledDataDays()```
+    * ```getFilledData(self, symbol, begin, end, format='json')``` 
+    * ```getFilledDataDays(self, symbol, startdate, enddate, policy, custom, format)```
+        * policy and custom determine the start and end point for each day. For example, policy=market will give data between 9:30-16:00 and ensure each 1 minute entry has a record
+* Note that this was the original data and included the report of a years data gathering. Currently there is no use for this call or the candle data. That could obviously change as features are eventually added.
+
+### Nothing but Tick data
+* polygon has none and it's web socket keeps tabs on how many subscriptions, I think its three per subscription, and purchase more for $75 so sp 500  so 166*75/month for sp500 simultansous  ***So finnhub it is** (I think)
+* More bad news. It seems finnhub tick data is not real time. The paramaters include a date and a skip. ***It is not possible to set a beginning time.*** To geta the days datad, you paginate through the data from skip=0 till data runs out
+* ***Au Contraire***--- implement a divide and conquor method to find the first time bit.
+    * In the getTicksForADay method, manage the offsets in a dict.
+    * The first time a ticker is called (Assuming this is a oneday only thing at this point) call this divide and conqueor method. 
+        * This could be potentially time consuming. Reduce the  required calls by using average number between the next pagination and total ```skip = ((skip +len j[t]) + j[total]) //2``` for the next request. 
+        * First call use skip = 0, Need to get the total val to figure the second call (iuf necessary)
+        * The second call should be able to make a reasonable guess-- better than just divide and conquor based on:
+            * len of date
+            * diffence between 1st and last time
+            * the j[total] value for that day
+            * the current time of day
+    * ***Don't need all that**
+        * Get the first one to find the amount of data, Then hijack the rest of the method and
+        get the data in reverse order.  duh
+* I*mplement pagination through the day, Then insert the find the date into the top of the loop after the first request.

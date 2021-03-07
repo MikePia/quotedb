@@ -6,8 +6,8 @@ from models.polytrademodel import PolyTradeModel, ManagePolyTrade
 from models.holidaymodel import HolidayModel, ManageHolidayModel
 from stockdata.dbconnection import getPolygonToken, getSaConn
 from qexceptions.qexception import InvalidServerResponseException
-from utils.util import dt2unix, unix2date
-from stockdata.sp500 import random50, nasdaq100symbols
+from utils.util import dt2unix
+from stockdata.sp500 import nasdaq100symbols
 
 
 class PolygonApi:
