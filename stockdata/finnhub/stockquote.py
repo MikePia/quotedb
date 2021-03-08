@@ -6,8 +6,9 @@ import pandas as pd
 
 from models.finntickmodel import FinnTickModel, ManageFinnTick
 from models.candlesmodel import CandlesModel, ManageCandles
+from models.quotemodel import QuotesModel
 from qexceptions.qexception import InvalidServerResponseException
-from stockdata.sp500 import nasdaq100symbols
+from stockdata.sp500 import nasdaq100symbols, random50
 from stockdata.dbconnection import getFhToken, getSaConn, getCsvDirectory
 from utils.util import dt2unix
 
@@ -24,9 +25,11 @@ class StockQuote:
     bdate = None
     tickers = []
 
-    def __init__(self, tickers, dadate):
+    def __init__(self, tickers, dadate, limit=25000):
         self.tickers = tickers
         self.date = dadate
+        self.limit = limit
+        self.cycle = {k: 0 for k in tickers}
 
     def getSingleQuote(self, symbol):
 
@@ -156,28 +159,36 @@ class StockQuote:
         j = self.runquotes()
         return list(j.keys())
 
-    def __getTicks(self, symbol, skip=0, limit=25000):
+    def __getTicks(self, symbol, skip=0):
         """
         :params bdeate: dt.date
-        :params limit: int. max 25000
         :params skip: int offset by number of records to paginate
         """
         params = {}
         params['symbol'] = symbol
         params['date'] = self.date.strftime("%Y-%m-%d")
-        params['limit'] = limit
+        params['limit'] = self.limit
         params['skip'] = skip
         params['format'] = 'json'
         url = self.TICKS
-        r = requests.get(url, params=params, headers=self.HEADERS)
-        if r.status_code != 200:
-            msg = f"Server error while trying: {r.url} at {dt.datetime.now()}"
-            logging.error(msg)
-            raise InvalidServerResponseException(msg)
+        retries = 3
+        for i in range(retries):
+            r = requests.get(url, params=params, headers=self.HEADERS)
+            if r.status_code != 200:
+                msg = f"Server error while trying: {r.url} at {dt.datetime.now()}"
+                if i < retries-1:
+                    msg += ": Retrying"
+                    logging.error(msg)
+                else:
+                    msg += "raising exception"
+                    logging.error(msg)
+                    raise InvalidServerResponseException(msg)
+            else:
+                break
         j = r.json()
         return j
 
-    def __getTicksOnDay(self,  ticker, skip=0, limit=25000, startat=None):
+    def __getTicksOnDay(self,  ticker, skip=0, startat=None):
         '''
         Paginate through the entire day or locate and start with the first tick at startat
         :params startat: pd.Timedelta: Searches and finds the ticks that startat time from
@@ -186,82 +197,98 @@ class StockQuote:
         '''
         total = []
         # totalhits = 0  # gets set after we see the first data
-        while True:
-            j = self.__getTicks(ticker, skip, limit)
+        notdone = True
+        if startat is not None:
+            total = self.__getDataFromHere(ticker, startat)
+            notdone = False
+            
+        while notdone:
+            j = self.__getTicks(ticker, self.cycle[ticker])
 
             if not j or not j['t']:
                 break
-            if startat is not None:
-                total = self.__getDataFromHere(ticker, j, startat, limit)
-                break
             # tot = [price, time, volume, condition  for price, time, volume, condition in zip(j['p'], j['t'], j['v'], j['c'])]
             total.extend([x for x in zip(j['p'], j['t'], j['v'], j['c'])])
-            if j['count'] < limit:
-
+            self.cycle[ticker] += j['count']
+            if j['count'] < self.limit:
                 print('done here - go save the world')
                 break
-            else:
-                skip += j['count']
         if not total:
             return None
         mft = ManageFinnTick(getSaConn())
         FinnTickModel.addTicks(ticker, total, mft.session)
 
-    def cycleStockTicks(self, array, startat=None):
+    def cycleStockTicks(self, startat=None):
         while True:
-            for ticker in array:
+            for ticker in self.tickers:
                 self.__getTicksOnDay(ticker, startat=startat)
-            print(f'==================== completed a cycle of {len(array)} stocks')
+            startat = None
+            print(f'==================== completed a cycle of {len(self.tickers)} stocks')
 
-    def __getDataFromHere(self, ticker, j, startat, limit):
+    def __getDataFromHere(self, ticker, startat):
         """
         Get the last x minutes of tick data for self.date.
         :params ticker: str, A single stock symbol
         :params j: dict, The reusults of tick endpoint call with skip=0
         :params startat: pd.Timedelta, Instruction to get the last {startat} of time from the requested day
-        :params limit: int, the limit parameter from the get for the j data
         """
-        done = False
-        xtime_stopat = j['t'][-1] - (startat.total_seconds() * 1e3)
-        last_index = j['total']
-        skip = max(last_index - limit, 0)
+        # Have to do the first one just to find out how many records are available
         total = []
-        if j['t'][0] <= xtime_stopat <= j['t'][-1]:
-            total.extend([x for x in zip(j['p'], j['t'], j['v'], j['c'])])
+        j = self.__getTicks(ticker, self.cycle[ticker])
+        if not j or not j['t']:
+            return []
+        self.cycle[ticker] = j['total'] - self.limit
+        j = self.__getTicks(ticker, self.cycle[ticker])
+        curmaxtime = j['t'][-1]
+        begin_time = int(curmaxtime - (startat.total_seconds() * 1e3))
+        curmintime = j['t'][0]
+        done = False
+        total.extend([x for x in zip(j['p'], j['t'], j['v'], j['c'])])
+
+        if curmintime <= begin_time <= curmaxtime:
+            self.cycle[ticker] = j['total']
             done = True
         while not done:
-            j = self.__getTicks(ticker, skip, limit)
+            self.cycle[ticker] -= len(j['t'])
+            j = self.__getTicks(ticker, self.cycle[ticker])
             # These are strangely out of order now beginning wi the send pull
             total.extend([x for x in zip(j['p'], j['t'], j['v'], j['c'])])
-            if xtime_stopat < j['t'][-1]:
+            if begin_time > j['t'][0]:
+                assert j['t'][0] <= begin_time <= j['t'][-1]
+                self.cycle[ticker] = j['total']
                 break
-        total = sorted(total, key=lambda tick: tick[1])
+            if self.limit > len(j['t']):
+                logging.warn(f"Not all data is available for the day: {self.date}")
+                self.cycle[ticker] = j['total']
+                break
+        # total = sorted(total, key=lambda tick: tick[1])
         # Stopat should be in the from limit amount. so do a binary search betwwen 0 and limit
         # pandas would be a lot cleaner
+        total = sorted(total, key=lambda tick: tick[1])
         found = False
-        high = min(limit-1, len(total)-1)
+        high = min(self.limit-1, len(total)-1)
         low, cur = 0,  high//2
         while not found:
 
-            # Binary search for first and lowest value >= xtime_stopat
-            # (Note that the search has not accounted for when cur[0] == xtime_stopat), need to get the
+            # Binary search for first and lowest value >= begin_time
+            # (Note that the search has not accounted for when cur[0] == begin_time), need to get the
             #   previous (time-wise) one down for possible repeated ticks at next total[limit])
             # First case found it precisely, find the first occurrence (of non duplicate) cur = i
-            assert total[0][1] <= xtime_stopat <= total[-1][1]
-            assert total[low][1] <= xtime_stopat <= total[high][1]
+            assert total[0][1] <= begin_time <= total[-1][1]
+            assert total[low][1] <= begin_time <= total[high][1]
 
-            if total[cur][1] == xtime_stopat:
+            if total[cur][1] == begin_time:
                 i = cur - 1
-                while i > low and total[i][1] == xtime_stopat:
+                while i > low and total[i][1] == begin_time:
                     i -= 1
                 cur = i
                 break
             # Second case three possibilities
-            #   1-2) cur < xtime_stopat and (cur+1 > xtime_stopat or cur+1 == xtime_stopat): cur = cur + 1 and done
-            #   3)                and cur+1 < xtime_stopat: low = cur, cur = (low+high)//2
-            elif total[cur][1] < xtime_stopat:
+            #   1-2) cur < begin_time and (cur+1 > begin_time or cur+1 == begin_time): cur = cur + 1 and done
+            #   3)                and cur+1 < begin_time: low = cur, cur = (low+high)//2
+            elif total[cur][1] < begin_time:
 
-                if total[cur+1][1] >= xtime_stopat:
+                if total[cur+1][1] >= begin_time:
                     cur += 1
                     break
                 else:
@@ -269,19 +296,19 @@ class StockQuote:
                     cur = (low + high) // 2
 
             # Third cas
-            # 1) cur > xtime_stopat and (cur-1 < xtime_stopat) (cur = cur) done
-            # 2)              and (cur-1 = xtime_stopat), find first occurrence of cur-1 and done
-            # 3)              and (cur-1 > xtime_stopat), high = cur-1, cur = (low+high) //2
-            elif total[cur][1] > xtime_stopat:
-                if total[cur-1][1] < xtime_stopat:
+            # 1) cur > begin_time and (cur-1 < begin_time) (cur = cur) done
+            # 2)              and (cur-1 = begin_time), find first occurrence of cur-1 and done
+            # 3)              and (cur-1 > begin_time), high = cur-1, cur = (low+high) //2
+            elif total[cur][1] > begin_time:
+                if total[cur-1][1] < begin_time:
                     break
-                elif total[cur-1][1] == xtime_stopat:
+                elif total[cur-1][1] == begin_time:
                     i = cur - 1
-                    while total[i][1] == xtime_stopat:
+                    while total[i][1] == begin_time:
                         i -= 1
                     cur = i
                     break
-                elif total[cur-1][1] > xtime_stopat:
+                elif total[cur-1][1] > begin_time:
                     high = cur-1
                     cur = (low+high)//2
         total = total[cur:]
@@ -309,15 +336,13 @@ def example():
 
     # This is an example of how to call store Candles. The result is currently to save a file
     sq.storeCandles(symbol, start, end, resolution)
-    # QuotesModel.addQuotes(sq.runquotes(), mq.engine)
+    QuotesModel.addQuotes(sq.runquotes(), mq.engine)
 
 
 # def example2():
 #     sq = StockQuote()
 #     tick = sq.getTickers()
-#     before = time.perf_counter()
 #     j = sq.runSingleQuotes(tick)
-#     print(time.perf_counter() - before)
 
 def nasdaq(start, end, tickers=None):
     sq = StockQuote()
@@ -334,15 +359,24 @@ def devexamp(symbol, start, end):
 
 def dotick():
     begtime = dt.datetime(2021, 3, 5)
-    sq = StockQuote(['SQ'], begtime)
+    sq = StockQuote(sorted(nasdaq100symbols)[50:], begtime, limit=25000)
+    # sq = StockQuote(random50(numstocks=5), begtime)
+    # sq = StockQuote(['AAPL', 'TSLA'], begtime, limit=25000)
+
     # print(sq._StockQuote__getTicks("SQ", begtime))
-    delt = pd.Timedelta(minutes=30)
+    delt = pd.Timedelta(hours=2)
     # sq._StockQuote__getTicksOnDay('SQ', startat=delt)
-    sq.cycleStockTicks(sorted(nasdaq100symbols), delt)
+    sq.cycleStockTicks(startat=delt)
+
+
+def sqstuff():
+    sq = StockQuote(None, None)
+    print(sq.getSingleQuote("ROKU"))
 
 
 if __name__ == '__main__':
-    dotick()
+    # dotick()
+    sqstuff()
 
     # start = dt2unix(dt.datetime(2021, 2, 1))
     # end = dt2unix(dt.datetime.now())

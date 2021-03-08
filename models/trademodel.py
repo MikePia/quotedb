@@ -48,7 +48,7 @@ class TradeModel(Base):
             if not i % 50:
                 s.commit()
                 print(f'commited {i} records to trade table')
-
+        print(f'Commited {len(arr)} recorfds to trade table')
         s.commit()
 
     @classmethod
