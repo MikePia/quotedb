@@ -50,9 +50,7 @@ class FinnTickModel(Base):
     def addTicks(cls, symbol, arr, session):
         '''
         Use this to process the json results from finnhub tick endpoint
-        :params arr: [price, time, volume, [conditions]] We recieve the tick data in columns, here
-        we get a naked list of lists ordered. We will convert the condition list to a comma seperated
-        string for storage
+        :params arr: [price, time, volume, [conditions]]
         '''
         s = session
         # arr = TradesModel.cleanDuplicatesFromResults(symbol, arr, engine)
@@ -81,6 +79,22 @@ class FinnTickModel(Base):
         tickers = s.query(distinct(FinnTickModel.symbol)).all()
         tickers = [x[0] for x in tickers]
         return tickers
+
+    @classmethod
+    def getTimeRangeMultiple(cls, symbols, start, end, session):
+        """
+        :params symbols: arr<str>
+        :params start: int. Unix time in milliseconds
+        :params end: int. Unix time in milliseconds
+        """
+        s = session
+
+        q = s.query(FinnTickModel).filter(
+            FinnTickModel.time_ms >= start).filter(
+            FinnTickModel.time_ms <= end).filter(
+            FinnTickModel.symbol.in_(symbols)).order_by(
+            FinnTickModel.time_ms.asc(), FinnTickModel.symbol.asc()).all()
+        return q
 
     @classmethod
     def getTimes(cls, session):

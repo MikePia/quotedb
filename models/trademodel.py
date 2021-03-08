@@ -3,6 +3,8 @@ Use a sqlite db to store tokens and keys including password
 to the mysql db
 """
 import csv
+import datetime as dt
+import pandas as pd
 
 from sqlalchemy import create_engine, Column, String, Integer, Float, distinct
 from sqlalchemy.ext.declarative import declarative_base
@@ -10,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 
 from stockdata.dbconnection import getSaConn, getCsvDirectory
-from utils.util import unix2date
+from utils.util import unix2date, dt2unix
 
 Base = declarative_base()
 Session = sessionmaker()
@@ -48,8 +50,24 @@ class TradeModel(Base):
             if not i % 50:
                 s.commit()
                 print(f'commited {i} records to trade table')
-        print(f'Commited {len(arr)} recorfds to trade table')
+        print(f'Commited {len(arr)} records to trade table')
         s.commit()
+
+    @classmethod
+    def getTimeRangeMultiple(cls, symbols, start, end, session):
+        """
+        :params symbols: arr<str>
+        :params start: int. Unix time in milliseconds
+        :params end: int. Unix time in milliseconds
+        """
+        s = session
+
+        q = s.query(TradeModel).filter(
+            TradeModel.time >= start).filter(
+            TradeModel.time <= end).filter(
+            TradeModel.symbol.in_(symbols)).order_by(
+            TradeModel.time.asc(), TradeModel.symbol.asc()).all()
+        return q
 
     @classmethod
     def getReport(cls, engine, tickers=None):
@@ -69,12 +87,10 @@ class TradeModel(Base):
         # There is probably some cool way to get all the data in one sql statement. THIS COULD BE VERY TIME CONSUMING
         for tick in tickers[::-1]:
             # I think first thing is just change this to a sql execute without ORM (did not help much)
-            # select min(time), max(time), count(time) from candles where symbol="SIRI";
 
             with engine.connect() as con:
                 statement = text(f"""SELECT min(time), max(time), count(time) FROM trade WHERE symbol="{tick}";""")
                 q = con.execute(statement).fetchall()
-                # q = s.query(func.min(CandlesModel.time), func.max(CandlesModel.time), func.count(CandlesModel.time)).filter_by(symbol=tick).all()
                 if q[0][2] == 0:
                     d[tick] = [q[0][0], q[0][1], q[0][2]]
                     print(f'{tick}: {q[0][0]}: {q[0][1]}: {q[0][2]} ')
@@ -125,3 +141,8 @@ class ManageTrade:
 
 if __name__ == '__main__':
     mt = ManageTrade(getSaConn(), create=True)
+    stocks = ['AAPL', 'AMZN', 'ROKU', 'GME', 'TSLA', 'BB', 'SQ', 'MU', 'BINANCE:BTCUSDT']
+    start = dt2unix(dt.datetime(2021, 2, 27), unit='m')
+    end = dt2unix(dt.datetime(2021, 3, 8), unit='m')
+    x = TradeModel.getTimeRangeMultiple(stocks, start, end, mt.session)
+    print(len(x))

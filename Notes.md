@@ -193,3 +193,78 @@ The trade endpoint gets current data including tim, price, symbol and volume.
         * Get the first one to find the amount of data, Then hijack the rest of the method and
         get the data in reverse order.  duh
 * I*mplement pagination through the day, Then insert the find the date into the top of the loop after the first request.
+
+# Current review of data gathering tools:
+### Creating a single module to create getters for data. 
+* Json will be available for all calls
+* All results will be ordered by [ticker, symbol]
+* Have not implemented 'filling in the holes' on any of these yet
+* ***Will probably need to combine our stored data with realtime data***
+    * The real time data could be sent straing to the client. The time required to save to our db and then reaccess may be a problem.
+    * Problems with that around 300 calls per second. If 1000 clients request new data .
+* The module is stockdata.getdata for all the calls listed here. 
+    * So getCandles precise address is ```stockdata.getdata.getCandles()```
+
+### candles (currently from Finnhub api, realtime data is availble)
+
+* ```getCandles(stocks:list, start:datetime, end:datetime)```
+```
+[ { "time": 1611138660,
+    "symbol": "PDD",
+    "close": 175.55,
+    "vol": 276,
+    "high": 175.55,
+    "low": 175.55,
+    "open": 175.55,
+    "id": 1771880
+    }, ...
+```
+###  Tick data / Trade data, realtime data from websocket from finnhub
+* Finn hub websocket data is realtime websocket, no historical data. Not sure how to use this in my (lack of) understanding of our data model. If we need historical data (even 5 minutes worth), we need to get it somewhere else.
+* So why bother? Bercause it's probably the best source of real time data so far.
+* So for this first API, it will retrieve any data already in the db for the requested time and trigger the call to start gathering realtime for the stocks in the list. Later, this should probably be done by setting up a websocket server and sending data as requested combining historical and realtime data somehow
+* 
+```
+getTicks(stocks, start, end)
+startWS(stocks)
+```
+(The bit coin data is all I can gather in off hours)
+```
+'[{
+    "price": 47849.9,
+    "time": 1614400000000.0,
+    "volume": 0.000525,
+    "id": 51,
+    "condition": null,
+    "symbol": "BINANCE:BTCUSDT"
+    },
+```
+### Tick data from Finn hub REST api
+* ***Started this after hours on Fri*** and don't know how close this data is to real time
+* Focused on getting the last x minutes and (hopefull) continue w realtime data
+* The start call requires ***day*** and ***time amount** (e.g. last 30 minutes)
+* This endpoint runs out of data at some point -- and ***don't know if the data updates during open hours yet.*** (find out Monday)
+* ``` 
+getTicksREST(stocks, start, end)
+startLastXTicks(stocks, dadate, delt)
+```
+
+```
+'[{
+    "symbol": "CDW",
+    "price": 154.61,
+    "time_ms": 1614972567024,
+    "volume": 1,
+    "id": 2643524,
+    "condition": "1,8,12"
+    },
+```
+### Polygon trade data
+Including this because this data is both historical and real time. Can give it a date and continue looping with paginations into current trades. So the Api here will include getting the data and then starting collection of historical/current data. 
+
+ Finnhub quote api
+    * Get continuous data and enter no duplicates. Currently 1 minute data is not enforced in code
+    * Has utility fill in data when retrieving it -- 
+    * Get Report
+* polygon trade data (realtime)
+* sqlite key storage

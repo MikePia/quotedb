@@ -13,7 +13,7 @@ from sqlalchemy.sql import text
 
 from stockdata.dbconnection import getSaConn, getCsvDirectory
 from stockdata.sp500 import sp500symbols, nasdaq100symbols
-from utils.util import unix2date, resample
+from utils.util import dt2unix, unix2date, resample
 
 Base = declarative_base()
 Session = sessionmaker()
@@ -55,7 +55,14 @@ class CandlesModel(Base):
     @classmethod
     def getTimeRange(cls, symbol, start, end, engine):
         s = Session(bind=engine)
-        q = s.query(CandlesModel).filter_by(symbol=symbol).filter(CandlesModel.time >= start).filter(CandlesModel.time <= end).all()
+        q = CandlesModel.filter_by(symbol=symbol).filter(CandlesModel.time >= start).filter(CandlesModel.time <= end).all()
+        return q
+
+    @classmethod
+    def getTimeRangeMultiple(cls, symbols, start, end, session):
+        s = session
+        
+        q = s.query(CandlesModel).filter(CandlesModel.time >= start).filter(CandlesModel.time <= end).filter(CandlesModel.symbol.in_(symbols)).order_by(CandlesModel.time.asc(), CandlesModel.symbol.asc()).all()
         return q
 
     @classmethod
@@ -260,7 +267,7 @@ def getRange():
 
 
 if __name__ == '__main__':
-    getRange()
+    # getRange()
     # mc = ManageCandles(getSaConn(), True)
     # mc.getLargestTimeGap('ZM')
     # mc.chooseFromReport(getCsvDirectory() + '/report.csv')
@@ -269,22 +276,21 @@ if __name__ == '__main__':
 
     # #################################################################
     #  Create a classa or method to house jsoninfy Sqlalchemy results
-    # import datetime as dt
-    # import json
+    import json
     # from stockdata.dbconnection import getCsvDirectory
-    # print(getSaConn())
-    # mk = ManageCandles(getSaConn(), True)
-    # start = dt.datetime(2021,1,20,10,30,0)
-    # end = dt.datetime(2021,1,20,16,30,0)
-    # x = CandlesModel.getTimeRange(dt2unix(start), dt2unix(end), mk.engine)
-    # xlist = [z.__dict__ for z in x]
-    # for xd in xlist:
-    #     del xd['_sa_instance_state']
+    print(getSaConn())
+    mk = ManageCandles(getSaConn(), True)
+    start = dt.datetime(2021, 1, 20, 10, 30, 0)
+    end = dt.datetime(2021, 1, 20, 16, 30, 0)
+    x = CandlesModel.getTimeRange('ROKU', dt2unix(start), dt2unix(end), mk.engine)
+    xlist = [z.__dict__ for z in x]
+    for xd in xlist:
+        del xd['_sa_instance_state']
 
-    # j = json.dumps(xlist)
-    # fn = getCsvDirectory() + f'file.json'
-    # with open(fn, 'w', newline='') as f:
-    #     f.write(j)
+    j = json.dumps(xlist)
+    fn = getCsvDirectory() + f'file.json'
+    with open(fn, 'w', newline='') as f:
+        f.write(j)
 
     # print()
     # print()
