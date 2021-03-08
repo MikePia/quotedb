@@ -85,15 +85,15 @@ def startLastXTicks(stocks, dadate, delt):
 if __name__ == "__main__":
     # stocks = ["PDD", "ROKU", "ROST", "SBUX", "SIRI", "SWKS", "TCOM", "TXN", "VRSK", "VRSN", "VRTX", "WBA", "WDAY", "XEL", "XLNX", "ZM", ]
     # stocks = ['AAPL', 'AMZN', 'ROKU', 'GME', 'TSLA', 'BB', 'SQ', 'MU', 'BINANCE:BTCUSDT']
-    start = dt.datetime(2021, 3, 5)
+    start = dt.datetime(2021, 2, 19)
     end = dt.datetime(2021, 3, 8)
-    # x = getCandles(stocks, start, end)
+    stocks = nasdaq100symbols
+    x = getCandles(stocks, start, end)
     # x = getTicks(stocks, start, end)
     # MyWebSocket(stocks)
-    stocks = nasdaq100symbols
     # dadate = dt.date(2021, 3, 5)
     # delt = pd.Timedelta(minutes=30)
     # startLastXTicks(stocks, dadate, delt)
-    x = getTicksREST(stocks, start, end)
-    print()
+    # x = getTicksREST(stocks, start, end)
+    print('done')
     print()
