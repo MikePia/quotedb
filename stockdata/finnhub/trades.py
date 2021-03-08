@@ -5,6 +5,7 @@ import json
 import logging
 import websocket
 from stockdata.dbconnection import getFhToken, getSaConn
+from stockdata.sp500 import random50, nasdaq100symbols
 from models.trademodel import TradeModel, ManageTrade
 # from threading import Thread
 
@@ -12,7 +13,7 @@ from models.trademodel import TradeModel, ManageTrade
 class MyWebSocket():
     counter = 0
     bulk = []
-    NUMREC = 15
+    NUMREC = 1
 
     def __init__(self, arr, url=f"wss://ws.finnhub.io?token={getFhToken()}"):
         print('Creating websocket...')
@@ -27,9 +28,10 @@ class MyWebSocket():
         self.ws.run_forever()
 
     def on_message(self, message):
-        print('==========================================================================')
+        # print('==========================================================================')
         j = json.loads(message)
         if j['type'] != 'trade':
+            print(j['type'])
             logging.info("Retrieved something non-standard frm trades endpoint:")
             logging.info(j)
         else:
@@ -65,7 +67,16 @@ class MyWebSocket():
 if __name__ == "__main__":
     websocket.enableTrace(True)
     # Note: to get results on off hours using bit coin
-    mws = MyWebSocket(['AAPL', 'AMZN', 'ROKU', 'GME', 'TSLA', 'BB', 'SQ', 'MU', 'BINANCE:BTCUSDT'])
+    # stocks = ['AAPL', 'AMZN', 'ROKU', 'GME', 'TSLA', 'BB', 'SQ', 'MU', 'BINANCE:BTCUSDT']
+    stocks = random50(numstocks=25)
+    stocks = nasdaq100symbols
+    stocks.append('BINANCE:BTCUSDT')
+    mws = MyWebSocket(stocks)
+    print('did it wait?')
+    # ws = websocket.WebSocketApp(f"wss://
+
+
+    # mws = MyWebSocket(['AAPL', 'AMZN', 'ROKU', 'GME', 'TSLA', 'BB', 'SQ', 'MU', 'BINANCE:BTCUSDT'])
     print('did it wait?')
     # ws = websocket.WebSocketApp(f"wss://ws.finnhub.io?token={getFhToken()}",
     #                             on_message = on_message,
