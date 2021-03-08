@@ -194,7 +194,7 @@ The trade endpoint gets current data including tim, price, symbol and volume.
         get the data in reverse order.  duh
 * I*mplement pagination through the day, Then insert the find the date into the top of the loop after the first request.
 
-# Current review of data gathering tools:
+# Creating apis for the client according to requested specs:
 ### Creating a single module to create getters for data. 
 * Json will be available for all calls
 * All results will be ordered by [ticker, symbol]
@@ -244,7 +244,8 @@ startWS(stocks)
 * Focused on getting the last x minutes and (hopefull) continue w realtime data
 * The start call requires ***day*** and ***time amount** (e.g. last 30 minutes)
 * This endpoint runs out of data at some point -- and ***don't know if the data updates during open hours yet.*** (find out Monday)
-* ``` 
+ 
+``` 
 getTicksREST(stocks, start, end)
 startLastXTicks(stocks, dadate, delt)
 ```
@@ -259,12 +260,10 @@ startLastXTicks(stocks, dadate, delt)
     "condition": "1,8,12"
     },
 ```
-### Polygon trade data
+### polygon trade data (realtime)
 Including this because this data is both historical and real time. Can give it a date and continue looping with paginations into current trades. So the Api here will include getting the data and then starting collection of historical/current data. 
 
- Finnhub quote api
-    * Get continuous data and enter no duplicates. Currently 1 minute data is not enforced in code
-    * Has utility fill in data when retrieving it -- 
-    * Get Report
-* polygon trade data (realtime)
-* sqlite key storage
+### Finnhub quote api
+* Broke it, needs fixing
+
+### sqlite key storage
