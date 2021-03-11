@@ -10,7 +10,7 @@ from models.trademodel import ManageTrade, TradeModel
 
 from stockdata.finnhub.stockquote import StockQuote
 from stockdata.finnhub.trades import MyWebSocket
-from stockdata.sp500 import nasdaq100symbols
+from stockdata.sp500 import nasdaq100symbols, random50
 from utils.util import dt2unix
 
 
@@ -28,6 +28,10 @@ def getCandles(stocks, start, end, api='fh', format='json'):
     j = json.dumps(xlist)
     return j
 
+
+def startCandles(stocks, start, latest=False):
+    sq = StockQuote(stocks, None)
+    sq.cycleStockCandles(start, latest)
 
 def getTicks(stocks, start, end, api='fh', format='json'):
     mt = ManageTrade(getSaConn(), create=True)
@@ -88,7 +92,9 @@ if __name__ == "__main__":
     start = dt.datetime(2021, 2, 19)
     end = dt.datetime(2021, 3, 8)
     stocks = nasdaq100symbols
-    x = getCandles(stocks, start, end)
+    stocks = random50(numstocks=10)
+    # x = getCandles(stocks, start, end)
+    startCandles(stocks, start, latest=True)
     # x = getTicks(stocks, start, end)
     # MyWebSocket(stocks)
     # dadate = dt.date(2021, 3, 5)

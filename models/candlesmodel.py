@@ -6,7 +6,7 @@ import csv
 import datetime as dt
 import pandas as pd
 
-from sqlalchemy import create_engine, Column, String, Integer, Float, distinct, desc
+from sqlalchemy import create_engine, Column, String, Integer, Float, distinct, desc, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
@@ -37,7 +37,7 @@ class CandlesModel(Base):
         '''
         s = Session(bind=engine)
         arr = CandlesModel.cleanDuplicatesFromResults(symbol, arr, engine)
-        for i, t in enumerate(arr):
+        for i, t in enumerate(arr, start=1):
             s.add(CandlesModel(
                   symbol=symbol,
                   close=t[0],
@@ -50,6 +50,7 @@ class CandlesModel(Base):
                 s.commit()
                 print(f'commited {i} records for symbol {symbol}')
 
+        print(f'commited {len(arr)} records for symbol {symbol}')
         s.commit()
 
     @classmethod
@@ -86,6 +87,20 @@ class CandlesModel(Base):
             print('No current or earlier data for start')
             raise ValueError('Programmers Exception, Here is the case to deal with')
         return data
+
+    @classmethod
+    def getMaxTime(cls, ticker, session):
+        s = session
+        q = s.query(func.max(CandlesModel.time)).filter_by(symbol=ticker).one_or_none()
+        return q[0]
+
+    @classmethod
+    def getTickers(cls, session):
+        s = session
+
+        tickers = s.query(distinct(CandlesModel.symbol)).all()
+        tickers = [x[0] for x in tickers]
+        return tickers
 
     @classmethod
     def cleanDuplicatesFromResults(cls, symbol, arr, engine):
@@ -139,12 +154,16 @@ class CandlesModel(Base):
 
 
 class ManageCandles:
+    engine = None
+    session = None
+
     def __init__(self, db, create=False):
         '''
         :params db: a SQLalchemy connection string.
         '''
         self.db = db
         self.engine = create_engine(self.db)
+        self.session = Session(bind=self.engine)
         if create:
             self.createTables()
 
@@ -256,6 +275,16 @@ class ManageCandles:
             return df
         return df.to_json() if df is not None else df
 
+    def getMaxTimeForEachTicker(self, tickers=None):
+        maxdict = dict()
+        if tickers is None:
+            tickers = CandlesModel.getTickers(self.session)
+        for tick in tickers:
+            t = CandlesModel.getMaxTime(tick, self.session)
+            if t:
+                maxdict[tick] = t
+        return maxdict
+
 
 def getRange():
     d1 = dt.date(2021, 1, 23)
@@ -268,29 +297,29 @@ def getRange():
 
 if __name__ == '__main__':
     # getRange()
-    # mc = ManageCandles(getSaConn(), True)
+    mc = ManageCandles(getSaConn(), True)
     # mc.getLargestTimeGap('ZM')
     # mc.chooseFromReport(getCsvDirectory() + '/report.csv')
     # tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
     # mc.reportShape(tickers=mc.getQ100_Sp500())
 
     # #################################################################
-    #  Create a classa or method to house jsoninfy Sqlalchemy results
-    import json
-    # from stockdata.dbconnection import getCsvDirectory
-    print(getSaConn())
-    mk = ManageCandles(getSaConn(), True)
-    start = dt.datetime(2021, 1, 20, 10, 30, 0)
-    end = dt.datetime(2021, 1, 20, 16, 30, 0)
-    x = CandlesModel.getTimeRange('ROKU', dt2unix(start), dt2unix(end), mk.engine)
-    xlist = [z.__dict__ for z in x]
-    for xd in xlist:
-        del xd['_sa_instance_state']
+    # #  Create a classa or method to house jsoninfy Sqlalchemy results
+    # import json
+    # # from stockdata.dbconnection import getCsvDirectory
+    # print(getSaConn())
+    # mk = ManageCandles(getSaConn(), True)
+    # start = dt.datetime(2021, 1, 20, 10, 30, 0)
+    # end = dt.datetime(2021, 1, 20, 16, 30, 0)
+    # x = CandlesModel.getTimeRange('ROKU', dt2unix(start), dt2unix(end), mk.engine)
+    # xlist = [z.__dict__ for z in x]
+    # for xd in xlist:
+    #     del xd['_sa_instance_state']
 
-    j = json.dumps(xlist)
-    fn = getCsvDirectory() + f'file.json'
-    with open(fn, 'w', newline='') as f:
-        f.write(j)
+    # j = json.dumps(xlist)
+    # fn = getCsvDirectory() + f'file.json'
+    # with open(fn, 'w', newline='') as f:
+    #     f.write(j)
 
-    # print()
-    # print()
+    # # print()
+    # # print()
