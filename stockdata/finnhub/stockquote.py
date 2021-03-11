@@ -1,6 +1,7 @@
 import csv
 import logging
 import requests
+import time
 import datetime as dt
 import pandas as pd
 
@@ -33,49 +34,58 @@ class StockQuote:
         self.limit = limit
         self.cycle = {k: 0 for k in tickers}
 
-    def getSingleQuote(self, symbol):
+    def getQuote(self, symbol):
+        retries = 5
+
+        if symbol is None:
+            symbol = self.tickers[0]
 
         params = {}
         params['symbol'] = symbol
-        response = requests.get(self.SINGLEQUOTE, params=params, headers=self.HEADERS)
-        status = response.status_code
-        if status != 200:
-            raise InvalidServerResponseException(f'Server returned status {status}:{response.message}')
-        return response.json()
-
-    def runSingleQuotes(self, symbols):
-        q = []
-        for i, symbol in enumerate(symbols[100:200]):
-            # if not i % 10:
-            #     print(f'retrieving {symbol}, number {i}')
+        while retries > 0:
             try:
-                q.append(self.getSingleQuote(symbol))
-            except InvalidServerResponseException as ex:
+                response = requests.get(self.SINGLEQUOTE, params=params, headers=self.HEADERS)
+            except Exception as ex:
                 print(ex)
+                logging.warning(ex)
+                response -= 1
+                j = None
                 continue
-
-    def runquotes(self):
-
-        base = self.QUOTES
-        # params = {}
-        # params['token'] = 'c0b4p7748v6sc0gs4oq0'
-        # response = requests.get(self.QUOTES, headers=self.HEADERS)
-        # response = requests.get(self.QUOTES, params=params)
-        # status = response.status_code
-        # if status != 200:
-        #     raise
-        # return response.json()
+            status = response.status_code
+            if status != 200:
+                logging.error(response.content)
+                print("ERROR", response.content)
+                j = None
+                retries -= 1
+            else:
+                retries = 0
+                j = response.json()
+        return j
 
     # TODO: use Twitsted or Chronus
-    def getQuotes(self, start: dt.datetime, stop: dt.datetime, freq: float):
-        pass
-        # starttime = time.time()
-        # while start >= starttime:
-        #     j = runquotes()
-        #     print (len)
-        #     time.sleep(freq - ((time.time() - starttime)))
-        #     if time.time() stop:
-        #         break
+    def getQuotes(self, store=False):
+        quotes = []
+        for ticker in self.tickers:
+            quote = self.getQuote(ticker)
+            if quote:
+                quotes.append(quote)
+        # if store:
+
+        return quotes
+
+    def cycleQuotes(self, start: dt.datetime, stop: dt.datetime, freq: float):
+        now = time.time()
+        start = dt2unix(start, unit='s')
+        end = dt2unix(start, unit='s')
+        curr = now()
+        if start > curr:
+            time.sleep(start-curr)
+        while curr >= start and curr < end:
+            self.getQuotes()
+            startnext = curr + freq
+            curr = time.time()
+            if curr > startnext:
+                time.sleep(curr-startnext)
 
     def storeCandles(self, ticker, end, resolution, key=None, store=['csv']):
         '''
@@ -83,7 +93,6 @@ class StockQuote:
         Store it in csv and/or db
         :params store: arr containing combination of ['csv', 'db']
         '''
-        origstart = self.cycle[ticker]
         print()
         print(f'Beginning requests for {ticker}')
         while True:
@@ -184,10 +193,6 @@ class StockQuote:
                 self.storeCandles(ticker, end, 1, store=["db"])
             print(f"===================== Cycled through {len(self.tickers)} stocks")
             end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
-
-    def getTickers(self):
-        j = self.runquotes()
-        return list(j.keys())
 
     def __getTicks(self, symbol, skip=0):
         """
@@ -355,11 +360,6 @@ def runit():
     sq.getQuotes(start, stop, freq)
 
 
-# def example2():
-#     sq = StockQuote()
-#     tick = sq.getTickers()
-#     j = sq.runSingleQuotes(tick)
-
 def nasdaq(start, end, tickers=None):
     sq = StockQuote()
     if tickers is None:
@@ -388,7 +388,7 @@ def dotick():
 def sqstuff():
     stocks = nasdaq100symbols
     sq = StockQuote(stocks, None)
-    # print(sq.getSingleQuote("ROKU"))
+    # print(sq.getQuote("ROKU"))
     s = pd.Timestamp("2021-3-8 15:30", tz="US/Eastern").tz_convert("UTC")
     start = dt.datetime(s.year, s.month, s.day, s.hour, s.minute)
 
@@ -397,16 +397,9 @@ def sqstuff():
 
 if __name__ == '__main__':
     # dotick()
-    sqstuff()
+    # sqstuff()
+    sq = StockQuote(['AAPL'], pd.Timestamp(2021, 3, 3, 9, 30))
+    print(sq.getQuote(None))
 
-    # start = dt2unix(dt.datetime(2021, 2, 1))
-    # end = dt2unix(dt.datetime.now())
-    # devexamp("PDD", start, end)
 
-    # mc = ManageCandles(getSaConn())
-    # fn = getCsvDirectory() + '/report.csv'
-    # tickers = mc.chooseFromReport(fn, numRecords=0)
-    # nasdaq(start, end, tickers=tickers)
-    # symbol = 'ROST'
-    # devexamp(symbol, start, end)
     print('done')

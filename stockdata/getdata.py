@@ -77,29 +77,23 @@ def startLastXTicks(stocks, dadate, delt):
     :params delt: pandas.Timedelta
     """
     sq = StockQuote(stocks, dadate, limit=25000)
-    # sq = StockQuote(random50(numstocks=5), begtime)
-    # sq = StockQuote(['AAPL', 'TSLA'], begtime, limit=25000)
-
-    # print(sq._StockQuote__getTicks("SQ", begtime))
-    delt = pd.Timedelta(hours=2)
-    # sq._StockQuote__getTicksOnDay('SQ', startat=delt)
     sq.cycleStockTicks(startat=delt)
 
 
 if __name__ == "__main__":
     # stocks = ["PDD", "ROKU", "ROST", "SBUX", "SIRI", "SWKS", "TCOM", "TXN", "VRSK", "VRSN", "VRTX", "WBA", "WDAY", "XEL", "XLNX", "ZM", ]
     # stocks = ['AAPL', 'AMZN', 'ROKU', 'GME', 'TSLA', 'BB', 'SQ', 'MU', 'BINANCE:BTCUSDT']
-    start = dt.datetime(2021, 2, 19)
-    end = dt.datetime(2021, 3, 8)
+    # start = dt.datetime(2021, 2, 19)
+    # end = dt.datetime(2021, 3, 8)
     stocks = nasdaq100symbols
-    stocks = random50(numstocks=10)
+    # stocks = random50(numstocks=50)
     # x = getCandles(stocks, start, end)
-    startCandles(stocks, start, latest=True)
+    # startCandles(stocks, start, latest=True)
     # x = getTicks(stocks, start, end)
     # MyWebSocket(stocks)
-    # dadate = dt.date(2021, 3, 5)
-    # delt = pd.Timedelta(minutes=30)
-    # startLastXTicks(stocks, dadate, delt)
+    dadate = dt.date(2021, 3, 11)
+    delt = pd.Timedelta(minutes=30)
+    startLastXTicks(stocks, dadate, delt)
     # x = getTicksREST(stocks, start, end)
     print('done')
     print()
