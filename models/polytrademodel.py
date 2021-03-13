@@ -3,6 +3,7 @@ Use a sqlite db to store tokens and keys including password
 to the mysql db
 """
 import csv
+import datetime as dt
 
 from sqlalchemy import create_engine, Column, String, Integer, Float, func, distinct, desc, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
@@ -10,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 
 from stockdata.dbconnection import getSaConn, getCsvDirectory
-from utils.util import unix2date
+from utils.util import unix2date, dt2unix
 
 Base = declarative_base()
 Session = sessionmaker()
@@ -77,8 +78,8 @@ class PolyTradeModel(Base):
         s.commit()
 
     @classmethod
-    def getTickers(cls, engine):
-        s = Session(bind=engine)
+    def getTickers(cls, session):
+        s = session
 
         tickers = s.query(distinct(PolyTradeModel.symbol)).all()
         tickers = [x[0] for x in tickers]
@@ -90,6 +91,24 @@ class PolyTradeModel(Base):
         times = s.query(PolyTradeModel.time_ns).all()
         times = [x[0] for x in times]
         return times
+
+    @classmethod
+    def getTimeRangeMultiple(cls, symbols, start, end, session):
+        """
+        :params symbols: arr<str>
+        :params start: int. Unix time in nanoseconds
+        :params end: int. Unix time in nanoseconds
+        """
+        s = session
+        if symbols == None:
+            symbols = PolyTradeModel.getTickers(session)
+
+        q = s.query(PolyTradeModel).filter(
+            PolyTradeModel.time_ns >= start).filter(
+            PolyTradeModel.time_ns <= end).filter(
+            PolyTradeModel.symbol.in_(symbols)).order_by(
+            PolyTradeModel.time_ns.asc(), PolyTradeModel.symbol.asc()).all()
+        return q
 
     @classmethod
     def tail(cls, ticker, engine, numrec=10):
@@ -129,10 +148,10 @@ class PolyTradeModel(Base):
         return d
 
     @classmethod
-    def getMaxTime(cls, ticker, session):
-        s = session
+    def getMaxTime(cls, ticker, engine):
+        s = Session(bind=engine)
         q = s.query(func.max(PolyTradeModel.time_ns)).filter_by(symbol=ticker).one_or_none()
-        return q[0]
+        return q[0] if q else q
 
     @classmethod
     def selectTicker(cls, ticker, engine):
@@ -186,7 +205,7 @@ class ManagePolyTrade:
     def getMaxTimeForEachTicker(self, tickers=None):
         maxdict = dict()
         if tickers is None:
-            tickers = PolyTradeModel.getTickers(self.engine)
+            tickers = PolyTradeModel.getTickers(self.session)
         for tick in tickers:
             t = PolyTradeModel.getMaxTime(tick, self.session)
             if t:
@@ -197,4 +216,9 @@ class ManagePolyTrade:
 if __name__ == '__main__':
     # mt = ManagePolyTrade(getSaConn(), create=True)
     mt = ManagePolyTrade(getSaConn())
-    mt.getMaxTimeForEachTicker()
+    # mt.getMaxTimeForEachTicker()
+    start = dt2unix(dt.datetime.utcnow() - dt.timedelta(hours=3), unit='n')
+    end = dt2unix(dt.datetime.utcnow(), unit='n')
+
+    x = PolyTradeModel.getTimeRangeMultiple(None, start, end, mt.session)
+    print()
