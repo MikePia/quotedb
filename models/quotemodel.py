@@ -4,7 +4,7 @@ to the mysql db
 """
 import datetime as dt
 
-from sqlalchemy import create_engine, Column, String, Integer, Float
+from sqlalchemy import create_engine, Column, String, Integer, Float, func, distinct
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -20,32 +20,43 @@ class QuotesModel(Base):
     __tablename__ = "quotes"
     id = Column(Integer, primary_key=True)
     symbol = Column(String(8), nullable=False, index=True)
-    close = Column(Float, nullable=False)
-    high = Column(Float, nullable=False)
-    low = Column(Float, nullable=False)
-    open = Column(Float, nullable=False)
     price = Column(Float, nullable=False)
     time = Column(Integer, nullable=False)
-    vol = Column(Integer, nullable=False)
 
     @classmethod
-    def addQuotes(cls, arr, engine):
+    def addQuotes(cls, arr, session):
         '''
+        Note that o, h, l, and pc refer to the previous day and we don't save them
         :params: t json results from quote/us?
         '''
-        s = Session(bind=engine)
+        s = session
+        arr = QuotesModel.cleanDuplicatesFromResult(arr, session)
         x = [QuotesModel(
-            symbol=t,
-            close=arr[t]['c'],
-            high=arr[t]['h'],
-            low=arr[t]['l'],
-            open=arr[t]['o'],
-            price=arr[t]['pc'],
-            time=arr[t]['t'],
-            vol=arr[t]['v']
+            symbol=t['s'],
+            price=t['c'],
+            time=t['t']
         ) for t in arr]
         s.add_all(x)
         s.commit()
+
+    @classmethod
+    def getTickers():
+        s = session
+
+        tickers = s.query(distinct(QuotesModel.symbol)).all()
+        tickers = [x[0] for x in tickers]
+        return tickers
+        
+    @classmethod
+    def getMaxTime(cls, ticker, session):
+        s = session
+        q = s.query(func.max(QuotesModel.time)).filter_by(symbol=ticker). one_or_none()
+        return q[0]
+
+    @classmethod
+    def cleanDuplicatesFromResult(self, arr, session):
+        s = session
+        return arr
 
     @classmethod
     def getTimeRangeMultiple(cls, symbols, start, end, session):
@@ -69,12 +80,16 @@ class QuotesModel(Base):
 
 
 class ManageQuotes:
+    engine = None
+    session = None
+
     def __init__(self, db, create=False):
         '''
         :params db: a SQLalchemy connection string.
         '''
         self.db = db
         self.engine = create_engine(self.db)
+        self.session = Session(bind=self.engine)
         if create:
             self.createTables()
 
@@ -82,12 +97,16 @@ class ManageQuotes:
         self.session = Session(bind=self.engine)
         Base.metadata.create_all(self.engine)
 
+    def getMaxTimeForEachTicker(self):
+        maxdict=dict()
+        if tickers is None:
+            tickers = QuotesModetl.g
 
 if __name__ == '__main__':
     print(getSaConn())
     mk = ManageQuotes(getSaConn(), True)
-    start = dt2unix(dt.datetime(2021, 2, 11, 9, 30))
-    end = dt2unix(dt.datetime(2021, 2, 12, 10, 30))
-    stocks = nasdaq100symbols
-    x = QuotesModel.getTimeRangeMultiple(stocks, start, end, mk.session)
-    print()
+    # start = dt2unix(dt.datetime(2021, 2, 11, 9, 30))
+    # end = dt2unix(dt.datetime(2021, 2, 12, 10, 30))
+    # stocks = nasdaq100symbols
+    # x = QuotesModel.getTimeRangeMultiple(stocks, start, end, mk.session)
+    # print()
