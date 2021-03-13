@@ -12,8 +12,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 
 from stockdata.dbconnection import getSaConn, getCsvDirectory
-from stockdata.sp500 import sp500symbols, nasdaq100symbols
-from utils.util import dt2unix, unix2date, resample
+from stockdata.polygon.polytrade import isMarketOpen
+from utils.util import unix2date, resample
+from stockdata.sp500 import nasdaq100symbols
+
 
 Base = declarative_base()
 Session = sessionmaker()
@@ -28,7 +30,7 @@ class CandlesModel(Base):
     low = Column(Float, nullable=False)
     open = Column(Float, nullable=False)
     time = Column(Integer, nullable=False, index=True)
-    vol = Column(Integer, nullable=False)
+    volume = Column(Integer, nullable=False)
 
     @classmethod
     def addCandles(cls, symbol, arr, engine):
@@ -45,7 +47,7 @@ class CandlesModel(Base):
                   low=t[2],
                   open=t[3],
                   time=t[4],
-                  vol=t[5]))
+                  volume=t[5]))
             if not i % 1000:
                 s.commit()
                 print(f'commited {i} records for symbol {symbol}')
@@ -56,15 +58,30 @@ class CandlesModel(Base):
     @classmethod
     def getTimeRange(cls, symbol, start, end, engine):
         s = Session(bind=engine)
-        q = CandlesModel.filter_by(symbol=symbol).filter(CandlesModel.time >= start).filter(CandlesModel.time <= end).all()
+        q = s.query(CandlesModel).filter_by(symbol=symbol).filter(CandlesModel.time >= start).filter(CandlesModel.time <= end).all()
         return q
 
     @classmethod
     def getTimeRangeMultiple(cls, symbols, start, end, session):
         s = session
-        
-        q = s.query(CandlesModel).filter(CandlesModel.time >= start).filter(CandlesModel.time <= end).filter(CandlesModel.symbol.in_(symbols)).order_by(CandlesModel.time.asc(), CandlesModel.symbol.asc()).all()
+
+        q = s.query(CandlesModel).filter(
+            CandlesModel.time >= start).filter(
+            CandlesModel.time <= end).filter(
+            CandlesModel.symbol.in_(symbols)).order_by(
+            CandlesModel.time.asc(), CandlesModel.symbol.asc()).all()
         return q
+
+    @classmethod
+    def getTimeRangeMultipleVpts(cls, symbols, start, end, session):
+        s = session
+
+        q = s.query(CandlesModel.symbol, CandlesModel.close.label("price"), CandlesModel.time, CandlesModel.volume).filter(
+            CandlesModel.time >= start).filter(
+                CandlesModel.time <= end).filter(
+                CandlesModel.symbol.in_(symbols)).order_by(
+                CandlesModel.time.asc(), CandlesModel.symbol.asc()).all()
+        return [r._asdict() for r in q]
 
     @classmethod
     def getTimeRangePlus(cls, symbol, start, end, engine):
@@ -152,6 +169,14 @@ class CandlesModel(Base):
                     print(f'{tick}: {unix2date(q[0][0])}: {unix2date(q[0][1])}: {q[0][2]} ')
         return d
 
+    @classmethod
+    def printLatestTimes(cls, stocks, session):
+        from utils.util import unix2date
+        for stock in stocks:
+            t = CandlesModel.getMaxTime(stock, session)
+            print(unix2date(t, unit='s').strftime("%A %B, %d %H:%M%S"))
+        print(isMarketOpen())
+
 
 class ManageCandles:
     engine = None
@@ -195,11 +220,6 @@ class ManageCandles:
         if numRecords is not None:
             return [x[0] for x in csvfile if int(x[3]) <= numRecords]
 
-    def getQ100_Sp500(self):
-        st = set(sp500symbols).union(set(nasdaq100symbols))
-        st = sorted(list(st))
-        return st
-
     def getLargestTimeGap(self, ticker):
         s = Session(bind=self.engine)
         q = s.query(CandlesModel.time).filter_by(symbol="ZM").order_by(CandlesModel.time).all()
@@ -223,27 +243,29 @@ class ManageCandles:
         if not data:
             return None
         datadict = [x.__dict__ for x in data]
-        cols = ['open', 'high', 'low', 'close', 'time', 'vol']
+        cols = ['open', 'high', 'low', 'close', 'time', 'volume']
         datadict = pd.DataFrame.from_dict(datadict)[cols]
         data = resample(datadict, 'time', dt.timedelta(seconds=60))
         data.close = data.close.fillna(method='ffill')
         data.open = data.open.fillna(data.close)
         data.high = data.high.fillna(data.close)
         data.low = data.low.fillna(data.close)
-        data.vol = data.vol.fillna(0)
+        data.volume = data.volume.fillna(0)
         if format == 'csv':
             return data
         return data.to_json()
 
     def getFilledDataDays(self, symbol, startdate, enddate, policy='extended', custom=None, format='json'):
         '''
-        :params startdate: <date> Get data beginning on this day
-        :params enddate: <date> Get data ending on this day (inclusive)
-        :params policy: One of [market, extended, 24_7]
+        Parameters
+        ----------
+        :params startdate: dt.date : Get data beginning on this day
+        :params enddate: dt.date : Get data ending on this day (inclusive)
+        :params policy: str : [market, extended, 24_7]
             'market' will return data between 9:30 and 16:00
             'extended' will return data between 7:00 and 19:00
             '24_7' will return the entire day  (Actually 24-5, no weekends)
-        :params custom: (begin<time>, end<time>) Overrides policy to return using data between begin and end
+        :params custom: (begin<dt.datetime>, end<dt.datetime>) : Overrides policy to return using data between begin and end
         '''
         delt = dt.timedelta(days=1)
         current = startdate
@@ -287,17 +309,19 @@ class ManageCandles:
 
 
 def getRange():
-    d1 = dt.date(2021, 1, 23)
-    d2 = dt.date(2021, 2, 10)
+    d1 = dt.date(2021, 2, 23)
+    d2 = dt.date(2021, 3, 12)
     mc = ManageCandles(getSaConn())
     symbol = 'ZM'
-    mc.getFilledDataDays(symbol, d1, d2)
-    print()
+    x = mc.getFilledDataDays(symbol, d1, d2)
+    return x
 
 
 if __name__ == '__main__':
     # getRange()
-    mc = ManageCandles(getSaConn(), True)
+    # mc = ManageCandles(getSaConn(), True)
+    mc = ManageCandles(getSaConn())
+    CandlesModel.printLatestTimes(nasdaq100symbols, mc.session)
     # mc.getLargestTimeGap('ZM')
     # mc.chooseFromReport(getCsvDirectory() + '/report.csv')
     # tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
