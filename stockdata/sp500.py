@@ -1,6 +1,7 @@
 import random
 import pandas as pd
 
+
 tables = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
 sp500 = None
 if tables:
@@ -31,9 +32,16 @@ def random50(stocks=nasdaq100symbols, numstocks=50, exclude=[]):
     return results
 
 
+def getQ100_Sp500():
+    st = set(sp500symbols).union(set(nasdaq100symbols))
+    st = sorted(list(st))
+    return st
+
+
 if __name__ == '__main__':
     # print(sp500symbols[:10])
     # print(nasdaq100symbols[:10])
 
-    x = random50(nasdaq100symbols)
+    # x = random50(nasdaq100symbols)
+    x = getQ100_Sp500()
     print(len(x))
