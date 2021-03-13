@@ -7,9 +7,9 @@ import pandas as pd
 
 from models.finntickmodel import FinnTickModel, ManageFinnTick
 from models.candlesmodel import CandlesModel, ManageCandles
-from models.quotemodel import QuotesModel
+from models.quotemodel import QuotesModel, ManageQuotes
 from qexceptions.qexception import InvalidServerResponseException
-from stockdata.sp500 import nasdaq100symbols, random50
+from stockdata.sp500 import nasdaq100symbols
 from stockdata.dbconnection import getFhToken, getSaConn, getCsvDirectory
 from utils.util import dt2unix
 
@@ -27,12 +27,18 @@ class StockQuote:
     tickers = []
 
     manageCandles = None
+    __manageQuotes = None
 
     def __init__(self, tickers, dadate, limit=25000):
         self.tickers = tickers
         self.date = dadate
         self.limit = limit
         self.cycle = {k: 0 for k in tickers}
+
+    def getManageQuotes(self, reinit=False):
+        if self.__manageQuotes is None or reinit:
+            self.__manageQuotes = ManageQuotes(getSaConn(), create=True)
+        return self.__manageQuotes
 
     def getQuote(self, symbol):
         retries = 5
@@ -68,24 +74,34 @@ class StockQuote:
         for ticker in self.tickers:
             quote = self.getQuote(ticker)
             if quote:
+                quote['s'] = ticker
                 quotes.append(quote)
-        # if store:
-
+        if store and quotes:
+            mq = self.getManageQuotes()
+            QuotesModel.addQuotes(quotes, mq.session)
+            pass
         return quotes
 
-    def cycleQuotes(self, start: dt.datetime, stop: dt.datetime, freq: float):
+    def cycleQuotes(self, start: dt.datetime, stop: dt.datetime, freq: float, store=True):
+        """
+        The quote endpoint only gets current data. If end < now, nothing will be gotten
+        """
         now = time.time()
         start = dt2unix(start, unit='s')
-        end = dt2unix(start, unit='s')
-        curr = now()
-        if start > curr:
-            time.sleep(start-curr)
+        end = dt2unix(stop, unit='s')
+        curr = start
+        if curr > now:
+
+            print(f'waiting {curr-now} seconds to start')
+            time.sleep(curr-now)
         while curr >= start and curr < end:
-            self.getQuotes()
+            self.getQuotes(store=True)
             startnext = curr + freq
             curr = time.time()
-            if curr > startnext:
-                time.sleep(curr-startnext)
+            if curr > end:
+                break
+            if startnext > curr:
+                time.sleep(startnext-curr)
 
     def storeCandles(self, ticker, end, resolution, key=None, store=['csv']):
         '''
@@ -104,8 +120,8 @@ class StockQuote:
                 # If the exact fn exists, the data should be the same
                 with open(fn, 'w', newline='') as csvfile:
                     csv_writer = csv.writer(csvfile)
-                    # ['ticker', 'close', 'high', 'low', 'open', 'price', 'time', 'vol']
-                    header = ['close', 'high', 'low', 'open', 'time', 'vol']
+                    # ['ticker', 'close', 'high', 'low', 'open', 'price', 'time', 'volume']
+                    header = ['close', 'high', 'low', 'open', 'time', 'volume']
                     i = 0
                     for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v']):
                         if i == 0:
@@ -176,7 +192,7 @@ class StockQuote:
             self.manageCandles = ManageCandles(getSaConn(), create=True)
         return self.manageCandles
 
-    def cycleStockCandles(self, start, latest=False):
+    def cycleStockCandles(self, start, latest=False, numcycles=999999999):
         """
         :params lastst: bool, if True, get the max time from the db for  initial start time
         :params start: int, unix time. The time to get data from, overridden if latest is True
@@ -187,11 +203,14 @@ class StockQuote:
         if latest:
             startTimes = mc.getMaxTimeForEachTicker(self.tickers)
         for t in self.cycle:
-            self.cycle[t] = start if not latest else startTimes[t]
+            self.cycle[t] = start if not latest else startTimes.get(t, 0)
         while True:
             for ticker in self.tickers:
                 self.storeCandles(ticker, end, 1, store=["db"])
             print(f"===================== Cycled through {len(self.tickers)} stocks")
+            if numcycles == 0:
+                break
+            numcycles -= 1
             end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
 
     def __getTicks(self, symbol, skip=0):
@@ -395,11 +414,22 @@ def sqstuff():
     sq.cycleStockCandles(start)
 
 
+def exampleCycleQuote():
+    stocks = ['ADP', 'GOOGL', 'TSLA', 'BKNG', 'TMUS', 'PTON', 'AMZN', 'PEP', 'FAST', 'IDXX']
+    # sq = StockQuote(random50(numstocks=10), None)
+    sq = StockQuote(stocks, None)
+
+    # start = pd.Timestamp("2011-3-11 12:0:0", tz='US/Eastern').tz_convert('UTC').replace(tzinfo=None)
+    start = dt.datetime.utcnow()
+    stop = dt.datetime.utcnow() + dt.timedelta(seconds=180)
+    freq = 20
+    sq.cycleQuotes(start, stop, freq, store=True)
+
+
 if __name__ == '__main__':
     # dotick()
     # sqstuff()
-    sq = StockQuote(['AAPL'], pd.Timestamp(2021, 3, 3, 9, 30))
-    print(sq.getQuote(None))
 
+    exampleCycleQuote()
 
     print('done')

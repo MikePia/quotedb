@@ -15,9 +15,11 @@ class MyWebSocket():
     bulk = []
     NUMREC = 1
 
-    def __init__(self, arr, url=f"wss://ws.finnhub.io?token={getFhToken()}"):
+    def __init__(self, arr, url=f"wss://ws.finnhub.io?token={getFhToken()}", store=['db'], fn=None):
         print('Creating websocket...')
         self.arr = arr
+        self.store = store
+        self.fn = fn
         self.mt = ManageTrade(getSaConn())
         self.ws = websocket.WebSocketApp(f"wss://ws.finnhub.io?token={getFhToken()}",
                                          on_message=self.on_message,
@@ -37,9 +39,23 @@ class MyWebSocket():
         else:
             self.bulk.extend(j['data'])
             self.counter += 1
-        if self.counter == self.NUMREC:
-            self.counter = 0
-            TradeModel.addTrades(self.bulk, self.mt.engine)
+        if self.counter >= self.NUMREC:
+            if 'db' in self.store:
+                self.counter = 0
+                TradeModel.addTrades(self.bulk, self.mt.engine)
+            if 'json' in self.store:
+                saveme = []
+                for trade in self.bulk:
+                    newtrade = {}
+                    for t in [('v', 'volume'), ('t', 'time'), ('p', 'price'), ('s', 'symbol')]:
+                        newtrade[t[1]] = trade[t[0]]
+                    saveme.append(newtrade)
+                        
+                assert self.fn is not None
+                with open(self.fn, 'a') as f:
+                    f.write(json.dumps(saveme))
+                    print(f'wrote {len(saveme)} records to {self.fn}')
+
             self.bulk = []
 
     def on_error(self, error):
