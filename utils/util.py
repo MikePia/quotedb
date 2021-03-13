@@ -1,4 +1,5 @@
 import datetime as dt
+import pandas as pd
 
 EPOC = dt.datetime(1970, 1, 1)
 
@@ -12,6 +13,13 @@ def dt2unix(adate, unit='s'):
         return int((adate - EPOC).total_seconds() * 1000)
 
     return int((adate - EPOC).total_seconds())
+
+
+def dt2unix_ny(x, unit='s'):
+    x = pd.Timestamp(x)
+    x = x.tz_localize('US/Eastern').tz_convert('UTC').replace(tzinfo=None)
+    # x = x.tz_localize('US/Eastern').tz_convert('UTC').replace(tzinfo=None)
+    return dt2unix(x, unit=unit)
 
 
 def unix2date(u, unit='s'):
