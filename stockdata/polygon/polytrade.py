@@ -6,7 +6,7 @@ from models.polytrademodel import PolyTradeModel, ManagePolyTrade
 from models.holidaymodel import HolidayModel, ManageHolidayModel
 from stockdata.dbconnection import getPolygonToken, getSaConn
 from qexceptions.qexception import InvalidServerResponseException
-from utils.util import dt2unix
+from utils.util import dt2unix, dt2unix_ny
 from stockdata.sp500 import nasdaq100symbols
 
 
@@ -20,7 +20,7 @@ class PolygonApi:
     mpt = ManagePolyTrade(getSaConn())
     holman = ManageHolidayModel(getSaConn())
 
-    def __init__(self, tickers, begdate, resamprate=pd.Timedelta(seconds=0.25), filternull=False, timer=None):
+    def __init__(self, tickers, begdate, start=0,  resamprate=pd.Timedelta(seconds=0.25), filternull=False, timer=None):
         if timer:
             if isinstance(timer, dt.datetime):
                 self.timer = timer
@@ -34,7 +34,7 @@ class PolygonApi:
         self.begdate = begdate
         self.rate = resamprate
         self.tickers = tickers
-        self.cycle = {k: [0, self.begdate] for k in tickers}
+        self.cycle = {k: [start, self.begdate] for k in tickers}
         self.filternull = filternull
 
     def getTrades(self, ticker, date, reverse='false', limit=50000, offset=0):
@@ -143,7 +143,7 @@ class PolygonApi:
                 if df is None:
                     raise ValueError("Programmers Raise. What to do here?")
                 if self.cycle[tick][1] == self.now:
-                    self.cycle[tick][0] = PolyTradeModel.getMaxTime(tick, self.mpt.session)
+                    self.cycle[tick][0] = PolyTradeModel.getMaxTime(tick, self.mpt.engine)
 
             print(f'\n=================== Completed a cycle of {len(self.tickers)} stocks =========================\n')
 
@@ -179,6 +179,22 @@ class PolygonApi:
         return df
 
 
+def isMarketOpen():
+    url = f'https://api.polygon.io/v1/marketstatus/now?&apiKey={getPolygonToken()}'
+    RETRIES = 5
+    while RETRIES > 0:
+        response = requests.get(url)
+        if response.status_code != 200:
+            logging.error("Server error while trying", response.url)
+            if RETRIES == 0:
+                 return {}
+            RETRIES -= 1
+        
+            continue
+        RETRIES = 0
+    return response.json()['exchanges']['nasdaq']
+    
+
 def getTimeDifferences(times):
     diffs = {}
     prev = 0
@@ -199,18 +215,20 @@ def getActualTime(timestamp_nano):
 
 
 if __name__ == '__main__':
+
+    isMarketOpen()
     # Server is on Berlin time, hmmm
     nydiff = 6
     # ticker = 'DLTR'
     tttdate = pd.Timestamp.today()
-    start = pd.Timestamp.today() - pd.Timedelta(hours=3 + nydiff)
+    start = dt2unix(dt.datetime.utcnow() - dt.timedelta(hours=3), 'n')
     # tdate = dt.date(start.year, start.month, start.day)
-    tdate = dt.date(2021, 2, 25)
+    tdate = dt.date(2021, 3, 12)
     print(start)
     # pa.cycleStocksToCurrent(['BNGO'], tdate, 0)
     # pa = PolygonApi(random50(numstocks=5), tdate, filternull=True)
-    pa = PolygonApi(nasdaq100symbols, tdate, filternull=True)
+    # pa = PolygonApi(nasdaq100symbols, tdate, start=start, filternull=True)
     # pa = PolygonApi(["FOX", "ILMN", "ISRG", "JD", "MXIM"], tdate, filternull=True)
-    pa.cycleStocksToCurrent(beginmin=True)
+    # pa.cycleStocksToCurrent()
     # # pa.cycleStocksToCurrent(['FISV'], tdate, start)
     # print()
