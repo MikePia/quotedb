@@ -199,7 +199,8 @@ if __name__ == "__main__":
     # start = dt.datetime.utcnow() - dt.timedelta(days=60)
     start = dt.datetime(2021, 1, 1)
 
-    stocks = nasdaq100symbols
+    # stocks = nasdaq100symbols
+    stocks = ['AAPL', 'SQ']
     startCandles(stocks, start, latest=True)
     x = getCandles(stocks, start, None)
     #########################################

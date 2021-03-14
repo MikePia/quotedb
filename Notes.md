@@ -166,7 +166,7 @@ The trade endpoint gets current data including tim, price, symbol and volume.
         * Set the time to start for current day
         * allow it to gather from the most recent date in the db for the current stock
         * Set the sample rate to aggregate calls (Turning off resampling not enabled but would be simple)
-        * Turn on or off to trim the resampled data in which vol is 0 (recommended to always trim -- or remove resample to get raw trades)
+        * Turn on or off to trim the resampled data in which `volume` is 0 (recommended to always trim -- or remove resample to get raw trades)
 
 
 * ***State of 7 -- Duplicating rows for time gaps***
@@ -212,7 +212,7 @@ The trade endpoint gets current data including tim, price, symbol and volume.
 [ { "time": 1611138660,
     "symbol": "PDD",
     "close": 175.55,
-    "vol": 276,
+    "volume": 276,
     "high": 175.55,
     "low": 175.55,
     "open": 175.55,
@@ -267,3 +267,4 @@ Including this because this data is both historical and real time. Can give it a
 * Broke it, needs fixing
 
 ### sqlite key storage
+

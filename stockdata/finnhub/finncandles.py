@@ -113,7 +113,7 @@ class FinnCandles:
         '''
         total = []
         while True:
-            j = self.getCandles('AAPL', start, end, resolution)
+            j = self.getCandles(symbol, start, end, resolution)
             if not j or j['s'] == 'no_data':
                 break
 
@@ -164,6 +164,6 @@ if __name__ == '__main__':
     ##################################################
     gc = FinnCandles(nasdaq100symbols)
     start = dt.datetime(2021, 1, 1)
-    gc.cycleStockCandles(start)
+    gc.cycleStockCandles(start, latest=True)
 
     print('done')
