@@ -10,6 +10,7 @@ from models.finntickmodel import ManageFinnTick, FinnTickModel
 from models.trademodel import ManageTrade, TradeModel
 from models.polytrademodel import ManagePolyTrade, PolyTradeModel
 
+from stockdata.finnhub.finncandles import FinnCandles
 from stockdata.finnhub.stockquote import StockQuote
 from stockdata.finnhub.trades import MyWebSocket
 from stockdata.polygon.polytrade import PolygonApi
@@ -103,8 +104,8 @@ def getCandles(stocks, start, end, format='json'):
 
 
 def startCandles(stocks, start, latest=False, numcycles=9999999999):
-    sq = StockQuote(stocks, None)
-    sq.cycleStockCandles(start, latest, numcycles)
+    fc = FinnCandles(stocks)
+    fc.cycleStockCandles(start, latest, numcycles)
 
 
 def getTicks(stocks, start, end, api='fh', format='json'):
@@ -193,11 +194,14 @@ if __name__ == "__main__":
     # start = pd.Timestamp("2021-3-11 11:30", tz=tz).tz_convert("UTC").replace(tzinfo=None)
     # end = pd.Timestamp("2021-3-11 12:00", tz=tz).tz_convert("UTC").replace(tzinfo=None)
     ########################################
-    # stocks = nasdaq100symbols
+    stocks = nasdaq100symbols
     # start = dt.datetime.utcnow()
-    # stocks = random50(numstocks=50)
-    # startCandles(stocks, None, latest=True)
-    # x = getCandles(stocks, start, end)
+    # start = dt.datetime.utcnow() - dt.timedelta(days=60)
+    start = dt.datetime(2021, 1, 1)
+
+    stocks = nasdaq100symbols
+    startCandles(stocks, start, latest=True)
+    x = getCandles(stocks, start, None)
     #########################################
     # # x = getTicks(stocks, start, end)
     # # MyWebSocket(stocks)
@@ -226,11 +230,11 @@ if __name__ == "__main__":
     # end = dt2unix(dt.datetime.utcnow(), unit='n')
     # j = getPolyTrade(stocks, start, end)
     ########################################
-    stocks = nasdaq100symbols
-    stocks.append('BINANCE:BTCUSDT')
-    startdelt = dt.timedelta(hours=24)
-    fn = 'thedatafile.json'
-    getCurrentDataFile(stocks, startdelt, fn, format='csv', bringtodate=False)
+    # stocks = nasdaq100symbols
+    # stocks.append('BINANCE:BTCUSDT')
+    # startdelt = dt.timedelta(days=60)
+    # fn = 'thedatafile.json'
+    # getCurrentDataFile(stocks, startdelt, fn, format='csv', bringtodate=True)
 
     ##############################################
     # stocks = nasdaq100symbols

@@ -1,16 +1,12 @@
-import csv
 import logging
 import requests
 import time
 import datetime as dt
-import pandas as pd
 
 from models.finntickmodel import FinnTickModel, ManageFinnTick
-from models.candlesmodel import CandlesModel, ManageCandles
 from models.quotemodel import QuotesModel, ManageQuotes
 from qexceptions.qexception import InvalidServerResponseException
-from stockdata.sp500 import nasdaq100symbols
-from stockdata.dbconnection import getFhToken, getSaConn, getCsvDirectory
+from stockdata.dbconnection import getFhToken, getSaConn
 from utils.util import dt2unix
 
 
@@ -26,7 +22,6 @@ class StockQuote:
     bdate = None
     tickers = []
 
-    manageCandles = None
     __manageQuotes = None
 
     def __init__(self, tickers, dadate, limit=25000):
@@ -102,116 +97,6 @@ class StockQuote:
                 break
             if startnext > curr:
                 time.sleep(startnext-curr)
-
-    def storeCandles(self, ticker, end, resolution, key=None, store=['csv']):
-        '''
-        Query data for candle data for ticker at given start, end and resolution.
-        Store it in csv and/or db
-        :params store: arr containing combination of ['csv', 'db']
-        '''
-        print()
-        print(f'Beginning requests for {ticker}')
-        while True:
-            j = self.getCandles(ticker, self.cycle[ticker], end, resolution, key)
-            if not j or j['s'] == 'no_data':
-                return
-            if 'csv' in store:
-                fn = getCsvDirectory() + f'/{ticker}_{self.cycle[ticker]}_{end}_{resolution}.csv'
-                # If the exact fn exists, the data should be the same
-                with open(fn, 'w', newline='') as csvfile:
-                    csv_writer = csv.writer(csvfile)
-                    # ['ticker', 'close', 'high', 'low', 'open', 'price', 'time', 'volume']
-                    header = ['close', 'high', 'low', 'open', 'time', 'volume']
-                    i = 0
-                    for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v']):
-                        if i == 0:
-                            csv_writer.writerow(header)
-                        csv_writer.writerow([c, h, l, o, t, v])
-                        i += 1
-                    print(f'Wrote {i} records to {fn}')
-            if 'db' in store:
-
-                mc = self.getManageCandles()
-                candles = []
-                if not j or not j['t']:
-                    self.cycle[ticker] = j['t'][-1]+1
-                    break
-                for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v']):
-                    candles.append([c, h, l, o, t, v])
-                CandlesModel.addCandles(ticker, candles, mc.engine)
-            self.cycle[ticker] = j['t'][-1]+1
-
-    def getCandles(self, symbol, start, end, resolution, key=None):
-        '''
-        :symbol: The ticker to get
-        :start: Unixtime. The requested start time for finnhub data.
-        :end: Unixtime. The requested end time for finnhbub data.
-        :interval: The candle interval. Must be one of [1, 5, 15, 30, 60, 'D', 'W', 'M']
-        '''
-        # base = 'https://finnhub.io/api/v1/stock/candle?'
-        retries = 5
-        # sleeptime = 5
-        params = {}
-        params['symbol'] = symbol
-        params['from'] = start
-        params['to'] = end
-        params['resolution'] = resolution
-
-        params['token'] = getFhToken() if key is None else key
-
-        while retries > 0:
-            try:
-                response = requests.get(self.CANDLES, params=params)
-            except Exception as ex:
-                print(ex)
-                retries -= 1
-                j = None
-                continue
-
-            meta = {'code': response.status_code}
-            if response.status_code != 200:
-                logging.error(response.content)
-                print("ERROR", response.content)
-                return None
-            j = response.json()
-
-            meta['message'] = j['s']
-            if 'o' not in j.keys():
-                if retries > 0:
-                    retries = 0
-                    # print(f'Error-- no data for {symbol}. Retrying after a short sleep', symbol)
-                    # print(response.url)
-                    # time.sleep(sleeptime)
-                # retries -= 1
-            else:
-                retries = 0
-        return j
-
-    def getManageCandles(self, reinit=False):
-        if self.manageCandles is None or reinit:
-            self.manageCandles = ManageCandles(getSaConn(), create=True)
-        return self.manageCandles
-
-    def cycleStockCandles(self, start, latest=False, numcycles=999999999):
-        """
-        :params lastst: bool, if True, get the max time from the db for  initial start time
-        :params start: int, unix time. The time to get data from, overridden if latest is True
-        """
-        mc = self.getManageCandles()
-        start = dt2unix(start, unit='s') if start else None
-        end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
-        if latest:
-            startTimes = mc.getMaxTimeForEachTicker(self.tickers)
-        for t in self.cycle:
-            self.cycle[t] = start if not latest else startTimes.get(t, 0)
-        while True:
-            for ticker in self.tickers:
-                self.storeCandles(ticker, end, 1, store=["db"])
-            print(f"===================== Cycled through {len(self.tickers)} stocks")
-            if numcycles == 0:
-                break
-            numcycles -= 1
-            end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
 
     def __getTicks(self, symbol, skip=0):
         """
@@ -370,66 +255,5 @@ class StockQuote:
         return total
 
 
-def runit():
-    start = dt.datetime.now() + dt.deltatime(seconds=90)
-    stop = dt.datetime.now() + dt.deltatime(seconds=190)
-    freq = dt.deltatime(seconde=15)
-
-    sq = StockQuote()
-    sq.getQuotes(start, stop, freq)
-
-
-def nasdaq(start, end, tickers=None):
-    sq = StockQuote()
-    if tickers is None:
-        tickers = nasdaq100symbols[::-1]
-    for ticker in tickers:
-        sq.storeCandles(ticker, end, 1, store=['db'])
-
-
-def devexamp(symbol, start, end):
-    sq = StockQuote()
-    sq.storeCandles(symbol, end, 1, store=['db'])
-
-
-def dotick():
-    begtime = dt.datetime(2021, 3, 5)
-    sq = StockQuote(sorted(nasdaq100symbols)[50:], begtime, limit=25000)
-    # sq = StockQuote(random50(numstocks=5), begtime)
-    # sq = StockQuote(['AAPL', 'TSLA'], begtime, limit=25000)
-
-    # print(sq._StockQuote__getTicks("SQ", begtime))
-    delt = pd.Timedelta(hours=2)
-    # sq._StockQuote__getTicksOnDay('SQ', startat=delt)
-    sq.cycleStockTicks(startat=delt)
-
-
-def sqstuff():
-    stocks = nasdaq100symbols
-    sq = StockQuote(stocks, None)
-    # print(sq.getQuote("ROKU"))
-    s = pd.Timestamp("2021-3-8 15:30", tz="US/Eastern").tz_convert("UTC")
-    start = dt.datetime(s.year, s.month, s.day, s.hour, s.minute)
-
-    sq.cycleStockCandles(start)
-
-
-def exampleCycleQuote():
-    stocks = ['ADP', 'GOOGL', 'TSLA', 'BKNG', 'TMUS', 'PTON', 'AMZN', 'PEP', 'FAST', 'IDXX']
-    # sq = StockQuote(random50(numstocks=10), None)
-    sq = StockQuote(stocks, None)
-
-    # start = pd.Timestamp("2011-3-11 12:0:0", tz='US/Eastern').tz_convert('UTC').replace(tzinfo=None)
-    start = dt.datetime.utcnow()
-    stop = dt.datetime.utcnow() + dt.timedelta(seconds=180)
-    freq = 20
-    sq.cycleQuotes(start, stop, freq, store=True)
-
-
 if __name__ == '__main__':
-    # dotick()
-    # sqstuff()
-
-    exampleCycleQuote()
-
     print('done')
