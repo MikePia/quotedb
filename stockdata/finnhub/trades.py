@@ -50,7 +50,7 @@ class MyWebSocket():
                     for t in [('v', 'volume'), ('t', 'time'), ('p', 'price'), ('s', 'symbol')]:
                         newtrade[t[1]] = trade[t[0]]
                     saveme.append(newtrade)
-                        
+
                 assert self.fn is not None
                 with open(self.fn, 'a') as f:
                     f.write(json.dumps(saveme))
@@ -90,7 +90,6 @@ if __name__ == "__main__":
     mws = MyWebSocket(stocks)
     print('did it wait?')
     # ws = websocket.WebSocketApp(f"wss://
-
 
     # mws = MyWebSocket(['AAPL', 'AMZN', 'ROKU', 'GME', 'TSLA', 'BB', 'SQ', 'MU', 'BINANCE:BTCUSDT'])
     print('did it wait?')

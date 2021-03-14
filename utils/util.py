@@ -27,7 +27,7 @@ def unix2date(u, unit='s'):
     if unit == 'n':
         u = u/1000000000
     elif unit == 'm':
-        u = u /1000
+        u = u / 1000
     return EPOC + dt.timedelta(seconds=u)
 
 
