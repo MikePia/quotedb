@@ -187,6 +187,21 @@ def startGetQuotes(stocks, start, stop, freq):
     sq.cycleQuotes(start, stop, freq, store=True)
 
 
+def getGainersLosers(tickers, start):
+    """
+    Explanaition
+    ------------
+    Filter the stocks in {tickers} for the largest price difference since the time {start}
+    Parameters
+    __________
+    :params tickers: List<str>
+    :params start: int: Unix time in seconds
+    :return: (list<list>, list<list>): (gainers, losers): Each sub list is [symbol, pricediff, percentagediff, firstprice, lastprice]
+    """
+    mc = ManageCandles(getSaConn())
+    return mc.filterGanersLosers(tickers, start, 10)
+
+
 if __name__ == "__main__":
     # stocks = ["PDD", "ROKU", "ROST", "SBUX", "SIRI", "SWKS", "TCOM", "TXN", "VRSK", "VRSN", "VRTX", "WBA", "WDAY", "XEL", "XLNX", "ZM", ]
     # stocks = ['AAPL', 'AMZN', 'ROKU', 'GME', 'TSLA', 'BB', 'SQ', 'MU', 'BINANCE:BTCUSDT']
@@ -194,15 +209,15 @@ if __name__ == "__main__":
     # start = pd.Timestamp("2021-3-11 11:30", tz=tz).tz_convert("UTC").replace(tzinfo=None)
     # end = pd.Timestamp("2021-3-11 12:00", tz=tz).tz_convert("UTC").replace(tzinfo=None)
     ########################################
-    stocks = nasdaq100symbols
-    # start = dt.datetime.utcnow()
-    # start = dt.datetime.utcnow() - dt.timedelta(days=60)
-    start = dt.datetime(2021, 1, 1)
+    # stocks = nasdaq100symbols
+    # # start = dt.datetime.utcnow()
+    # # start = dt.datetime.utcnow() - dt.timedelta(days=60)
+    # start = dt.datetime(2021, 1, 1)
 
     # stocks = nasdaq100symbols
-    stocks = ['AAPL', 'SQ']
-    startCandles(stocks, start, latest=True)
-    x = getCandles(stocks, start, None)
+    # # stocks = ['AAPL', 'SQ']
+    # startCandles(stocks, start, latest=True)
+    # x = getCandles(stocks, start, None)
     #########################################
     # # x = getTicks(stocks, start, end)
     # # MyWebSocket(stocks)
@@ -242,3 +257,12 @@ if __name__ == "__main__":
     # # enable woking in off hours with some data from finnhub
     # stocks.append('BINANCE:BTCUSDT')
     # startTickWS(stocks, store=['json'], fn=f'{getCsvDirectory()}/ws_json.json')
+    ##############################################
+    import pandas as pd
+    from pprint import pprint
+    start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    stocks = nasdaq100symbols
+    gainers, losers = getGainersLosers(stocks, start)
+    pprint(gainers)
+    print()
+    pprint(losers)

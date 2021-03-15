@@ -13,7 +13,7 @@ from sqlalchemy.sql import text
 
 from stockdata.dbconnection import getSaConn, getCsvDirectory
 from stockdata.polygon.polytrade import isMarketOpen
-from utils.util import unix2date, resample
+from utils.util import dt2unix, unix2date, resample
 from stockdata.sp500 import nasdaq100symbols
 
 
@@ -63,6 +63,9 @@ class CandlesModel(Base):
 
     @classmethod
     def getTimeRangeMultiple(cls, symbols, start, end, session):
+        """
+        Query candles for all stocks that have times between start and end
+        """
         s = session
 
         q = s.query(CandlesModel).filter(
@@ -307,6 +310,39 @@ class ManageCandles:
                 maxdict[tick] = t
         return maxdict
 
+    def filterGanersLosers(self, tickers, start, numstocks):
+        """
+        Explanation
+        -----------
+        filter the stocks in tickers to include the numstocks fastest gainers and losers
+        Will return two arrays, one for gainers, one for losers each of length numstocks
+        """
+        # end is just some time in the future
+        end = dt2unix(dt.datetime.utcnow() + dt.timedelta(hours=5))
+        stocks = CandlesModel.getTimeRangeMultipleVpts(tickers, start, end, self.session)
+        df = pd.DataFrame(stocks)
+        gainers = []
+        losers = []
+        for tick in df.symbol.unique():
+            t = df[df.symbol == tick]
+            t.sort_values(['time'], inplace=True)
+
+            firstprice, lastprice = t.iloc[0].price, t.iloc[-1].price
+            pricediff = firstprice - lastprice
+            percentage = abs(pricediff / firstprice)
+            if pricediff >= 0:
+                gainers.append([tick, pricediff, percentage, firstprice, lastprice])
+            else:
+                losers.append([tick, pricediff, percentage, firstprice, lastprice])
+
+        gainers.sort(key=lambda x: x[2], reverse=True)
+        losers.sort(key=lambda x: x[2], reverse=True)
+        gainers = gainers[:10]
+        losers = losers[:10]
+        gainers.insert(0, ['symbol', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
+        losers.insert(0, ['symbol', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
+        return gainers, losers
+
 
 def getRange():
     d1 = dt.date(2021, 2, 23)
@@ -320,30 +356,22 @@ def getRange():
 if __name__ == '__main__':
     # getRange()
     # mc = ManageCandles(getSaConn(), True)
-    mc = ManageCandles(getSaConn())
-    CandlesModel.printLatestTimes(nasdaq100symbols, mc.session)
+    # mc = ManageCandles(getSaConn())
+    # CandlesModel.printLatestTimes(nasdaq100symbols, mc.session)
     # mc.getLargestTimeGap('ZM')
     # mc.chooseFromReport(getCsvDirectory() + '/report.csv')
     # tickers = ['TXN', 'SNPS', 'SPLK', 'PTON', 'CMCSA', 'GOOGL']
     # mc.reportShape(tickers=mc.getQ100_Sp500())
 
     # #################################################################
-    # #  Create a classa or method to house jsoninfy Sqlalchemy results
-    # import json
-    # # from stockdata.dbconnection import getCsvDirectory
-    # print(getSaConn())
-    # mk = ManageCandles(getSaConn(), True)
-    # start = dt.datetime(2021, 1, 20, 10, 30, 0)
-    # end = dt.datetime(2021, 1, 20, 16, 30, 0)
-    # x = CandlesModel.getTimeRange('ROKU', dt2unix(start), dt2unix(end), mk.engine)
-    # xlist = [z.__dict__ for z in x]
-    # for xd in xlist:
-    #     del xd['_sa_instance_state']
-
-    # j = json.dumps(xlist)
-    # fn = getCsvDirectory() + f'file.json'
-    # with open(fn, 'w', newline='') as f:
-    #     f.write(j)
-
-    # # print()
-    # # print()
+    from pprint import pprint
+    mc = ManageCandles(getSaConn())
+    start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    print(pd.Timestamp(start, unit='s'))
+    # stocks = ['AAPL', 'SQ']
+    stocks = nasdaq100symbols
+    gainers, losers = mc.filterGanersLosers(stocks, start, 10)
+    print('gainers')
+    pprint([x[2] for x in gainers])
+    print('\nlosers')
+    pprint([x[2] for x in losers])
