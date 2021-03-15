@@ -22,7 +22,7 @@ from stockdata.finnhub.finncandles import FinnCandles
 from stockdata.finnhub.stockquote import StockQuote
 from stockdata.finnhub.trades import MyWebSocket
 from stockdata.polygon.polytrade import PolygonApi
-from stockdata.sp500 import nasdaq100symbols
+from stockdata.sp500 import nasdaq100symbols, getQ100_Sp500
 
 
 def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtodate=False):
@@ -45,11 +45,6 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
     :params format: str: json or csv
     :params bringtodate : bool: If True, override startdelt and begin each stock from it's latest entry if ther is one
     """
-    if bringtodate:
-        # Note I think in production, a seperate running program will be updataing
-        # this continuously
-        startCandles(stocks, None, latest=True, numcycles=0)
-
     # Allow startdelt to be timedelta, datetime or unix time (int)
     start = None
     if isinstance(startdelt, dt.timedelta):
@@ -58,6 +53,12 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
         start = dt2unix(startdelt, unit='s')
     elif isinstance(startdelt, int):
         start = startdelt
+
+    if bringtodate:
+        # Note I think in production, a seperate running program will be updataing
+        # this continuously
+        startCandles(stocks, start, latest=True, numcycles=0)
+
 
     end = dt2unix(dt.datetime.utcnow(), unit='s')
     j = getCandles(stocks, start, end, format=format)
@@ -278,11 +279,12 @@ if __name__ == "__main__":
     # j = getPolyTrade(stocks, start, end)
     ########################################
     import pandas as pd
-    stocks = nasdaq100symbols
+    # stocks = nasdaq100symbols
+    stocks = getQ100_Sp500()
     # Give the websocket after hours data for dev
     # stocks.append('BINANCE:BTCUSDT')
-    # startdelt = dt.timedelta(minutes=30)
-    startdelt = dt.datetime(2021, 1, 1)
+    startdelt = dt.timedelta(days=75)
+    # startdelt = dt.datetime(2021, 1, 1)
     fn = 'thedatafile.json'
     gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     numrec = 10

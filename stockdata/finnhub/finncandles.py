@@ -7,8 +7,7 @@ import pandas as pd
 from models.candlesmodel import CandlesModel, ManageCandles
 from stockdata.sp500 import nasdaq100symbols
 from stockdata.dbconnection import getFhToken, getSaConn, getCsvDirectory
-from utils.util import dt2unix
-
+from utils.util import dt2unix, unix2date
 
 class FinnCandles:
 
@@ -118,7 +117,7 @@ class FinnCandles:
                 break
 
             end = j['t'][0] - 1
-            print(len(j['t']))
+            print(len(j['t']), unix2date(end))
             j = [[c, h, l, o, t, v] for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v'])]
 
             total.extend(j)
@@ -131,11 +130,22 @@ class FinnCandles:
 
     def cycleStockCandles(self, start, latest=False, numcycles=999999999):
         """
-        :params lastst: bool, if True, get the max time from the db for  initial start time
-        :params start: int, unix time. The time to get data from, overridden if latest is True
+        Explanation
+        ___________
+        Retrieve candles for self.tickers repeatedly. The result will be to bring the database up to date
+        then continue to keep it current. Set numcycles to 0 or 1 to just bring it up to date and quit
+
+        Parameters
+        _________
+        :params start: int: unix time. 
+            The time to get data from, overridden if latest is True and the max time is greater than start
+        :params latest: bool: 
+            True, get the max time from the db for  initial start time
+        :params numcycles: int
+            Use this to truncate the loop. 
         """
         mc = self.getManageCandles()
-        start = dt2unix(start, unit='s') if start else 0
+        # start = dt2unix(start, unit='s') if start else 0
         end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
         if latest:
             startTimes = mc.getMaxTimeForEachTicker(self.tickers)
@@ -163,7 +173,7 @@ if __name__ == '__main__':
     # fc.getDateRange(ticker, start, end)
     ##################################################
     gc = FinnCandles(nasdaq100symbols)
-    start = dt.datetime(2021, 1, 1)
+    start = dt2unix(dt.datetime(2021, 1, 1), unit='s')
     gc.cycleStockCandles(start, latest=True)
 
     print('done')
