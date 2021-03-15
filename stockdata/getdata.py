@@ -8,21 +8,21 @@ import datetime as dt
 import json
 import logging
 import os.path
+import threading
 import time
 
-from stockdata.dbconnection import getSaConn, getCsvDirectory
-
-from models.candlesmodel import ManageCandles, CandlesModel
-from models.finntickmodel import ManageFinnTick, FinnTickModel
-from models.trademodel import ManageTrade, TradeModel
+from models.candlesmodel import CandlesModel, ManageCandles
+from models.finntickmodel import FinnTickModel, ManageFinnTick
 from models.polytrademodel import ManagePolyTrade, PolyTradeModel
+from models.trademodel import ManageTrade, TradeModel
+from utils.util import dt2unix
 
+from stockdata.dbconnection import getCsvDirectory, getSaConn
 from stockdata.finnhub.finncandles import FinnCandles
 from stockdata.finnhub.stockquote import StockQuote
 from stockdata.finnhub.trades import MyWebSocket
 from stockdata.polygon.polytrade import PolygonApi
 from stockdata.sp500 import nasdaq100symbols
-from utils.util import dt2unix
 
 
 def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtodate=False):
@@ -76,7 +76,7 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
                 writer.writerow(row)
     while True:
         cur = time.time()
-        fstocks = filterStocks(stocks, {'pricediff': start_gl})
+        fstocks = filterStocks(stocks, {'pricediff': start_gl})  #  TODO figure how to speed this call up. Thread? Stored procedure?
         fstocks[0].extend(fstocks[1])
         startTickWS([x[0] for x in fstocks[0]][1:], store=[format], fn=fn)
         print('Going to have to fire off a thread because  we are never going to get here ..................')
@@ -155,8 +155,8 @@ def getTicks(stocks, start, end, api='fh', format='json'):
     return j
 
 
-def startTickWS(stocks, store=['db'], fn=None):
-    MyWebSocket(stocks, store=store, fn=fn)
+def startTickWS(stocks, fn='datafile', store=['csv']):
+    MyWebSocket(stocks, fn, store=store)
 
 
 def getTicksREST(stocks, start, end):
@@ -280,10 +280,10 @@ if __name__ == "__main__":
     import pandas as pd
     stocks = nasdaq100symbols
     # Give the websocket after hours data for dev
-    stocks.append('BINANCE:BTCUSDT')
-    startdelt = dt.timedelta(days=60)
+    # stocks.append('BINANCE:BTCUSDT')
+    startdelt = dt.timedelta(minutes=30)
     fn = 'thedatafile.json'
-    gltime = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    gltime = dt2unix(pd.Timestamp(2021,  3, 14, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     numrec = 10
     getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='csv', bringtodate=True)
 

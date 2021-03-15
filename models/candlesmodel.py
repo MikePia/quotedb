@@ -39,6 +39,8 @@ class CandlesModel(Base):
         '''
         s = Session(bind=engine)
         arr = CandlesModel.cleanDuplicatesFromResults(symbol, arr, engine)
+        if len(arr) == 0:
+            return
         for i, t in enumerate(arr, start=1):
             s.add(CandlesModel(
                   symbol=symbol,

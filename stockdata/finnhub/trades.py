@@ -45,15 +45,15 @@ class MyWebSocket():
         if j['type'] == 'trade':
             if 'csv' in self.store:
                 trades = [[t['s'], t['p'], t['t'], t['v']] for t in j['data']]
-                with open(fn, 'a', newline='') as f:
+                with open(self.fn, 'a', newline='') as f:
                     csvwriter = csv.writer(f)
                     for trade in trades:
                         csvwriter.writerow(trade)
-                pprint(f'Wrote {len(trades)} trades to {fn}')
+                pprint(f'Wrote {len(trades)} trades to {self.fn}')
             elif 'json' in self.store:
                 with open(self.fn, 'a') as f:
                     f.write(json.dumps(j))
-                    print(f'Wrote {len(j["data"])} trades to file {fn}')
+                    print(f'Wrote {len(j["data"])} trades to file {self.fn}')
             if 'db' in self.store:
                 TradeModel.addTrades(j['data'], self.mt.engine)
 
