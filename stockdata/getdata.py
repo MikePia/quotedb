@@ -281,9 +281,10 @@ if __name__ == "__main__":
     stocks = nasdaq100symbols
     # Give the websocket after hours data for dev
     # stocks.append('BINANCE:BTCUSDT')
-    startdelt = dt.timedelta(minutes=30)
+    # startdelt = dt.timedelta(minutes=30)
+    startdelt = dt.datetime(2021, 1, 1)
     fn = 'thedatafile.json'
-    gltime = dt2unix(pd.Timestamp(2021,  3, 14, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     numrec = 10
     getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='csv', bringtodate=True)
 
