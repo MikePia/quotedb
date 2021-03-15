@@ -1,7 +1,14 @@
+"""
+This is a module of APIs. All the objects are functions that instantiate the classes
+that do the work. These functions will be the published API for the client to use.
+"""
+
 import csv
 import datetime as dt
 import json
+import logging
 import os.path
+import time
 
 from stockdata.dbconnection import getSaConn, getCsvDirectory
 
@@ -18,7 +25,7 @@ from stockdata.sp500 import nasdaq100symbols
 from utils.util import dt2unix
 
 
-def getCurrentDataFile(stocks, startdelt, fn, format='json', bringtodate=False):
+def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtodate=False):
     """
     Explanation
     -----------
@@ -28,9 +35,13 @@ def getCurrentDataFile(stocks, startdelt, fn, format='json', bringtodate=False):
     ----------
     :params stocks: list<str>: List of stocks
     :params startdelt : [dt.timedelt, dt.datetime, int]:
-        A time value to indicate the beginning pont. A delta indicates time before now, A datetime or unix int
-        indicate precise UTC time
+        A time value to indicate the beginning point. A delta indicates time before now, A datetime or unix int
+        indicates a starttime (UTC)
     :params fn: str: File name. Directory ocation is is defined internally (getCsvLocataion()). Timestamp will be added to name
+    :params start_gl: tuple(int, int): (Unix time, numberStocks)
+        Define the gainers/losers filter for example (1609459200, 10) means to get the top 10 gainers and losers
+        since the time 1609459200 (2021/01/01 utc). The result will only be accurate only if the db already contains
+        the data.
     :params format: str: json or csv
     :params bringtodate : bool: If True, override startdelt and begin each stock from it's latest entry if ther is one
     """
@@ -59,22 +70,41 @@ def getCurrentDataFile(stocks, startdelt, fn, format='json', bringtodate=False):
         with open(fn, 'w') as f:
             f.write(j)
     elif format == 'csv':
-        with open(fn, 'w') as f:
+        with open(fn, 'w', newline='') as f:
             writer = csv.writer(f)
             for row in j:
                 writer.writerow(row)
-
-    stocks = filterStocks(stocks)
-    startTickWS(stocks, store=[format], fn=fn)
+    while True:
+        cur = time.time()
+        fstocks = filterStocks(stocks, {'pricediff': start_gl})
+        fstocks[0].extend(fstocks[1])
+        startTickWS([x[0] for x in fstocks[0]][1:], store=[format], fn=fn)
+        print('Going to have to fire off a thread because  we are never going to get here ..................')
+        later = time.time()
+        if (later - cur) > 180:
+            print('sleepeing for ', later-cur, 'seconds')
+            time.sleep(later-cur)
 
     print(len(j))
     print()
 
 
-def filterStocks(stocks, filter={'pricedif': 0}):
+def filterStocks(stocks, filter):
     '''
-    Place holder
+    Explanation
+    -----------
+    provide filters for the stocks
+
+    Paramaters
+    ----------
+    :params stocks: A super set of stocks.
+    :params filter: dict
+        pricediff filter
     '''
+    if filter.get('pricediff'):
+        gainers, losers = getGainersLosers(stocks, filter['pricediff'][0], filter['pricediff'][1])
+        return gainers, losers
+    logging.info('No filters were applied')
     return stocks
 
 
@@ -187,7 +217,7 @@ def startGetQuotes(stocks, start, stop, freq):
     sq.cycleQuotes(start, stop, freq, store=True)
 
 
-def getGainersLosers(tickers, start):
+def getGainersLosers(tickers, start, numstocks):
     """
     Explanaition
     ------------
@@ -196,10 +226,11 @@ def getGainersLosers(tickers, start):
     __________
     :params tickers: List<str>
     :params start: int: Unix time in seconds
+    :params numstocks: The number of stocks to include in gainers and losers
     :return: (list<list>, list<list>): (gainers, losers): Each sub list is [symbol, pricediff, percentagediff, firstprice, lastprice]
     """
     mc = ManageCandles(getSaConn())
-    return mc.filterGanersLosers(tickers, start, 10)
+    return mc.filterGanersLosers(tickers, start, numstocks)
 
 
 if __name__ == "__main__":
@@ -246,11 +277,15 @@ if __name__ == "__main__":
     # end = dt2unix(dt.datetime.utcnow(), unit='n')
     # j = getPolyTrade(stocks, start, end)
     ########################################
-    # stocks = nasdaq100symbols
-    # stocks.append('BINANCE:BTCUSDT')
-    # startdelt = dt.timedelta(days=60)
-    # fn = 'thedatafile.json'
-    # getCurrentDataFile(stocks, startdelt, fn, format='csv', bringtodate=True)
+    import pandas as pd
+    stocks = nasdaq100symbols
+    # Give the websocket after hours data for dev
+    stocks.append('BINANCE:BTCUSDT')
+    startdelt = dt.timedelta(days=60)
+    fn = 'thedatafile.json'
+    gltime = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    numrec = 10
+    getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='csv', bringtodate=False)
 
     ##############################################
     # stocks = nasdaq100symbols
@@ -258,11 +293,11 @@ if __name__ == "__main__":
     # stocks.append('BINANCE:BTCUSDT')
     # startTickWS(stocks, store=['json'], fn=f'{getCsvDirectory()}/ws_json.json')
     ##############################################
-    import pandas as pd
-    from pprint import pprint
-    start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    stocks = nasdaq100symbols
-    gainers, losers = getGainersLosers(stocks, start)
-    pprint(gainers)
-    print()
-    pprint(losers)
+    # import pandas as pd
+    # from pprint import pprint
+    # start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    # stocks = nasdaq100symbols
+    # gainers, losers = getGainersLosers(stocks, start)
+    # pprint(gainers)
+    # print()
+    # pprint(losers)
