@@ -285,7 +285,7 @@ if __name__ == "__main__":
     fn = 'thedatafile.json'
     gltime = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     numrec = 10
-    getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='csv', bringtodate=False)
+    getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='csv', bringtodate=True)
 
     ##############################################
     # stocks = nasdaq100symbols

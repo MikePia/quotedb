@@ -1,62 +1,64 @@
-# https://pypi.org/project/websocket_client/
-# https://github.com/websocket-client/websocket-client/issues/469
-
+import csv
 import json
-import logging
 import websocket
-from stockdata.dbconnection import getFhToken, getSaConn
-from stockdata.sp500 import random50, nasdaq100symbols
-from models.trademodel import TradeModel, ManageTrade
-# from threading import Thread
+from models.trademodel import ManageTrade, TradeModel
+from stockdata.sp500 import nasdaq100symbols
+from stockdata.dbconnection import getFhToken, getCsvDirectory, getSaConn
+from pprint import pprint
 
 
 class MyWebSocket():
-    counter = 0
-    bulk = []
-    NUMREC = 1
+    """
+    Explanation
+    -----------
+    Connect to the finnhub websocket trade endpoint. Everything is activated when MyWebSocket
+    is created. All the other calls are callbacks and are called by the websocket
 
-    def __init__(self, arr, url=f"wss://ws.finnhub.io?token={getFhToken()}", store=['db'], fn=None):
-        print('Creating websocket...')
-        self.arr = arr
-        self.store = store
+    Parameters
+    _________
+    :params tickers: list: Stocks to subscribe to.
+    :params fn: str: Filename to save data if either csv or json are in store
+    :params store: list:  May include [csv, json, db]
+        Either csv or json can be written to but not both. csv is default. If db is included,
+        data will be written to the database.
+    """
+
+    def __init__(self, tickers, fn, store=['csv']):
+        self.tickers = tickers
         self.fn = fn
-        self.mt = ManageTrade(getSaConn())
-        self.ws = websocket.WebSocketApp(f"wss://ws.finnhub.io?token={getFhToken()}",
+        self.store = store
+        websocket.enableTrace(True)
+        if 'db' in store:
+            self.mt = ManageTrade(getSaConn())
+        url = f"wss://ws.finnhub.io?token={getFhToken()}"
+        self.ws = websocket.WebSocketApp(url,
+                                         on_open=self.on_open,
                                          on_message=self.on_message,
                                          on_error=self.on_error,
                                          on_close=self.on_close)
-        self.ws.on_open = self.on_open
 
         self.ws.run_forever()
 
     def on_message(self, message):
-        # print('==========================================================================')
+        # print(message)
         j = json.loads(message)
-        if j['type'] != 'trade':
-            print(j['type'])
-            logging.info("Retrieved something non-standard frm trades endpoint:")
-            logging.info(j)
-        else:
-            self.bulk.extend(j['data'])
-            self.counter += 1
-        if self.counter >= self.NUMREC:
-            if 'db' in self.store:
-                self.counter = 0
-                TradeModel.addTrades(self.bulk, self.mt.engine)
-            if 'json' in self.store:
-                saveme = []
-                for trade in self.bulk:
-                    newtrade = {}
-                    for t in [('v', 'volume'), ('t', 'time'), ('p', 'price'), ('s', 'symbol')]:
-                        newtrade[t[1]] = trade[t[0]]
-                    saveme.append(newtrade)
-
-                assert self.fn is not None
+        if j['type'] == 'trade':
+            if 'csv' in self.store:
+                trades = [[t['s'], t['p'], t['t'], t['v']] for t in j['data']]
+                with open(fn, 'a', newline='') as f:
+                    csvwriter = csv.writer(f)
+                    for trade in trades:
+                        csvwriter.writerow(trade)
+                pprint(f'Wrote {len(trades)} trades to {fn}')
+            elif 'json' in self.store:
                 with open(self.fn, 'a') as f:
-                    f.write(json.dumps(saveme))
-                    print(f'wrote {len(saveme)} records to {self.fn}')
+                    f.write(json.dumps(j))
+                    print(f'Wrote {len(j["data"])} trades to file {fn}')
+            if 'db' in self.store:
+                TradeModel.addTrades(j['data'], self.mt.engine)
 
-            self.bulk = []
+        else:
+            print(message)
 
     def on_error(self, error):
         print(error)
@@ -65,37 +67,13 @@ class MyWebSocket():
         print("### closed ###")
 
     def on_open(self):
-        for ticker in self.arr:
+        for ticker in self.tickers:
             msg = f'{{"type":"subscribe","symbol":"{ticker}"}}'
             self.ws.send(msg)
-        # XX = '{"type":"subscribe","symbol":"AAPL"}'
-
-        # msg2 = '{"type":"subscribe","symbol":"AMZN"}'
-        # msg3 = '{"type":"subscribe","symbol":"BINANCE:BTCUSDT"}'
-        # msg4 = '{"type":"subscribe","symbol":"IC MARKETS:1"}'
-        # self.ws.send(msg2)
-        # self.ws.send(msg3)
-        # self.ws.send(msg4)
-        # for ticker in arr:
-        #     self.ws.send(f'{{"type":"subscribe","symbol":"{ticker}"}}')
 
 
 if __name__ == "__main__":
-    websocket.enableTrace(True)
-    # Note: to get results on off hours using bit coin
-    # stocks = ['AAPL', 'AMZN', 'ROKU', 'GME', 'TSLA', 'BB', 'SQ', 'MU', 'BINANCE:BTCUSDT']
-    stocks = random50(numstocks=25)
     stocks = nasdaq100symbols
-    stocks.append('BINANCE:BTCUSDT')
-    mws = MyWebSocket(stocks)
-    print('did it wait?')
-    # ws = websocket.WebSocketApp(f"wss://
-
-    # mws = MyWebSocket(['AAPL', 'AMZN', 'ROKU', 'GME', 'TSLA', 'BB', 'SQ', 'MU', 'BINANCE:BTCUSDT'])
-    print('did it wait?')
-    # ws = websocket.WebSocketApp(f"wss://ws.finnhub.io?token={getFhToken()}",
-    #                             on_message = on_message,
-    #                             on_error = on_error,
-    #                             on_close = on_close)
-    # ws.on_open = on_open
-    # ws.run_forever()
+    fn = getCsvDirectory() + "/testfile.json"
+    mws = MyWebSocket(stocks, fn, store=['db'])
+    print('done')

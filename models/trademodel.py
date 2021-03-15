@@ -4,7 +4,6 @@ to the mysql db
 """
 import csv
 import datetime as dt
-import pandas as pd
 
 from sqlalchemy import create_engine, Column, String, Integer, Float, distinct
 from sqlalchemy.ext.declarative import declarative_base
@@ -41,12 +40,13 @@ class TradeModel(Base):
         s = Session(bind=engine)
         # arr = TradesModel.cleanDuplicatesFromResults(symbol, arr, engine)
         for i, t in enumerate(arr, 1):
+            condition = ','.join([str(x) for x in t['c']]) if t['c'] else ''
             s.add(TradeModel(
                   symbol=t['s'],
                   price=t['p'],
                   time=t['t'],
                   volume=t['v'],
-                  condition=t['c']))
+                  condition=condition))
             if not i % 50:
                 s.commit()
                 print(f'commited {i} records to trade table')
