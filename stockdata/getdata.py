@@ -20,7 +20,7 @@ from utils.util import dt2unix
 from stockdata.dbconnection import getCsvDirectory, getSaConn
 from stockdata.finnhub.finncandles import FinnCandles
 from stockdata.finnhub.stockquote import StockQuote
-from stockdata.finnhub.finntrade_ws_testing import MyWebSocket
+from stockdata.finnhub.finntrade_ws import MyWebSocket
 from stockdata.polygon.polytrade import PolygonApi
 from stockdata.sp500 import nasdaq100symbols, getQ100_Sp500
 

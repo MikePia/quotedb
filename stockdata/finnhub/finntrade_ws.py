@@ -1,13 +1,15 @@
 import csv
 import json
+import sys
+import time
+import threading
 import websocket
 from models.trademodel import ManageTrade, TradeModel
-from stockdata.sp500 import nasdaq100symbols
+from stockdata.sp500 import random50
 from stockdata.dbconnection import getFhToken, getCsvDirectory, getSaConn
-from pprint import pprint
 
 
-class MyWebSocket():
+class MyWebSocket(threading.Thread):
     """
     Explanation
     -----------
@@ -24,11 +26,15 @@ class MyWebSocket():
     """
 
     def __init__(self, tickers, fn, store=['csv']):
+        threading.Thread.__init__(MyWebSocket)
         self.tickers = tickers
         self.fn = fn
         self.store = store
+        self.daemon = True
+
+    def run(self):
         websocket.enableTrace(True)
-        if 'db' in store:
+        if 'db' in self.store:
             self.mt = ManageTrade(getSaConn())
         url = f"wss://ws.finnhub.io?token={getFhToken()}"
         self.ws = websocket.WebSocketApp(url,
@@ -49,11 +55,16 @@ class MyWebSocket():
                     csvwriter = csv.writer(f)
                     for trade in trades:
                         csvwriter.writerow(trade)
-                pprint(f'Wrote {len(trades)} trades to {self.fn}')
+                # Oversharaing
+                # print(f'Added {sum([x[3] for x in trades])} shares in', {x[0] for x in trades})
+                print('.', end='')
+                # pprint(f'Wrote {len(trades)} trades to {self.fn}')
+                # print('.', end='')
             elif 'json' in self.store:
                 with open(self.fn, 'a') as f:
                     f.write(json.dumps(j))
-                    print(f'Wrote {len(j["data"])} trades to file {self.fn}')
+                    # print(f'Wrote {len(j["data"])} trades to file {self.fn}')
+                    print('.', end='')
             if 'db' in self.store:
                 TradeModel.addTrades(j['data'], self.mt.engine)
 
@@ -74,7 +85,23 @@ class MyWebSocket():
     def unsubscribe(self, removit):
         for ticker in removit:
             msg = f'{{"type":"unsubscribe","symbol":"{ticker}"}}'
+            self.ws.send(msg)
 
+    def subscribe(self, addit):
+        for ticker in addit:
+            msg = f'{{"type":"subscribe","symbol":"{ticker}"}}'
+            self.ws.send(msg)
+
+    def changesubscription(self, newstocks, newfn=None):
+        if newfn:
+            self.fn = newfn
+        unsubscribe = set(self.tickers) - set(newstocks)
+        subscribe = set(newstocks) - set(self.tickers)
+        if unsubscribe:
+            self.unsubscribe(unsubscribe)
+        if subscribe:
+            self.subscribe(subscribe)
+        self.tickers = newstocks
 
 
 if __name__ == "__main__":
@@ -83,17 +110,22 @@ if __name__ == "__main__":
     # fn = getCsvDirectory() + "/testfile.json"
     # mws = MyWebSocket(stocks, fn, store=['db'])
     #############################################
-    # import threading
-    # from stockdata.sp500 import random50
-    import time
-    # group1 = random50()
-    # group2 = random50()
-    stocks = ['AAPL', 'SQ', 'ROKU', 'TSLA', 'BINANCE:BTCUSDT']
+    
+    group1 = random50()
+    group2 = random50()
+    # stocks = ['SILLY',  'AAPL', 'SQ', 'ROKU', 'TSLA', 'BINANCE:BTCUSDT']
     fn = getCsvDirectory() + "/testfile.csv"
-    mws = MyWebSocket(stocks, fn, ['csv'])
-    # set(group1).difference(group2)
-    # set(group1).intersection(group2)
-    time.sleep(50)
-    mws.unsubscribe(['BINANCE:BTCUSDT'])
+    mws = MyWebSocket(group1, fn, ['csv'])
+    mws.start()
+    print('\n============================= SLEEP =============================\n')
+    time.sleep(10)
+    print('\n=============================================================')
+    print('=============================================================')
+    print('=============================================================')
+    print('=============================================================')
+    mws.changesubscription(group2, newfn=getCsvDirectory() + '/newtestfile.csv')
+    time.sleep(10)
+    print('about to quit')
+    sys.exit()
 
     print('done')
