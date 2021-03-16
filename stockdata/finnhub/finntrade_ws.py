@@ -71,9 +71,29 @@ class MyWebSocket():
             msg = f'{{"type":"subscribe","symbol":"{ticker}"}}'
             self.ws.send(msg)
 
+    def unsubscribe(self, removit):
+        for ticker in removit:
+            msg = f'{{"type":"unsubscribe","symbol":"{ticker}"}}'
+
+
 
 if __name__ == "__main__":
-    stocks = nasdaq100symbols
-    fn = getCsvDirectory() + "/testfile.json"
-    mws = MyWebSocket(stocks, fn, store=['db'])
+    ###########################################
+    # stocks = nasdaq100symbols
+    # fn = getCsvDirectory() + "/testfile.json"
+    # mws = MyWebSocket(stocks, fn, store=['db'])
+    #############################################
+    # import threading
+    # from stockdata.sp500 import random50
+    import time
+    # group1 = random50()
+    # group2 = random50()
+    stocks = ['AAPL', 'SQ', 'ROKU', 'TSLA', 'BINANCE:BTCUSDT']
+    fn = getCsvDirectory() + "/testfile.csv"
+    mws = MyWebSocket(stocks, fn, ['csv'])
+    # set(group1).difference(group2)
+    # set(group1).intersection(group2)
+    time.sleep(50)
+    mws.unsubscribe(['BINANCE:BTCUSDT'])
+
     print('done')

@@ -20,7 +20,7 @@ from utils.util import dt2unix
 from stockdata.dbconnection import getCsvDirectory, getSaConn
 from stockdata.finnhub.finncandles import FinnCandles
 from stockdata.finnhub.stockquote import StockQuote
-from stockdata.finnhub.trades import MyWebSocket
+from stockdata.finnhub.finntrade_ws_testing import MyWebSocket
 from stockdata.polygon.polytrade import PolygonApi
 from stockdata.sp500 import nasdaq100symbols, getQ100_Sp500
 
@@ -59,7 +59,6 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
         # this continuously
         startCandles(stocks, start, latest=True, numcycles=0)
 
-
     end = dt2unix(dt.datetime.utcnow(), unit='s')
     j = getCandles(stocks, start, end, format=format)
     fn = f'{getCsvDirectory()}/{fn}'
@@ -79,8 +78,8 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
         cur = time.time()
         fstocks = filterStocks(stocks, {'pricediff': start_gl})  #  TODO figure how to speed this call up. Thread? Stored procedure?
         fstocks[0].extend(fstocks[1])
-        startTickWS([x[0] for x in fstocks[0]][1:], store=[format], fn=fn)
-        print('Going to have to fire off a thread because  we are never going to get here ..................')
+        ws_thread = startTickWS([x[0] for x in fstocks[0]][1:], store=[format], fn=fn)
+
         later = time.time()
         if (later - cur) > 180:
             print('sleepeing for ', later-cur, 'seconds')
@@ -157,7 +156,9 @@ def getTicks(stocks, start, end, api='fh', format='json'):
 
 
 def startTickWS(stocks, fn='datafile', store=['csv']):
-    MyWebSocket(stocks, fn, store=store)
+    mws = MyWebSocket(stocks, fn, store=store)
+    mws.start()
+    return mws
 
 
 def getTicksREST(stocks, start, end):
@@ -279,8 +280,8 @@ if __name__ == "__main__":
     # j = getPolyTrade(stocks, start, end)
     ########################################
     import pandas as pd
-    # stocks = nasdaq100symbols
-    stocks = getQ100_Sp500()
+    stocks = nasdaq100symbols
+    # stocks = getQ100_Sp500()
     # Give the websocket after hours data for dev
     # stocks.append('BINANCE:BTCUSDT')
     startdelt = dt.timedelta(days=75)

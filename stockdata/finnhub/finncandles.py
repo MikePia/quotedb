@@ -9,6 +9,7 @@ from stockdata.sp500 import nasdaq100symbols
 from stockdata.dbconnection import getFhToken, getSaConn, getCsvDirectory
 from utils.util import dt2unix, unix2date
 
+
 class FinnCandles:
 
     BASEURL = "https://finnhub.io/api/v1/"
