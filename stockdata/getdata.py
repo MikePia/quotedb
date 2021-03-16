@@ -280,8 +280,8 @@ if __name__ == "__main__":
     # j = getPolyTrade(stocks, start, end)
     ########################################
     import pandas as pd
-    stocks = nasdaq100symbols
-    # stocks = getQ100_Sp500()
+    # stocks = nasdaq100symbols
+    stocks = getQ100_Sp500()
     # Give the websocket after hours data for dev
     # stocks.append('BINANCE:BTCUSDT')
     startdelt = dt.timedelta(days=75)
