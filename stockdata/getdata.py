@@ -6,6 +6,7 @@ that do the work. These functions will be the published API for the client to us
 import datetime as dt
 import json
 import logging
+import threading
 import time
 
 from models.candlesmodel import CandlesModel, ManageCandles
@@ -58,14 +59,15 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
 
     end = dt2unix(dt.datetime.utcnow(), unit='s')
     j = getCandles(stocks, start, end, format=format)
-    ffn = formatFn(fn, 'csv')
+    ffn = formatFn(fn, format)
     writeFile(j, ffn, format)
 
     fstocks = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
     fstocks[0].extend(fstocks[1])
+    ws_thread = startTickWS([x[0] for x in fstocks[0]][1:], store=[format], fn=ffn)
     while True:
         cur = time.time()
-        ws_thread = startTickWS([x[0] for x in fstocks[0]][1:], store=[format], fn=ffn)
+        nexttime = cur + 240
 
         start_gl = (start_gl[0] + (10 * 60), start_gl[1]+1)
 
@@ -76,11 +78,14 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
 
         fstocks = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
         fstocks[0].extend(fstocks[1])
-        ws_thread.changesubscription(fstocks[0])
-        later = time.time()
-        if (later - cur) > 180:
-            print('sleepeing for ', later-cur, 'seconds')
-            time.sleep(later-cur)
+        ws_thread.changesubscription([x[0] for x in fstocks[0][1:]], newfn=ffn)
+
+        while time.time() < nexttime:
+            if not ws_thread.is_alive():
+                print('Websocket was stopped: restarting...')
+                ws_thread = startTickWS([x[0] for x in fstocks[0]][1:], store=[format], fn=ffn)
+            print(' ** ')
+            time.sleep(5)
 
     print(len(j))
     print()
@@ -121,13 +126,13 @@ def getCandles(stocks, start, end, format='json'):
     start = start if isinstance(start, int) else dt2unix(start)
     end = end if isinstance(end, int) else dt2unix(end)
     mk = ManageCandles(getSaConn(), True)
-    x = CandlesModel.getTimeRangeMultipleVpts(stocks, start, end, mk.session)
-    if x.empty:
+    df = CandlesModel.getTimeRangeMultipleVpts(stocks, start, end, mk.session)
+    if df.empty:
         return {}
     if format == 'json':
-        return json.dumps(x)
+        return df.to_json()
     # Return list of lists for csv
-    return [[t['symbol'], t['price'], t['time'], t['volume']] for t in x]
+    return df.to_numpy().tolist()
 
 
 def startCandles(stocks, start, latest=False, numcycles=9999999999):
