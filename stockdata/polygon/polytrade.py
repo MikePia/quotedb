@@ -6,8 +6,7 @@ from models.polytrademodel import PolyTradeModel, ManagePolyTrade
 from models.holidaymodel import HolidayModel, ManageHolidayModel
 from stockdata.dbconnection import getPolygonToken, getSaConn
 from qexceptions.qexception import InvalidServerResponseException
-from utils.util import dt2unix, dt2unix_ny
-from stockdata.sp500 import nasdaq100symbols
+from utils.util import dt2unix
 
 
 class PolygonApi:
@@ -15,8 +14,8 @@ class PolygonApi:
     """
 
     BASEURL = "https://api.polygon.io"
-
     TRADES = BASEURL + "/v2/ticks/stocks/trades/{ticker}/{date}"
+
     mpt = ManagePolyTrade(getSaConn())
     holman = ManageHolidayModel(getSaConn())
 
@@ -178,7 +177,6 @@ class PolygonApi:
         df.time = df.time.apply(lambda ts: dt2unix(ts, unit='n'))
         return df
 
-
 def isMarketOpen():
     url = f'https://api.polygon.io/v1/marketstatus/now?&apiKey={getPolygonToken()}'
     RETRIES = 5
@@ -187,13 +185,13 @@ def isMarketOpen():
         if response.status_code != 200:
             logging.error("Server error while trying", response.url)
             if RETRIES == 0:
-                 return {}
+                return {}
             RETRIES -= 1
-        
+
             continue
         RETRIES = 0
     return response.json()['exchanges']['nasdaq']
-    
+
 
 def getTimeDifferences(times):
     diffs = {}

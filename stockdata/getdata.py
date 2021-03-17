@@ -6,7 +6,6 @@ that do the work. These functions will be the published API for the client to us
 import datetime as dt
 import json
 import logging
-import threading
 import time
 
 from models.candlesmodel import CandlesModel, ManageCandles
@@ -83,10 +82,6 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
         fstocks = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
         fstocks[0].extend(fstocks[1])
         ws_thread.changesubscription([x[0] for x in fstocks[0][1:]], newfn=ffn)
-
-
-    print(len(j))
-    print()
 
 
 def filterStocks(stocks, filter):

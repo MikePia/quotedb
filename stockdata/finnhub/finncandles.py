@@ -14,6 +14,8 @@ class FinnCandles:
 
     BASEURL = "https://finnhub.io/api/v1/"
     CANDLES = BASEURL + "stock/candle?"
+    SYMBOLS = BASEURL + "stock/symbol?exchange=US"
+    
     HEADERS = {'Content-Type': 'application/json', 'X-Finnhub-Token': getFhToken()}
 
     bdate = None
@@ -81,7 +83,7 @@ class FinnCandles:
         params['resolution'] = resolution
 
         # params['token'] = getFhToken() if key is None else key
-
+        j = {}
         while retries > 0:
             try:
                 response = requests.get(self.CANDLES, params=params, headers=self.HEADERS)
@@ -147,7 +149,7 @@ class FinnCandles:
         :params numcycles: int
             Use this to truncate the loop.
         """
-        mc = self.getManageCandles()
+        mc = self.get+()
         # start = dt2unix(start, unit='s') if start else 0
         end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
         if latest:
@@ -163,6 +165,31 @@ class FinnCandles:
             numcycles -= 1
             end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
 
+    def getSymbols(self):
+        retries = 5
+        j = {}
+        while retries > 0:
+            try:
+                response = requests.get(self.SYMBOLS, headers=self.HEADERS)
+            except Exception as ex:
+                print(ex)
+                retries -= 1
+                j = None
+                continue
+
+            if response.status_code != 200:
+                retries -= 1
+                logging.error(f"ERROR while processing symbols request: {response.status_code}: {response.reason}: {retries}")
+                logging.error(response.url)
+                continue
+
+            j = response.json()
+            df = pd.DataFrame(data=j, columns=list(j[0].keys()))
+            df = df[df.mic.isin(['XNYS', 'BATS', 'ARCX', 'XNMS', 'XNCM', 'XNGS', 'IEXG', 'XASE'])]
+            symbols = list(df['symbol'])
+            retries = 0
+        return symbols
+
 
 if __name__ == '__main__':
     ##############################################
@@ -175,8 +202,11 @@ if __name__ == '__main__':
     # end = dt2unix(end, unit='s')
     # fc.getDateRange(ticker, start, end)
     ##################################################
-    gc = FinnCandles(nasdaq100symbols)
-    start = dt2unix(dt.datetime(2021, 2, 1), unit='s')
-    gc.cycleStockCandles(start, latest=True)
-
+    # gc = FinnCandles(nasdaq100symbols)
+    # start = dt2unix(dt.datetime(2021, 2, 1), unit='s')
+    # gc.cycleStockCandles(start, latest=True)
+    ######################################################
+    fc = FinnCandles([])
+    x = fc.getSymbols()
+    print(len(x), x[:4])
     print('done')
