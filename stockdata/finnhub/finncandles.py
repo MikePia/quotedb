@@ -92,9 +92,10 @@ class FinnCandles:
                 continue
 
             if response.status_code != 200:
-                logging.error(response.content)
-                print("ERROR", response.content)
-                return None
+                retries -= 1
+                logging.error(f"ERROR while processing {symbol}, start {start}: {response.status_code}: {retries}")
+                continue
+
             j = response.json()
 
             if 'o' not in j.keys():
@@ -138,7 +139,7 @@ class FinnCandles:
 
         Parameters
         _________
-        :params start: int: unix time. 
+        :params start: int: unix time.
             The time to get data from, overridden if latest is True and the max time is greater than start
         :params latest: bool:
             True, get the max time from the db for  initial start time
