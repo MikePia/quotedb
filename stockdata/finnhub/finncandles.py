@@ -140,10 +140,10 @@ class FinnCandles:
         _________
         :params start: int: unix time. 
             The time to get data from, overridden if latest is True and the max time is greater than start
-        :params latest: bool: 
+        :params latest: bool:
             True, get the max time from the db for  initial start time
         :params numcycles: int
-            Use this to truncate the loop. 
+            Use this to truncate the loop.
         """
         mc = self.getManageCandles()
         # start = dt2unix(start, unit='s') if start else 0
@@ -174,7 +174,7 @@ if __name__ == '__main__':
     # fc.getDateRange(ticker, start, end)
     ##################################################
     gc = FinnCandles(nasdaq100symbols)
-    start = dt2unix(dt.datetime(2021, 1, 1), unit='s')
+    start = dt2unix(dt.datetime(2021, 2, 1), unit='s')
     gc.cycleStockCandles(start, latest=True)
 
     print('done')
