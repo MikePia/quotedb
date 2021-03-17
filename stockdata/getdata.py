@@ -3,26 +3,23 @@ This is a module of APIs. All the objects are functions that instantiate the cla
 that do the work. These functions will be the published API for the client to use.
 """
 
-import csv
 import datetime as dt
 import json
 import logging
-import os.path
-import threading
 import time
 
 from models.candlesmodel import CandlesModel, ManageCandles
 from models.finntickmodel import FinnTickModel, ManageFinnTick
 from models.polytrademodel import ManagePolyTrade, PolyTradeModel
 from models.trademodel import ManageTrade, TradeModel
-from utils.util import dt2unix
+from utils.util import dt2unix, formatFn, writeFile
 
-from stockdata.dbconnection import getCsvDirectory, getSaConn
+from stockdata.dbconnection import getSaConn
 from stockdata.finnhub.finncandles import FinnCandles
 from stockdata.finnhub.stockquote import StockQuote
 from stockdata.finnhub.finntrade_ws import MyWebSocket
 from stockdata.polygon.polytrade import PolygonApi
-from stockdata.sp500 import nasdaq100symbols, getQ100_Sp500
+from stockdata.sp500 import getQ100_Sp500
 
 
 def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtodate=False):
@@ -61,25 +58,25 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
 
     end = dt2unix(dt.datetime.utcnow(), unit='s')
     j = getCandles(stocks, start, end, format=format)
-    fn = f'{getCsvDirectory()}/{fn}'
-    fn = os.path.splitext(fn)[0]
-    fmat = '.csv' if format.lower() == 'csv' else '.json'
-    d = dt.datetime.now()
-    fn = f'{fn}_{d.strftime("%Y%m%d_%H%M%S")}{fmat}'
-    if format == 'json':
-        with open(fn, 'w') as f:
-            f.write(j)
-    elif format == 'csv':
-        with open(fn, 'w', newline='') as f:
-            writer = csv.writer(f)
-            for row in j:
-                writer.writerow(row)
+    ffn = formatFn(fn, 'csv')
+    writeFile(j, ffn, format)
+
+    fstocks = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
+    fstocks[0].extend(fstocks[1])
     while True:
         cur = time.time()
-        fstocks = filterStocks(stocks, {'pricediff': start_gl})  #  TODO figure how to speed this call up. Thread? Stored procedure?
-        fstocks[0].extend(fstocks[1])
-        ws_thread = startTickWS([x[0] for x in fstocks[0]][1:], store=[format], fn=fn)
+        ws_thread = startTickWS([x[0] for x in fstocks[0]][1:], store=[format], fn=ffn)
 
+        start_gl = (start_gl[0] + (10 * 60), start_gl[1]+1)
+
+        time.sleep(60)
+        getCandles(stocks, start, end, format=format)
+        ffn = formatFn(fn, 'csv')
+        writeFile(j, ffn, format)
+
+        fstocks = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
+        fstocks[0].extend(fstocks[1])
+        ws_thread.changesubscription(fstocks[0])
         later = time.time()
         if (later - cur) > 180:
             print('sleepeing for ', later-cur, 'seconds')
@@ -289,7 +286,7 @@ if __name__ == "__main__":
     fn = 'thedatafile.json'
     gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     numrec = 10
-    getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='csv', bringtodate=True)
+    getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='csv', bringtodate=False)
 
     ##############################################
     # stocks = nasdaq100symbols
