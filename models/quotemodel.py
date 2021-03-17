@@ -2,15 +2,11 @@
 Use a sqlite db to store tokens and keys including password
 to the mysql db
 """
-import datetime as dt
-
 from sqlalchemy import create_engine, Column, String, Integer, Float, func, distinct
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 from stockdata.dbconnection import getSaConn
-from stockdata.sp500 import nasdaq100symbols
-from utils.util import dt2unix
 
 Base = declarative_base()
 Session = sessionmaker()
@@ -30,7 +26,7 @@ class QuotesModel(Base):
         :params: t json results from quote/us?
         '''
         s = session
-        arr = QuotesModel.cleanDuplicatesFromResult(arr, session)
+        # arr = QuotesModel.cleanDuplicatesFromResult(arr, session)
         x = [QuotesModel(
             symbol=t['s'],
             price=t['c'],
@@ -40,7 +36,7 @@ class QuotesModel(Base):
         s.commit()
 
     @classmethod
-    def getTickers():
+    def getTickers(cls, session):
         s = session
 
         tickers = s.query(distinct(QuotesModel.symbol)).all()
@@ -52,11 +48,6 @@ class QuotesModel(Base):
         s = session
         q = s.query(func.max(QuotesModel.time)).filter_by(symbol=ticker). one_or_none()
         return q[0]
-
-    @classmethod
-    def cleanDuplicatesFromResult(self, arr, session):
-        s = session
-        return arr
 
     @classmethod
     def getTimeRangeMultiple(cls, symbols, start, end, session):
@@ -97,10 +88,6 @@ class ManageQuotes:
         self.session = Session(bind=self.engine)
         Base.metadata.create_all(self.engine)
 
-    def getMaxTimeForEachTicker(self):
-        maxdict=dict()
-        if tickers is None:
-            tickers = QuotesModetl.g
 
 if __name__ == '__main__':
     print(getSaConn())
