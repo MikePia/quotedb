@@ -110,7 +110,7 @@ if __name__ == "__main__":
     # fn = getCsvDirectory() + "/testfile.json"
     # mws = MyWebSocket(stocks, fn, store=['db'])
     #############################################
-    
+
     group1 = random50()
     group2 = random50()
     # stocks = ['SILLY',  'AAPL', 'SQ', 'ROKU', 'TSLA', 'BINANCE:BTCUSDT']
