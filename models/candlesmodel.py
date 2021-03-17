@@ -20,6 +20,15 @@ from stockdata.sp500 import getQ100_Sp500
 Base = declarative_base()
 Session = sessionmaker()
 
+SESSION = None
+
+
+def getSession(engine):
+    global SESSION
+    if not SESSION:
+        SESSION = Session(bind=engine)
+    return SESSION
+
 
 class CandlesModel(Base):
     __tablename__ = "candles"
@@ -203,12 +212,12 @@ class ManageCandles:
         '''
         self.db = db
         self.engine = create_engine(self.db)
-        self.session = Session(bind=self.engine)
+        self.session = getSession(bind=self.engine)
         if create:
             self.createTables()
 
     def createTables(self):
-        self.session = Session(bind=self.engine)
+        self.session = getSession(bind=self.engine)
         Base.metadata.create_all(self.engine)
 
     def reportShape(self, tickers=None):
@@ -236,7 +245,7 @@ class ManageCandles:
             return [x[0] for x in csvfile if int(x[3]) <= numRecords]
 
     def getLargestTimeGap(self, ticker):
-        s = Session(bind=self.engine)
+        s = getSession(bind=self.engine)
         q = s.query(CandlesModel.time).filter_by(symbol="ZM").order_by(CandlesModel.time).all()
         maxsize = (0, 0)
         prevtime = q[0][0]
@@ -398,4 +407,3 @@ if __name__ == '__main__':
 
     mc = ManageCandles(getSaConn())
     df = CandlesModel.getTimeRangeMultipleVpts(stocks, start, end, mc.session)
-    print()
