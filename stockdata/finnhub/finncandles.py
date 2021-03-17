@@ -94,6 +94,7 @@ class FinnCandles:
             if response.status_code != 200:
                 retries -= 1
                 logging.error(f"ERROR while processing {symbol}, start {start}: {response.status_code}: {response.reason}: {retries}")
+                logging.error(response.url)
                 continue
 
             j = response.json()
