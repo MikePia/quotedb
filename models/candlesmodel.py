@@ -14,7 +14,7 @@ from sqlalchemy.sql import text
 from stockdata.dbconnection import getSaConn, getCsvDirectory
 from stockdata.polygon.polytrade import isMarketOpen
 from utils.util import dt2unix, unix2date, resample
-from stockdata.sp500 import nasdaq100symbols
+from stockdata.sp500 import getQ100_Sp500
 
 
 Base = declarative_base()
@@ -78,15 +78,25 @@ class CandlesModel(Base):
         return q
 
     @classmethod
-    def getTimeRangeMultipleVpts(cls, symbols, start, end, session):
+    def getTimeRangeMultipleVpts_slow(cls, symbols, start, end, session):
         s = session
 
         q = s.query(CandlesModel.symbol, CandlesModel.close.label("price"), CandlesModel.time, CandlesModel.volume).filter(
             CandlesModel.time >= start).filter(
                 CandlesModel.time <= end).filter(
                 CandlesModel.symbol.in_(symbols)).order_by(
-                CandlesModel.time.asc(), CandlesModel.symbol.asc()).all()
+                CandlesModel.time.asc(), CandlesModel.symbol.asc())
+        q = q.all()
         return [r._asdict() for r in q]
+
+    @classmethod
+    def getTimeRangeMultipleVpts(cls, symbols, start, end, session):
+        s = session
+        q = s.query(CandlesModel.symbol, CandlesModel.close, CandlesModel.time, CandlesModel.volume).filter(
+            CandlesModel.time >= start).filter(CandlesModel.time <= end).all()
+        df = pd.DataFrame([(d.symbol, d.close, d.time, d.volume) for d in q], columns=['symbol', 'price', 'time', 'volume'])
+        df = df[df.symbol.isin(symbols)]
+        return df
 
     @classmethod
     def getTimeRangePlus(cls, symbol, start, end, engine):
@@ -321,12 +331,12 @@ class ManageCandles:
         """
         # end is just some time in the future
         end = dt2unix(dt.datetime.utcnow() + dt.timedelta(hours=5))
-        stocks = CandlesModel.getTimeRangeMultipleVpts(tickers, start, end, self.session)
-        df = pd.DataFrame(stocks)
+        df = CandlesModel.getTimeRangeMultipleVpts(tickers, start, end, self.session)
         gainers = []
         losers = []
         for tick in df.symbol.unique():
             t = df[df.symbol == tick]
+            t = t.copy()
             t.sort_values(['time'], inplace=True)
 
             firstprice, lastprice = t.iloc[0].price, t.iloc[-1].price
@@ -366,14 +376,26 @@ if __name__ == '__main__':
     # mc.reportShape(tickers=mc.getQ100_Sp500())
 
     # #################################################################
-    from pprint import pprint
+    # from pprint import pprint
+    # mc = ManageCandles(getSaConn())
+    # start = dt2unix(pd.Timestamp(2021,  3, 16, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    # print(pd.Timestamp(start, unit='s'))
+    # # stocks = ['AAPL', 'SQ']
+    # stocks = getQ100_Sp500()
+    # gainers, losers = mc.filterGanersLosers(stocks, start, 10)
+    # print('gainers')
+    # # pprint([x[2] for x in gainers])
+    # pprint(gainers)
+    # print('\nlosers')
+    # # pprint([x[2] for x in losers])
+    # pprint(losers)
+    #####################################
+    start = 1609463187
+    end = 1615943202
+    print(unix2date(start))
+    print(unix2date(end))
+    stocks = getQ100_Sp500()
+
     mc = ManageCandles(getSaConn())
-    start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    print(pd.Timestamp(start, unit='s'))
-    # stocks = ['AAPL', 'SQ']
-    stocks = nasdaq100symbols
-    gainers, losers = mc.filterGanersLosers(stocks, start, 10)
-    print('gainers')
-    pprint([x[2] for x in gainers])
-    print('\nlosers')
-    pprint([x[2] for x in losers])
+    df = CandlesModel.getTimeRangeMultipleVpts(stocks, start, end, mc.session)
+    print()
