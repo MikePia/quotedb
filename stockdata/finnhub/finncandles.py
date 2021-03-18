@@ -35,8 +35,8 @@ class FinnCandles:
         Store it in csv and/or db
         :params store: arr containing combination of ['csv', 'db']
         '''
-        print()
-        print(f'Beginning requests for {ticker}')
+        # print()
+        print(f'Beginning requests for {ticker}: ', end='')
         j = self.getDateRange(ticker, self.cycle[ticker], end, resolution)
         # while True:
         if not j:
@@ -58,15 +58,16 @@ class FinnCandles:
         if 'db' in store:
 
             mc = self.getManageCandles()
-            retries=5
+            retries = 5
             while retries > 0:
                 try:
-                    CandlesModel.addCandles(ticker, j, mc.engine)
+                    CandlesModel.addCandles(ticker, j, mc.session)
                     retries = 0
 
-                except:
+                except Exception as ex:
                     retries -= 1
                     logging.error("Db failed, retrying")
+                    logging.error(ex)
 
         self.cycle[ticker] = j[-1][4]+1
 
@@ -131,10 +132,11 @@ class FinnCandles:
                 break
 
             end = j['t'][0] - 1
-            print(len(j['t']), unix2date(end))
             j = [[c, h, l, o, t, v] for c, h, l, o, t, v in zip(j['c'], j['h'], j['l'], j['o'], j['t'], j['v'])]
 
             total.extend(j)
+            if abs(start-end) < 60:
+                break
         return total
 
     def getManageCandles(self, reinit=False):
@@ -167,7 +169,7 @@ class FinnCandles:
             self.cycle[t] = start if not latest else max(startTimes.get(t, 0), start)
         while True:
             for i, ticker in enumerate(self.tickers):
-                print(f'{i}/{len(self.tickers)}: ', end='')
+                print(f'\n{i}/{len(self.tickers)}: ', end='')
                 self.storeCandles(ticker, end, 1, store=["db"])
             print(f"===================== Cycled through {len(self.tickers)} stocks")
             if numcycles == 0:

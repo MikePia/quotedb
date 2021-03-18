@@ -16,6 +16,6 @@ if __name__ == '__main__':
     stocks = sorted(fc.getSymbols())
 
     # start = dt2unix(pd.Timestamp(2021,  3, 15, 15, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    start = dt2unix(pd.Timestamp(2021, 3, 17, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    start = dt2unix(pd.Timestamp(2021, 3, 17, 12, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
 
     startCandles(stocks, start)

@@ -42,12 +42,12 @@ class CandlesModel(Base):
     volume = Column(Integer, nullable=False)
 
     @classmethod
-    def addCandles(cls, symbol, arr, engine):
+    def addCandles(cls, symbol, arr, session):
         '''
         [c, h, l, o, t, v]
         '''
-        s = Session(bind=engine)
-        arr = CandlesModel.cleanDuplicatesFromResults(symbol, arr, engine)
+        s = session
+        arr = CandlesModel.cleanDuplicatesFromResults(symbol, arr, session)
         if len(arr) == 0:
             return
         for i, t in enumerate(arr, start=1):
@@ -144,11 +144,11 @@ class CandlesModel(Base):
         return tickers
 
     @classmethod
-    def cleanDuplicatesFromResults(cls, symbol, arr, engine):
+    def cleanDuplicatesFromResults(cls, symbol, arr, session):
         """
         Remove results from arr that have a duplicate time and symbol in the db
         """
-        s = Session(bind=engine)
+        s = session
         td = {t[4]: t for t in arr}
         times = set(list(td.keys()))
         q = s.query(CandlesModel.time).filter_by(symbol=symbol).filter(
