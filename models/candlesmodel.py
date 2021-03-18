@@ -212,12 +212,12 @@ class ManageCandles:
         '''
         self.db = db
         self.engine = create_engine(self.db)
-        self.session = getSession(bind=self.engine)
+        self.session = getSession(self.engine)
         if create:
             self.createTables()
 
     def createTables(self):
-        self.session = getSession(bind=self.engine)
+        self.session = getSession(self.engine)
         Base.metadata.create_all(self.engine)
 
     def reportShape(self, tickers=None):

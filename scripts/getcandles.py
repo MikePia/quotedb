@@ -5,12 +5,17 @@ tickers
 
 """
 import pandas as pd
+from stockdata.finnhub.finncandles import FinnCandles
 from stockdata.getdata import startCandles
-from stockdata.sp500 import getQ100_Sp500
+# from stockdata.sp500 import getQ100_Sp500
 from utils.util import dt2unix
 
 if __name__ == '__main__':
-    stocks = getQ100_Sp500()
-    start = dt2unix(pd.Timestamp(2021,  3, 15, 15, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    # stocks = getQ100_Sp500()
+    fc = FinnCandles([])
+    stocks = fc.getSymbols()
+
+    # start = dt2unix(pd.Timestamp(2021,  3, 15, 15, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    start = dt2unix(pd.Timestamp(2021, 3, 17, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
 
     startCandles(stocks, start)

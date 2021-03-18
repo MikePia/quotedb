@@ -275,13 +275,12 @@ if __name__ == "__main__":
     # j = getPolyTrade(stocks, start, end)
     ########################################
     import pandas as pd
-    # stocks = nasdaq100symbols
-    stocks = getQ100_Sp500()
-    # Give the websocket after hours data for dev
+    fc = FinnCandles([])
+    stocks = fc.getSymbols()
     # stocks.append('BINANCE:BTCUSDT')
     # startdelt = dt.timedelta(days=75)
 
-    startdelt = pd.Timestamp(2021, 3, 16, 15, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None)
+    startdelt = pd.Timestamp(2021, 3, 17, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None)
     # startdelt = dt.datetime(2021, 1, 1)
     fn = 'thedatafile.json'
     gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))

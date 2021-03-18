@@ -149,7 +149,7 @@ class FinnCandles:
         :params numcycles: int
             Use this to truncate the loop.
         """
-        mc = self.get+()
+        mc = self.getManageCandles()
         # start = dt2unix(start, unit='s') if start else 0
         end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
         if latest:
