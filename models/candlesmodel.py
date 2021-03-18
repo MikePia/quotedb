@@ -211,7 +211,7 @@ class ManageCandles:
         :params db: a SQLalchemy connection string.
         '''
         self.db = db
-        self.engine = create_engine(self.db)
+        self.engine = create_engine(self.db, pool_size=15, max_overflow=-1)
         self.session = getSession(self.engine)
         if create:
             self.createTables()

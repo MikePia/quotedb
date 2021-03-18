@@ -58,7 +58,16 @@ class FinnCandles:
         if 'db' in store:
 
             mc = self.getManageCandles()
-            CandlesModel.addCandles(ticker, j, mc.engine)
+            retries=5
+            while retries > 0:
+                try:
+                    CandlesModel.addCandles(ticker, j, mc.engine)
+                    retries = 0
+
+                except:
+                    retries -= 1
+                    logging.error("Db failed, retrying")
+
         self.cycle[ticker] = j[-1][4]+1
 
     def getCandles(self, symbol, start, end, resolution=1):
