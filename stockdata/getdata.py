@@ -61,9 +61,10 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
     ffn = formatFn(fn, format)
     writeFile(j, ffn, format)
 
-    fstocks = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
-    fstocks[0].extend(fstocks[1])
-    ws_thread = startTickWS([x[0] for x in fstocks[0]][1:], store=[format], fn=ffn)
+    gainers, losers = localFilterStocks(j, stocks, start_gl)
+    # gainers, losers = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
+    gainers.extend(losers)
+    ws_thread = startTickWS([x[0] for x in gainers][1:], store=[format], fn=ffn)
     while True:
         cur = time.time()
         nexttime = cur + 240
@@ -82,6 +83,35 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
         fstocks = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
         fstocks[0].extend(fstocks[1])
         ws_thread.changesubscription([x[0] for x in fstocks[0][1:]], newfn=ffn)
+
+
+def localFilterStocks(j, stocks, gl):
+    '''
+    '''
+    df = pd.DataFrame(j, columns=['symbol', 'price', 'time', 'volume'])
+    gainers = []
+    losers = []
+    for tick in df.symbol.unique():
+        t = df[df.symbol == tick]
+        t = t.copy()
+        t.sort_values(['time'], inplace=True)
+
+        firstprice, lastprice = t.iloc[0].price, t.iloc[-1].price
+        pricediff = firstprice - lastprice
+        percentage = abs(pricediff / firstprice)
+        if pricediff >= 0:
+            gainers.append([tick, pricediff, percentage, firstprice, lastprice])
+        else:
+            losers.append([tick, pricediff, percentage, firstprice, lastprice])
+
+    gainers.sort(key=lambda x: x[2], reverse=True)
+    losers.sort(key=lambda x: x[2], reverse=True)
+    gainers = gainers[:10]
+    losers = losers[:10]
+    gainers.insert(0, ['symbol', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
+    losers.insert(0, ['symbol', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
+    return gainers, losers
+
 
 
 def filterStocks(stocks, filter):
