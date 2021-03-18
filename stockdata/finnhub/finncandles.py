@@ -1,13 +1,14 @@
+import concurrent.futures
 import csv
 import logging
 import requests
-import datetime as dt
+# import datetime as dt
 import pandas as pd
 
 from models.candlesmodel import CandlesModel, ManageCandles
-from stockdata.sp500 import nasdaq100symbols
+# from stockdata.sp500 import nasdaq100symbols
 from stockdata.dbconnection import getFhToken, getSaConn, getCsvDirectory
-from utils.util import dt2unix, unix2date
+from utils.util import dt2unix  # , unix2date
 
 
 class FinnCandles:
@@ -15,7 +16,7 @@ class FinnCandles:
     BASEURL = "https://finnhub.io/api/v1/"
     CANDLES = BASEURL + "stock/candle?"
     SYMBOLS = BASEURL + "stock/symbol?exchange=US"
-    
+
     HEADERS = {'Content-Type': 'application/json', 'X-Finnhub-Token': getFhToken()}
 
     bdate = None
@@ -28,6 +29,12 @@ class FinnCandles:
         self.tickers = tickers
         self.limit = limit
         self.cycle = {k: 0 for k in tickers}
+
+    def wrapStoreCandles(self, args):
+        '''
+        The multiprocessor mod requires a single argument for a target.
+        '''
+        return  self.storeCandles(*args)
 
     def storeCandles(self, ticker, end, resolution=1, key=None, store=['csv']):
         '''
@@ -176,6 +183,50 @@ class FinnCandles:
                 break
             numcycles -= 1
             end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
+
+
+    def cycleStockCandles_mp(self, start, latest=False, numcycles=999999999):
+        """
+        Explanation
+        ___________
+        The Multiprocess version
+        Retrieve candles for self.tickers repeatedly. The result will be to bring the database up to date
+        then continue to keep it current. Set numcycles to 0 or 1 to just bring it up to date and quit
+
+        Parameters
+        _________
+        :params start: int: unix time.
+            The time to get data from, overridden if latest is True and the max time is greater than start
+        :params latest: bool:
+            True, get the max time from the db for  initial start time
+        :params numcycles: int
+            Use this to truncate the loop.
+        """
+        mc = self.getManageCandles()
+        # start = dt2unix(start, unit='s') if start else 0
+        end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
+        if latest:
+            startTimes = mc.getMaxTimeForEachTicker(self.tickers)
+        for t in self.cycle:
+            self.cycle[t] = start if not latest else max(startTimes.get(t, 0), start)
+        groupby = 15
+        while True:
+            for i in range(0, len(self.tickers-1), groupby):
+                group = self.tickers[i: i+groupby]
+                group = [(x, end, 1, None, ['db']) for x in group]
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    executor.map(self.wrapStoreCandles, group)
+            #     # ticker, end, resolution=1, key=None, store=['csv'
+            # for i, ticker in enumerate(self.tickers):
+            #     print(f'\n{i}/{len(self.tickers)}: ', end='')
+            #     self.storeCandles(ticker, end, 1, store=["db"])
+            print(f"===================== Cycled through {len(self.tickers)} stocks")
+            if numcycles == 0:
+                break
+            numcycles -= 1
+            end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
+
+
 
     def getSymbols(self):
         retries = 5
