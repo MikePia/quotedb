@@ -157,7 +157,8 @@ class FinnCandles:
         for t in self.cycle:
             self.cycle[t] = start if not latest else max(startTimes.get(t, 0), start)
         while True:
-            for ticker in self.tickers:
+            for i, ticker in enumerate(self.tickers):
+                print(f'{i}/{len(self.tickers)}: ', end='')
                 self.storeCandles(ticker, end, 1, store=["db"])
             print(f"===================== Cycled through {len(self.tickers)} stocks")
             if numcycles == 0:
