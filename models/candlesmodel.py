@@ -114,16 +114,13 @@ class CandlesModel(Base):
         or a previous value
         '''
         data = CandlesModel.getTimeRange(symbol, start-(60*30), end, engine)
-        if data and data[0].time > start:
-            s = Session(bind=engine)
-            q = s.query(CandlesModel).filter(CandlesModel.time < start).order_by(desc(CandlesModel.time)).first()
-            if q:
-                data.insert(0, q)
-            else:
-                # TODO
-                print('No current or earlier data for start')
-                raise ValueError('Programmers Exception, Here is the case to deal with')
-        elif data:
+        if data[0].time <= start:
+            return data
+        s = Session(bind=engine)
+        q = s.query(CandlesModel).filter(CandlesModel.time < start).order_by(desc(CandlesModel.time)).first()
+        if q:
+            data.insert(0, q)
+        else:
             # TODO
             print('No current or earlier data for start')
             raise ValueError('Programmers Exception, Here is the case to deal with')
@@ -278,6 +275,8 @@ class ManageCandles:
         if format == 'csv':
             return data
         return data.to_json()
+    
+    # def getFiilledDataForMultiple
 
     def getFilledDataDays(self, symbol, startdate, enddate, policy='extended', custom=None, format='json'):
         '''
@@ -392,18 +391,17 @@ if __name__ == '__main__':
     # # stocks = ['AAPL', 'SQ']
     # stocks = getQ100_Sp500()
     # gainers, losers = mc.filterGanersLosers(stocks, start, 10)
-    # print('gainers')
-    # # pprint([x[2] for x in gainers])
-    # pprint(gainers)
-    # print('\nlosers')
-    # # pprint([x[2] for x in losers])
-    # pprint(losers)
     #####################################
-    start = 1609463187
-    end = 1615943202
-    print(unix2date(start))
-    print(unix2date(end))
-    stocks = getQ100_Sp500()
+    # start = 1609463187
+    # end = 1615943202
+    # print(unix2date(start))
+    # print(unix2date(end))
+    # stocks = getQ100_Sp500()
 
+    # mc = ManageCandles(getSaConn())
+    # df = CandlesModel.getTimeRangeMultipleVpts(stocks, start, end, mc.session)
+    #############################################
     mc = ManageCandles(getSaConn())
-    df = CandlesModel.getTimeRangeMultipleVpts(stocks, start, end, mc.session)
+    start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    end = dt2unix(pd.Timestamp.utcnow().replace(tzinfo=None))
+    x = mc.getFilledData('AAPL', start, end)
