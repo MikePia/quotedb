@@ -19,7 +19,7 @@ from stockdata.finnhub.finncandles import FinnCandles
 from stockdata.finnhub.stockquote import StockQuote
 from stockdata.finnhub.finntrade_ws import MyWebSocket
 from stockdata.polygon.polytrade import PolygonApi
-from stockdata.sp500 import getQ100_Sp500
+# from stockdata.sp500 import getQ100_Sp500
 
 
 def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtodate=False):
@@ -137,7 +137,7 @@ def filterStocks(stocks, filter):
 
 def getCandles(stocks, start, end):
     '''
-    Explanaition
+    Explanation
     ------------
     Get candles from the database candles table
 
@@ -250,7 +250,7 @@ def startGetQuotes(stocks, start, stop, freq):
 
 def getGainersLosers(tickers, start, numstocks):
     """
-    Explanaition
+    Explanation
     ------------
     Filter the stocks in {tickers} for the largest price difference since the time {start}
     Parameters

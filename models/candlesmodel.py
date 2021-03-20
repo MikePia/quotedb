@@ -8,25 +8,47 @@ import pandas as pd
 
 from sqlalchemy import create_engine, Column, String, Integer, Float, distinct, desc, func
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.sql import text
 
 from stockdata.dbconnection import getSaConn, getCsvDirectory
 from stockdata.polygon.polytrade import isMarketOpen
 from utils.util import dt2unix, unix2date, resample
-from stockdata.sp500 import getQ100_Sp500
+# from stockdata.sp500 import getQ100_Sp500
 
 
 Base = declarative_base()
-Session = sessionmaker()
+Session = None
 
 SESSION = None
+ENGINE = None
+DB_URL = getSaConn()
 
 
-def getSession(engine):
+def init():
+    global ENGINE, Session, SESSION
+    try:
+        ENGINE = create_engine(DB_URL)
+        # Base.metadata.create_all(engine)
+        Session = scoped_session(sessionmaker(bind=ENGINE))
+        SESSION = Session()
+    except Exception as ex:
+        print('========================    RRRRRRRRR    =============================')
+        print(ex, 'Exception in init')
+
+
+def cleanup():
+    try:
+        SESSION.close()
+        ENGINE.dispose()
+    except Exception as ex:
+        print(ex, 'Exception in cleanup')
+
+
+def getSession():
     global SESSION
     if not SESSION:
-        SESSION = Session(bind=engine)
+        init()
     return SESSION
 
 
@@ -46,25 +68,36 @@ class CandlesModel(Base):
         '''
         [c, h, l, o, t, v]
         '''
-        s = session
-        arr = CandlesModel.cleanDuplicatesFromResults(symbol, arr, session)
-        if len(arr) == 0:
-            return
-        for i, t in enumerate(arr, start=1):
-            s.add(CandlesModel(
-                  symbol=symbol,
-                  close=t[0],
-                  high=t[1],
-                  low=t[2],
-                  open=t[3],
-                  time=t[4],
-                  volume=t[5]))
-            if not i % 1000:
-                s.commit()
-                print(f'commited {i} records for symbol {symbol}')
+        retries = 5
+        while retries > 0:
+            try:
+                init()
+                s = getSession()
+                arr = CandlesModel.cleanDuplicatesFromResults(symbol, arr, session)
+                if len(arr) == 0:
+                    return
+                for i, t in enumerate(arr, start=1):
+                    s.add(CandlesModel(
+                        symbol=symbol,
+                        close=t[0],
+                        high=t[1],
+                        low=t[2],
+                        open=t[3],
+                        time=t[4],
+                        volume=t[5]))
+                    if not i % 1000:
+                        s.commit()
+                        print(f'commited {i} records for symbol {symbol}')
 
-        print(f'commited {len(arr)} records for symbol {symbol}')
-        s.commit()
+                print(f'commited {len(arr)} records for symbol {symbol}')
+                s.commit()
+                retries = 0
+            except Exception as ex:
+                print(ex, f'Retry #{retries}')
+                retries -= 1
+                continue
+            finally:
+                cleanup()
 
     @classmethod
     def getTimeRange(cls, symbol, start, end, engine):
@@ -209,12 +242,12 @@ class ManageCandles:
         '''
         self.db = db
         self.engine = create_engine(self.db, pool_size=15, max_overflow=-1)
-        self.session = getSession(self.engine)
+        self.session = getSession()
         if create:
             self.createTables()
 
     def createTables(self):
-        self.session = getSession(self.engine)
+        self.session = getSession()
         Base.metadata.create_all(self.engine)
 
     def reportShape(self, tickers=None):
@@ -275,7 +308,7 @@ class ManageCandles:
         if format == 'csv':
             return data
         return data.to_json()
-    
+
     # def getFiilledDataForMultiple
 
     def getFilledDataDays(self, symbol, startdate, enddate, policy='extended', custom=None, format='json'):

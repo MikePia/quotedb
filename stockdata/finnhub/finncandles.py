@@ -1,8 +1,8 @@
-import concurrent.futures
 import csv
 import logging
 import requests
 # import datetime as dt
+import threading
 import pandas as pd
 
 from models.candlesmodel import CandlesModel, ManageCandles
@@ -34,7 +34,7 @@ class FinnCandles:
         '''
         The multiprocessor mod requires a single argument for a target.
         '''
-        return  self.storeCandles(*args)
+        return self.storeCandles(*args)
 
     def storeCandles(self, ticker, end, resolution=1, key=None, store=['csv']):
         '''
@@ -184,7 +184,6 @@ class FinnCandles:
             numcycles -= 1
             end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
 
-
     def cycleStockCandles_mp(self, start, latest=False, numcycles=999999999):
         """
         Explanation
@@ -209,13 +208,21 @@ class FinnCandles:
             startTimes = mc.getMaxTimeForEachTicker(self.tickers)
         for t in self.cycle:
             self.cycle[t] = start if not latest else max(startTimes.get(t, 0), start)
-        groupby = 15
-        while True:
-            for i in range(0, len(self.tickers-1), groupby):
-                group = self.tickers[i: i+groupby]
-                group = [(x, end, 1, None, ['db']) for x in group]
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    executor.map(self.wrapStoreCandles, group)
+        # groupby = 15
+        while numcycles > 0:
+            threads = []
+            for i in range(0, len(self.tickers)-1):
+                # args = (self.tickers[i], end, i, store = ['db'])
+                try:
+                    args = (self.tickers[i], end, 1, None, ['db'])
+                    t = threading.Thread(target=self.storeCandles, args=args)
+                    t.start()
+                    threads.append(t)
+                    for thread in threads:
+                        thread.join()
+                except Exception as ex:
+                    print(ex)
+
             #     # ticker, end, resolution=1, key=None, store=['csv'
             # for i, ticker in enumerate(self.tickers):
             #     print(f'\n{i}/{len(self.tickers)}: ', end='')
@@ -225,8 +232,6 @@ class FinnCandles:
                 break
             numcycles -= 1
             end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
-
-
 
     def getSymbols(self):
         retries = 5
@@ -271,5 +276,8 @@ if __name__ == '__main__':
     ######################################################
     fc = FinnCandles([])
     x = fc.getSymbols()
-    print(len(x), x[:4])
+    stocks = ['AAPL', 'TSLA', 'ROPKU', 'SQ', 'BBB']
+    fc = FinnCandles(stocks)
+    start = dt2unix(pd.Timestamp(2020, 12, 1))
+    fc.cycleStockCandles_mp(start)
     print('done')
