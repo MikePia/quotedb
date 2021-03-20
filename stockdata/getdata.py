@@ -12,7 +12,7 @@ from models.candlesmodel import CandlesModel, ManageCandles
 from models.finntickmodel import FinnTickModel, ManageFinnTick
 from models.polytrademodel import ManagePolyTrade, PolyTradeModel
 from models.trademodel import ManageTrade, TradeModel
-from utils.util import dt2unix, formatFn, writeFile
+from utils.util import dt2unix, formatFn, writeFile, formatData
 
 from stockdata.dbconnection import getSaConn
 from stockdata.finnhub.finncandles import FinnCandles
@@ -57,13 +57,15 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
         startCandles(stocks, start, latest=True, numcycles=0)
 
     end = dt2unix(dt.datetime.utcnow(), unit='s')
-    j = getCandles(stocks, start, end, format=format)
+    df = getCandles(stocks, start, end)
     ffn = formatFn(fn, format)
-    writeFile(j, ffn, format)
+    writeFile(formatData(df, format), ffn, format)
 
-    gainers, losers = localFilterStocks(j, stocks, start_gl)
+    gainers, losers = localFilterStocks(df, stocks, start_gl)
     # gainers, losers = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
-    gainers.extend(losers)
+    gainers.extend(losers[1:])
+    gainers.append('BINANCE:BTCUSDT')
+
     ws_thread = startTickWS([x[0] for x in gainers][1:], store=[format], fn=ffn)
     while True:
         cur = time.time()
@@ -72,23 +74,24 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
         while time.time() < nexttime:
             if not ws_thread.is_alive():
                 print('Websocket was stopped: restarting...')
-                ws_thread = startTickWS([x[0] for x in fstocks[0]][1:], store=[format], fn=ffn)
+                ws_thread = startTickWS([x[0] for x in gainers][1:], store=[format], fn=ffn)
             print(' ** ')
             time.sleep(5)
         start_gl = (start_gl[0] + (10 * 60), start_gl[1]+1)
-        getCandles(stocks, start, end, format=format)
-        ffn = formatFn(fn, 'csv')
-        writeFile(j, ffn, format)
+        df = getCandles(stocks, start, end)
+        ffn = formatFn(fn, format)
+        writeFile(formatData(df, format), ffn, format)
 
-        fstocks = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
-        fstocks[0].extend(fstocks[1])
-        ws_thread.changesubscription([x[0] for x in fstocks[0][1:]], newfn=ffn)
+        gainers, losers = localFilterStocks(df, stocks, start_gl)
+        # gainers, losers = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
+        gainers.extend(losers[1:])
+        gainers.append('BINANCE:BTCUSDT')
+        ws_thread.changesubscription([x[0] for x in gainers][1:], newfn=ffn)
 
 
-def localFilterStocks(j, stocks, gl):
+def localFilterStocks(df, stocks, gl):
     '''
     '''
-    df = pd.DataFrame(j, columns=['symbol', 'price', 'time', 'volume'])
     gainers = []
     losers = []
     for tick in df.symbol.unique():
@@ -113,7 +116,6 @@ def localFilterStocks(j, stocks, gl):
     return gainers, losers
 
 
-
 def filterStocks(stocks, filter):
     '''
     Explanation
@@ -133,7 +135,7 @@ def filterStocks(stocks, filter):
     return stocks
 
 
-def getCandles(stocks, start, end, format='json'):
+def getCandles(stocks, start, end):
     '''
     Explanaition
     ------------
@@ -152,10 +154,12 @@ def getCandles(stocks, start, end, format='json'):
     df = CandlesModel.getTimeRangeMultipleVpts(stocks, start, end, mk.session)
     if df.empty:
         return {}
-    if format == 'json':
-        return df.to_json()
-    # Return list of lists for csv
-    return df.to_numpy().tolist()
+    return df
+
+    # if format == 'json':
+    #     return df.to_json()
+    # # Return list of lists for csv
+    # return df.to_numpy().tolist()
 
 
 def startCandles(stocks, start, latest=False, numcycles=9999999999):
@@ -315,7 +319,7 @@ if __name__ == "__main__":
     fn = 'thedatafile.json'
     gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     numrec = 10
-    getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='csv', bringtodate=False)
+    getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='visualize', bringtodate=False)
 
     ##############################################
     # stocks = nasdaq100symbols

@@ -1,5 +1,6 @@
 import csv
 import json
+import pandas as pd
 import sys
 import time
 import threading
@@ -7,6 +8,7 @@ import websocket
 from models.trademodel import ManageTrade, TradeModel
 from stockdata.sp500 import random50
 from stockdata.dbconnection import getFhToken, getCsvDirectory, getSaConn
+from utils.util import formatData, writeFile
 
 
 class MyWebSocket(threading.Thread):
@@ -59,12 +61,15 @@ class MyWebSocket(threading.Thread):
                 # print(f'Added {sum([x[3] for x in trades])} shares in', {x[0] for x in trades})
                 print('.', end='')
                 # pprint(f'Wrote {len(trades)} trades to {self.fn}')
-                # print('.', end='')
             elif 'json' in self.store:
                 with open(self.fn, 'a') as f:
                     f.write(json.dumps(j))
                     # print(f'Wrote {len(j["data"])} trades to file {self.fn}')
                     print('.', end='')
+            elif 'visualize' in self.store:
+                df = pd.DataFrame([[t['s'], t['p'], t['t'], t['v']] for t in j['data']])
+                writeFile(formatData(df, format), self.fn, format)
+
             if 'db' in self.store:
                 TradeModel.addTrades(j['data'], self.mt.engine)
 

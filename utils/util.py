@@ -1,5 +1,6 @@
 import csv
 import datetime as dt
+import json
 import os
 
 import pandas as pd
@@ -64,8 +65,22 @@ def formatFn(fn, format):
     return fn
 
 
-def writeFile(j, fn, format):
+def formatData(df, format):
     if format == 'json':
+        return df.to_json()
+    elif format == 'visualize':
+        df.sort_values(['time', 'symbol'])
+        visualize = []
+        for t in df.time.unique():
+            tick = df[df.time == t]
+            visualize.append({int(t): tick[['symbol', 'price', 'volume']].values.tolist()})
+        return json.dumps(visualize)
+    elif format == 'csv':
+        return df.to_numpy().tolist()
+
+
+def writeFile(j, fn, format):
+    if format in ['json', 'visualize']:
         with open(fn, 'w') as f:
             f.write(j)
     elif format == 'csv':
