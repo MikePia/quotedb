@@ -4,3 +4,4 @@ localconfig.py
 *.sqlite
 data*
 *.pdf
+env.py
