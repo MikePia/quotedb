@@ -6,7 +6,7 @@
     
 ## The SqlAlchemy connection string is  retrieved  using
 ```python
-stockdata.dbconnection.getSaConn()
+quotedb.dbconnection.getSaConn()
 ```
 ### Not sure the endpoint
 "https://finnhub.io/api/v1/quote/us?" is doing what I thought. In the data (that I have not deleted) on the db, there are no changing times:
@@ -202,8 +202,8 @@ The trade endpoint gets current data including tim, price, symbol and volume.
 * ***Will probably need to combine our stored data with realtime data***
     * The real time data could be sent straing to the client. The time required to save to our db and then reaccess may be a problem.
     * Problems with that around 300 calls per second. If 1000 clients request new data .
-* The module is stockdata.getdata for all the calls listed here. 
-    * So getCandles precise address is ```stockdata.getdata.getCandles()```
+* The module is quotedb.getdata for all the calls listed here. 
+    * So getCandles precise address is ```quotedb.getdata.getCandles()```
 
 ### candles (currently from Finnhub api, realtime data is availble)
 

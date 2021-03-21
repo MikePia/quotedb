@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, Column, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-from stockdata.dbconnection import getSaConn
+from quotedb.dbconnection import getSaConn
 
 Base = declarative_base()
 Session = sessionmaker()
@@ -90,5 +90,5 @@ def test_isHoliday():
 
 if __name__ == '__main__':
     mh = ManageHolidayModel(getSaConn(), create=True)
-    # mh.saveHolidays('models/holidays.csv')
+    # mh.saveHolidays('quotedb.models/holidays.csv')
     test_isHoliday()

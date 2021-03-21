@@ -8,18 +8,20 @@ import json
 import logging
 import time
 
-from models.candlesmodel import CandlesModel, ManageCandles
-from models.finntickmodel import FinnTickModel, ManageFinnTick
-from models.polytrademodel import ManagePolyTrade, PolyTradeModel
-from models.trademodel import ManageTrade, TradeModel
-from utils.util import dt2unix, formatFn, writeFile, formatData
+import pandas as pd
 
-from stockdata.dbconnection import getSaConn
-from stockdata.finnhub.finncandles import FinnCandles
-from stockdata.finnhub.stockquote import StockQuote
-from stockdata.finnhub.finntrade_ws import MyWebSocket
-from stockdata.polygon.polytrade import PolygonApi
-# from stockdata.sp500 import getQ100_Sp500
+from quotedb.models.candlesmodel import CandlesModel, ManageCandles
+from quotedb.models.finntickmodel import FinnTickModel, ManageFinnTick
+from quotedb.models.polytrademodel import ManagePolyTrade, PolyTradeModel
+from quotedb.models.trademodel import ManageTrade, TradeModel
+from quotedb.utils.util import dt2unix, formatFn, writeFile, formatData
+
+from quotedb.dbconnection import getSaConn
+from quotedb.finnhub.finncandles import FinnCandles
+from quotedb.finnhub.stockquote import StockQuote
+from quotedb.finnhub.finntrade_ws import MyWebSocket
+from quotedb.polygon.polytrade import PolygonApi
+# from quotedb.sp500 import getQ100_Sp500
 
 
 def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtodate=False):
@@ -65,7 +67,7 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
     # gainers, losers = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
     gainers.extend(losers[1:])
     gainers = [x[0] for x in gainers][1:]
-    # gainers.append('BINANCE:BTCUSDT')
+    gainers.append('BINANCE:BTCUSDT')
 
     ws_thread = startTickWS(gainers, store=[format], fn=ffn)
 
@@ -88,7 +90,7 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
         # gainers, losers = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
         gainers.extend(losers[1:])
         gainers = [x[0] for x in gainers][1:]
-        # gainers.append('BINANCE:BTCUSDT')
+        gainers.append('BINANCE:BTCUSDT')
         ws_thread.changesubscription(gainers, newfn=ffn)
 
 
@@ -97,6 +99,8 @@ def localFilterStocks(df, stocks, gl):
     '''
     gainers = []
     losers = []
+    if df.empty:
+        return [], []
     for tick in df.symbol.unique():
         t = df[df.symbol == tick]
         t = t.copy()
@@ -150,7 +154,7 @@ def getCandles(stocks, start, end):
     :params start: int (unix date in seconds) or datetime type
     :params end: int (unix date in seconds) or datetime type
     '''
-    # from stockdata.dbconnection import getCsvDirectory
+    # from quotedb.dbconnection import getCsvDirectory
     start = start if isinstance(start, int) else dt2unix(start)
     end = end if isinstance(end, int) else dt2unix(end)
     mk = ManageCandles(getSaConn(), True)
@@ -268,6 +272,7 @@ def getGainersLosers(tickers, start, numstocks):
 
 
 if __name__ == "__main__":
+    pass
     # stocks = ["PDD", "ROKU", "ROST", "SBUX", "SIRI", "SWKS", "TCOM", "TXN", "VRSK", "VRSN", "VRTX", "WBA", "WDAY", "XEL", "XLNX", "ZM", ]
     # stocks = ['AAPL', 'AMZN', 'ROKU', 'GME', 'TSLA', 'BB', 'SQ', 'MU', 'BINANCE:BTCUSDT']
     # tz = 'US/Eastern'
@@ -310,22 +315,22 @@ if __name__ == "__main__":
     # start = dt2unix(dt.datetime.utcnow() - dt.timedelta(hours=3), unit='n')
     # end = dt2unix(dt.datetime.utcnow(), unit='n')
     # j = getPolyTrade(stocks, start, end)
-    ########################################
-    import pandas as pd
-    from stockdata.sp500 import nasdaq100symbols, random50
-    fc = FinnCandles([])
-    # stocks = fc.getSymbols()
-    # stocks = nasdaq100symbols
-    stocks = random50(numstocks=20)
-    # stocks.append('BINANCE:BTCUSDT')
-    # startdelt = dt.timedelta(days=75)
 
-    startdelt = pd.Timestamp(2021, 3, 19, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None)
-    # startdelt = dt.datetime(2021, 1, 1)
-    fn = 'visualizenow.json'
-    gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    numrec = 10
-    getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='visualize', bringtodate=False)
+    # import pandas as pd
+    # from quotedb.sp500 import nasdaq100symbols, random50
+    # fc = FinnCandles([])
+    # # stocks = fc.getSymbols()
+    # # stocks = nasdaq100symbols
+    # stocks = random50(numstocks=20)
+    # # stocks.append('BINANCE:BTCUSDT')
+    # # startdelt = dt.timedelta(days=75)
+
+    # startdelt = pd.Timestamp(2021, 3, 19, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None)
+    # # startdelt = dt.datetime(2021, 1, 1)
+    # fn = 'visualizenow.json'
+    # gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    # numrec = 10
+    # getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='visualize', bringtodate=False)
 
     ##############################################
     # stocks = nasdaq100symbols

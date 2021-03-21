@@ -5,10 +5,10 @@ import requests
 import threading
 import pandas as pd
 
-from models.candlesmodel import CandlesModel, ManageCandles
-# from stockdata.sp500 import nasdaq100symbols
-from stockdata.dbconnection import getFhToken, getSaConn, getCsvDirectory
-from utils.util import dt2unix  # , unix2date
+from quotedb.models.candlesmodel import CandlesModel, ManageCandles
+# from quotedb.sp500 import nasdaq100symbols
+from quotedb.dbconnection import getFhToken, getSaConn, getCsvDirectory
+from quotedb.utils.util import dt2unix  # , unix2date
 
 
 class FinnCandles:

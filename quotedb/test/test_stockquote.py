@@ -5,10 +5,10 @@ import random
 import sys
 import datetime as dt
 import unittest
-from utils.util import dt2unix
+from quotedb.utils.util import dt2unix
 from unittest import TestCase
-from stockdata.dbconnection import getSaConn
-from stockdata.stockquote import StockQuote
+from quotedb.dbconnection import getSaConn
+from quotedb.stockquote import StockQuote
 
 
 

@@ -10,8 +10,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 
-from stockdata.dbconnection import getSaConn, getCsvDirectory
-from utils.util import unix2date, dt2unix
+from quotedb.dbconnection import getSaConn, getCsvDirectory
+from quotedb.utils.util import unix2date, dt2unix
 
 Base = declarative_base()
 Session = sessionmaker()

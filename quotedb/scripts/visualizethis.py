@@ -3,9 +3,9 @@ A wrapper for getCurrentDataFile to run from the command line. Don't know if thi
 to be used. If so, command line arguments will be implemented
 """
 import pandas as pd
-from stockdata.finnhub.finncandles import FinnCandles
-from utils.util import dt2unix
-from stockdata.getdata import getCurrentDataFile
+from quotedb.finnhub.finncandles import FinnCandles
+from quotedb.utils.util import dt2unix
+from quotedb.getdata import getCurrentDataFile
 
 
 if __name__ == '__main__':

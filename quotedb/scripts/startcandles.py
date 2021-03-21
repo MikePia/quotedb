@@ -5,10 +5,10 @@ tickers
 
 """
 import pandas as pd
-from stockdata.finnhub.finncandles import FinnCandles
-from stockdata.getdata import startCandles
-from stockdata.sp500 import getQ100_Sp500, nasdaq100symbols
-from utils.util import dt2unix
+from quotedb.finnhub.finncandles import FinnCandles
+from quotedb.getdata import startCandles
+from quotedb.sp500 import getQ100_Sp500, nasdaq100symbols
+from quotedb.utils.util import dt2unix
 
 if __name__ == '__main__':
     # stocks = getQ100_Sp500()

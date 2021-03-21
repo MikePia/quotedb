@@ -3,11 +3,11 @@ import requests
 import time
 import datetime as dt
 
-from models.finntickmodel import FinnTickModel, ManageFinnTick
-from models.quotemodel import QuotesModel, ManageQuotes
-from qexceptions.qexception import InvalidServerResponseException
-from stockdata.dbconnection import getFhToken, getSaConn
-from utils.util import dt2unix
+from quotedb.models.finntickmodel import FinnTickModel, ManageFinnTick
+from quotedb.models.quotemodel import QuotesModel, ManageQuotes
+from quotedb.qexceptions.qexception import InvalidServerResponseException
+from quotedb.dbconnection import getFhToken, getSaConn
+from quotedb.utils.util import dt2unix
 
 
 class StockQuote:

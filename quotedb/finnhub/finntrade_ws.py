@@ -5,10 +5,10 @@ import sys
 import time
 import threading
 import websocket
-from models.trademodel import ManageTrade, TradeModel
-from stockdata.sp500 import random50
-from stockdata.dbconnection import getFhToken, getCsvDirectory, getSaConn
-from utils.util import formatData, writeFile
+from quotedb.models.trademodel import ManageTrade, TradeModel
+from quotedb.sp500 import random50
+from quotedb.dbconnection import getFhToken, getCsvDirectory, getSaConn
+from quotedb.utils.util import formatData, writeFile
 
 
 class MyWebSocket(threading.Thread):
