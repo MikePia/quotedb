@@ -37,7 +37,7 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
     :params fn: str: File name. Directory ocation is is defined internally (getCsvLocataion()). Timestamp will be added to name
     :params start_gl: tuple(int, int): (Unix time, numberStocks)
         Define the gainers/losers filter for example (1609459200, 10) means to get the top 10 gainers and losers
-        since the time 1609459200 (2021/01/01 utc). The result will only be accurate only if the db already contains
+        since the time 1609459200 (2021/01/01 utc). The result will only be accurate if the db already contains
         the data.
     :params format: str: json or csv
     :params bringtodate : bool: If True, override startdelt and begin each stock from it's latest entry if ther is one
@@ -64,9 +64,11 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
     gainers, losers = localFilterStocks(df, stocks, start_gl)
     # gainers, losers = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
     gainers.extend(losers[1:])
-    gainers.append('BINANCE:BTCUSDT')
+    gainers = [x[0] for x in gainers][1:]
+    # gainers.append('BINANCE:BTCUSDT')
 
-    ws_thread = startTickWS([x[0] for x in gainers][1:], store=[format], fn=ffn)
+    ws_thread = startTickWS(gainers, store=[format], fn=ffn)
+
     while True:
         cur = time.time()
         nexttime = cur + 240
@@ -85,8 +87,9 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
         gainers, losers = localFilterStocks(df, stocks, start_gl)
         # gainers, losers = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
         gainers.extend(losers[1:])
-        gainers.append('BINANCE:BTCUSDT')
-        ws_thread.changesubscription([x[0] for x in gainers][1:], newfn=ffn)
+        gainers = [x[0] for x in gainers][1:]
+        # gainers.append('BINANCE:BTCUSDT')
+        ws_thread.changesubscription(gainers, newfn=ffn)
 
 
 def localFilterStocks(df, stocks, gl):
@@ -153,7 +156,7 @@ def getCandles(stocks, start, end):
     mk = ManageCandles(getSaConn(), True)
     df = CandlesModel.getTimeRangeMultipleVpts(stocks, start, end, mk.session)
     if df.empty:
-        return {}
+        return pd.DataFrame()
     return df
 
     # if format == 'json':
@@ -309,14 +312,17 @@ if __name__ == "__main__":
     # j = getPolyTrade(stocks, start, end)
     ########################################
     import pandas as pd
+    from stockdata.sp500 import nasdaq100symbols, random50
     fc = FinnCandles([])
-    stocks = fc.getSymbols()
+    # stocks = fc.getSymbols()
+    # stocks = nasdaq100symbols
+    stocks = random50(numstocks=20)
     # stocks.append('BINANCE:BTCUSDT')
     # startdelt = dt.timedelta(days=75)
 
-    startdelt = pd.Timestamp(2021, 3, 17, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None)
+    startdelt = pd.Timestamp(2021, 3, 19, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None)
     # startdelt = dt.datetime(2021, 1, 1)
-    fn = 'thedatafile.json'
+    fn = 'visualizenow.json'
     gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     numrec = 10
     getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='visualize', bringtodate=False)

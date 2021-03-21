@@ -66,6 +66,8 @@ def formatFn(fn, format):
 
 
 def formatData(df, format):
+    if df.empty:
+        return df
     if format == 'json':
         return df.to_json()
     elif format == 'visualize':

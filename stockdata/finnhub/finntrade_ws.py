@@ -68,6 +68,7 @@ class MyWebSocket(threading.Thread):
                     print('.', end='')
             elif 'visualize' in self.store:
                 df = pd.DataFrame([[t['s'], t['p'], t['t'], t['v']] for t in j['data']])
+                print('.', end='')
                 writeFile(formatData(df, format), self.fn, format)
 
             if 'db' in self.store:
@@ -100,8 +101,11 @@ class MyWebSocket(threading.Thread):
     def changesubscription(self, newstocks, newfn=None):
         if newfn:
             self.fn = newfn
-        unsubscribe = set(self.tickers) - set(newstocks)
-        subscribe = set(newstocks) - set(self.tickers)
+        if newstocks:
+            unsubscribe = set(self.tickers) - set(newstocks)
+            subscribe = set(newstocks) - set(self.tickers)
+        else:
+            return
         if unsubscribe:
             self.unsubscribe(unsubscribe)
         if subscribe:
@@ -116,8 +120,12 @@ if __name__ == "__main__":
     # mws = MyWebSocket(stocks, fn, store=['db'])
     #############################################
 
-    group1 = random50()
-    group2 = random50()
+    group1 = list(random50())
+    group2 = list(random50())
+    group1.append("BINANCE:BTCUSDT")
+    group1.append("IC MARKETS:1")
+    group2.append("BINANCE:BTCUSDT")
+    group2.append("IC MARKETS:1")
     # stocks = ['SILLY',  'AAPL', 'SQ', 'ROKU', 'TSLA', 'BINANCE:BTCUSDT']
     fn = getCsvDirectory() + "/testfile.csv"
     mws = MyWebSocket(group1, fn, ['csv'])
