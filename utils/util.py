@@ -66,11 +66,13 @@ def formatFn(fn, format):
 
 
 def formatData(df, format):
-    if df.empty:
-        return df
     if format == 'json':
+        if df.empty:
+            return ''
         return df.to_json()
     elif format == 'visualize':
+        if df.empty:
+            return ''
         df.sort_values(['time', 'symbol'])
         visualize = []
         for t in df.time.unique():
@@ -78,6 +80,8 @@ def formatData(df, format):
             visualize.append({int(t): tick[['symbol', 'price', 'volume']].values.tolist()})
         return json.dumps(visualize)
     elif format == 'csv':
+        if df.empty:
+            return [[]]
         return df.to_numpy().tolist()
 
 

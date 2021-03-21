@@ -2,7 +2,7 @@
 Get the db connection string. Depends on the localconfig to get the keys
 """
 from models.managekeys import ManageKeys, Keys
-from env import sqlitedb
+from scripts.env import sqlitedb
 
 sdb = sqlitedb
 #  Make these sqlite accessors singletons
