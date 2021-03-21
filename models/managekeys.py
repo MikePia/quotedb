@@ -5,8 +5,9 @@ to the mysql db
 from sqlalchemy import create_engine, Column, String, Integer
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from env import sqlitedb
 
-constr = "sqlite:///keys.sqlite"
+constr = sqlitedb
 Base = declarative_base()
 Session = sessionmaker()
 
