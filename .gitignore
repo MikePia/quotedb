@@ -4,4 +4,7 @@ localconfig.py
 *.sqlite
 data*
 *.pdf
-env.py
+dist/*
+build/*
+quotedb.egg*
+
