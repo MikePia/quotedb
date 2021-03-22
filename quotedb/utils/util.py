@@ -36,6 +36,11 @@ def unix2date(u, unit='s'):
     return EPOC + dt.timedelta(seconds=u)
 
 
+def unix2date_ny(u, unit='s'):
+    x = pd.Timestamp(unix2date(u, unit)).tz_localize("UTC").tz_convert('US/Eastern').replace(tzinfo=None)
+    return x
+
+
 def resample(df, col, rule):
     df = df.copy()
 
@@ -100,5 +105,7 @@ if __name__ == '__main__':
     # assert dt2unix(dt.datetime(2021, 2, 13)) == 1613174400
     # assert dt2unix(dt.datetime(2021, 2, 11)) == 1613001600
     # assert dt2unix(dt.datetime(2021, 2, 11)) != 1613001601
+    print(unix2date(1613001600))
+    print(unix2date_ny(1613001600))
     print(formatFn('fred', 'csv'))
     print(formatFn('fred', 'json'))

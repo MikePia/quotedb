@@ -13,7 +13,7 @@ from sqlalchemy.sql import text
 
 from quotedb.dbconnection import getSaConn, getCsvDirectory
 from quotedb.polygon.polytrade import isMarketOpen
-from quotedb.utils.util import dt2unix, unix2date, resample
+from quotedb.utils.util import dt2unix, unix2date, resample, unix2date_ny
 # from quotedb.sp500 import getQ100_Sp500
 
 
@@ -133,6 +133,7 @@ class CandlesModel(Base):
 
     @classmethod
     def getTimeRangeMultipleVpts(cls, symbols, start, end, session):
+        print(f'Getting candles for {len(symbols)} stocks between {unix2date_ny(start)} and {unix2date_ny(end)} NY time')
         s = session
         q = s.query(CandlesModel.symbol, CandlesModel.close, CandlesModel.time, CandlesModel.volume).filter(
             CandlesModel.time >= start).filter(CandlesModel.time <= end).all()

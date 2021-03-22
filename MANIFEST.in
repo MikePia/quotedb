@@ -1,2 +1,2 @@
-global-include keys.sqlite
+global-include quotedb/keys.sqlite
 global-exclude venv/*

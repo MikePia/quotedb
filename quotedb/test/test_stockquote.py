@@ -8,8 +8,7 @@ import unittest
 from quotedb.utils.util import dt2unix
 from unittest import TestCase
 from quotedb.dbconnection import getSaConn
-from quotedb.stockquote import StockQuote
-
+from quotedb.finnhub.stockquote import StockQuote
 
 
 class TestStockQuote(TestCase):
@@ -30,18 +29,19 @@ class TestStockQuote(TestCase):
 
         return super().setUpClass()
 
-
     def test_getCandlesStart(self):
         sq = StockQuote()
         print('hello fred')
         start = dt2unix(dt.datetime.now() - dt.timedelta(days=14))
         end = dt2unix(dt.datetime.now() - dt.timedelta(days=7))
-        symbol =  self.symbols[random.randrange(len(self.symbols))]
+        symbol = self.symbols[random.randrange(len(self.symbols))]
         j = sq.getCandles(symbol, start, end, 1)
         self.assertGreater(len(j), 100)
         mintime, maxtime = j['t'][0],  j['t'][-1]
         self.assertGreaterEqual(mintime, start)
         self.assertLessEqual(maxtime, end)
         print()
+
+
 if __name__ == '__main__':
     unittest.main()

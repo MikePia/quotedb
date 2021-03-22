@@ -170,6 +170,8 @@ def getCandles(stocks, start, end):
 
 
 def startCandles(stocks, start, latest=False, numcycles=9999999999):
+    if isinstance(start, dt.datetime):
+        start = dt2unix(start)
     fc = FinnCandles(stocks)
     fc.cycleStockCandles(start, latest, numcycles)
 
@@ -273,21 +275,24 @@ def getGainersLosers(tickers, start, numstocks):
 
 if __name__ == "__main__":
     pass
+    pass
     # stocks = ["PDD", "ROKU", "ROST", "SBUX", "SIRI", "SWKS", "TCOM", "TXN", "VRSK", "VRSN", "VRTX", "WBA", "WDAY", "XEL", "XLNX", "ZM", ]
     # stocks = ['AAPL', 'AMZN', 'ROKU', 'GME', 'TSLA', 'BB', 'SQ', 'MU', 'BINANCE:BTCUSDT']
     # tz = 'US/Eastern'
     # start = pd.Timestamp("2021-3-11 11:30", tz=tz).tz_convert("UTC").replace(tzinfo=None)
     # end = pd.Timestamp("2021-3-11 12:00", tz=tz).tz_convert("UTC").replace(tzinfo=None)
     ########################################
-    # stocks = nasdaq100symbols
+    from quotedb.sp500 import nasdaq100symbols
+    stocks = nasdaq100symbols
     # # start = dt.datetime.utcnow()
     # # start = dt.datetime.utcnow() - dt.timedelta(days=60)
-    # start = dt.datetime(2021, 1, 1)
+    start = dt.datetime(2021, 3, 21)
+    end = dt.datetime.utcnow()
 
     # stocks = nasdaq100symbols
     # # stocks = ['AAPL', 'SQ']
-    # startCandles(stocks, start, latest=True)
-    # x = getCandles(stocks, start, None)
+    startCandles(stocks, start, latest=True)
+    # x = getCandles(stocks, start, end)
     #########################################
     # # x = getTicks(stocks, start, end)
     # # MyWebSocket(stocks)
@@ -320,7 +325,6 @@ if __name__ == "__main__":
     # from quotedb.sp500 import nasdaq100symbols, random50
     # fc = FinnCandles([])
     # # stocks = fc.getSymbols()
-    # # stocks = nasdaq100symbols
     # stocks = random50(numstocks=20)
     # # stocks.append('BINANCE:BTCUSDT')
     # # startdelt = dt.timedelta(days=75)
