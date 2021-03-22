@@ -1,10 +1,10 @@
 #!/bin/bash
-export PROJECTDIR=/usr/local/quotedb
+export PROJECTDIR=/usr/local/quotedb2
 
 if test -z "$PYTHONPATH"
 then
 
-	export PYTHONPATH=/usr/local/quotedb
+	export PYTHONPATH=/usr/local/quotedb2
 else
 	export PYTHONPATH=/usr/local/quotedb:$PYTHONPATH
 fi

@@ -67,7 +67,7 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
     # gainers, losers = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
     gainers.extend(losers[1:])
     gainers = [x[0] for x in gainers][1:]
-    gainers.append('BINANCE:BTCUSDT')
+    # gainers.append('BINANCE:BTCUSDT')
 
     ws_thread = startTickWS(gainers, store=[format], fn=ffn)
 
@@ -90,7 +90,7 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
         # gainers, losers = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
         gainers.extend(losers[1:])
         gainers = [x[0] for x in gainers][1:]
-        gainers.append('BINANCE:BTCUSDT')
+        # gainers.append('BINANCE:BTCUSDT')
         ws_thread.changesubscription(gainers, newfn=ffn)
 
 
