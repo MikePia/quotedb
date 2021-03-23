@@ -16,7 +16,7 @@ def dt2unix(adate, unit='s'):
 
     if unit == 'm':
         return int((adate - EPOC).total_seconds() * 1000)
-
+ 
     return int((adate - EPOC).total_seconds())
 
 
@@ -107,5 +107,3 @@ if __name__ == '__main__':
     # assert dt2unix(dt.datetime(2021, 2, 11)) != 1613001601
     print(unix2date(1613001600))
     print(unix2date_ny(1613001600))
-    print(formatFn('fred', 'csv'))
-    print(formatFn('fred', 'json'))

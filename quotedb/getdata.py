@@ -282,17 +282,17 @@ if __name__ == "__main__":
     # start = pd.Timestamp("2021-3-11 11:30", tz=tz).tz_convert("UTC").replace(tzinfo=None)
     # end = pd.Timestamp("2021-3-11 12:00", tz=tz).tz_convert("UTC").replace(tzinfo=None)
     ########################################
-    from quotedb.sp500 import nasdaq100symbols
-    stocks = nasdaq100symbols
-    # # start = dt.datetime.utcnow()
-    # # start = dt.datetime.utcnow() - dt.timedelta(days=60)
-    start = dt.datetime(2021, 3, 21)
-    end = dt.datetime.utcnow()
-
+    # from quotedb.sp500 import nasdaq100symbols
     # stocks = nasdaq100symbols
-    # # stocks = ['AAPL', 'SQ']
-    startCandles(stocks, start, latest=True)
-    # x = getCandles(stocks, start, end)
+    # # # start = dt.datetime.utcnow()
+    # # # start = dt.datetime.utcnow() - dt.timedelta(days=60)
+    # start = dt.datetime(2021, 3, 21)
+    # end = dt.datetime.utcnow()
+
+    # # stocks = nasdaq100symbols
+    # # # stocks = ['AAPL', 'SQ']
+    # startCandles(stocks, start, latest=True)
+    # # x = getCandles(stocks, start, end)
     #########################################
     # # x = getTicks(stocks, start, end)
     # # MyWebSocket(stocks)
@@ -325,16 +325,16 @@ if __name__ == "__main__":
     # from quotedb.sp500 import nasdaq100symbols, random50
     # fc = FinnCandles([])
     # # stocks = fc.getSymbols()
-    # stocks = random50(numstocks=20)
+    stocks = random50(numstocks=20)
     # # stocks.append('BINANCE:BTCUSDT')
     # # startdelt = dt.timedelta(days=75)
 
-    # startdelt = pd.Timestamp(2021, 3, 19, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None)
-    # # startdelt = dt.datetime(2021, 1, 1)
-    # fn = 'visualizenow.json'
-    # gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    # numrec = 10
-    # getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='visualize', bringtodate=False)
+    startdelt = pd.Timestamp(2021, 3, 19, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None)
+    startdelt = dt.datetime(2021, 1, 1)
+    fn = 'visualizenow.json'
+    gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    numrec = 10
+    getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='visualize', bringtodate=False)
 
     ##############################################
     # stocks = nasdaq100symbols
