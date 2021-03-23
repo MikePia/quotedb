@@ -101,10 +101,10 @@ def localFilterStocks(df, stocks, gl):
     losers = []
     if df.empty:
         return [], []
-    for tick in df.symbol.unique():
-        t = df[df.symbol == tick]
+    for tick in df.stock.unique():
+        t = df[df.stock == tick]
         t = t.copy()
-        t.sort_values(['time'], inplace=True)
+        t.sort_values(['timestamp'], inplace=True)
 
         firstprice, lastprice = t.iloc[0].price, t.iloc[-1].price
         pricediff = firstprice - lastprice
@@ -118,8 +118,8 @@ def localFilterStocks(df, stocks, gl):
     losers.sort(key=lambda x: x[2], reverse=True)
     gainers = gainers[:10]
     losers = losers[:10]
-    gainers.insert(0, ['symbol', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
-    losers.insert(0, ['symbol', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
+    gainers.insert(0, ['stock', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
+    losers.insert(0, ['stock', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
     return gainers, losers
 
 
@@ -267,7 +267,7 @@ def getGainersLosers(tickers, start, numstocks):
     :params tickers: List<str>
     :params start: int: Unix time in seconds
     :params numstocks: The number of stocks to include in gainers and losers
-    :return: (list<list>, list<list>): (gainers, losers): Each sub list is [symbol, pricediff, percentagediff, firstprice, lastprice]
+    :return: (list<list>, list<list>): (gainers, losers): Each sub list is [stock, pricediff, percentagediff, firstprice, lastprice]
     """
     mc = ManageCandles(getSaConn())
     return mc.filterGanersLosers(tickers, start, numstocks)
@@ -322,7 +322,7 @@ if __name__ == "__main__":
     # j = getPolyTrade(stocks, start, end)
 
     # import pandas as pd
-    # from quotedb.sp500 import nasdaq100symbols, random50
+    from quotedb.sp500 import nasdaq100symbols, random50
     # fc = FinnCandles([])
     # # stocks = fc.getSymbols()
     stocks = random50(numstocks=20)

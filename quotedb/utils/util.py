@@ -45,7 +45,7 @@ def resample(df, col, rule):
     df = df.copy()
 
     # convert epoch times to datetime
-    df.time = df.time.apply(
+    df.timestamp = df.time.apply(
         lambda ts: dt.datetime.fromtimestamp(ts))
 
     # make the datetimes into an index
@@ -78,11 +78,11 @@ def formatData(df, format):
     elif format == 'visualize':
         if df.empty:
             return ''
-        df.sort_values(['time', 'symbol'])
+        df.sort_values(['timestamp', 'stock'])
         visualize = []
-        for t in df.time.unique():
-            tick = df[df.time == t]
-            visualize.append({int(t): tick[['symbol', 'price', 'volume']].values.tolist()})
+        for t in df.timestamp.unique():
+            tick = df[df.timestamp == t]
+            visualize.append({int(t): tick[['stock', 'price', 'volume']].values.tolist()})
         return json.dumps(visualize)
     elif format == 'csv':
         if df.empty:
