@@ -3,9 +3,11 @@ import datetime as dt
 
 import pandas as pd
 
+
 from quotedb.utils.util import dt2unix, unix2date, resample
 from quotedb.models.candlesmodel import CandlesModel
-from quotedb.models.metamod import getSession, init
+from quotedb.models.allquotes_candlemodel import Allquotes
+from quotedb.models.metamod import getSession, init, cleanup
 from quotedb.dbconnection import getSaConn, getCsvDirectory
 
 
@@ -13,12 +15,13 @@ class ManageCandles:
     engine = None
     session = None
 
-    def __init__(self, db, create=False):
+    def __init__(self, db, model, create=False):
         '''
         :params db: a SQLalchemy connection string.
         '''
         self.db = db
         self.session = getSession()
+        self.model = model
         if create:
             self.createTables()
 
@@ -29,7 +32,7 @@ class ManageCandles:
         """
         Could analyze differences in db holdings here, For now just print it out
         """
-        d = CandlesModel.getReport(self.session, tickers)
+        d = self.model.getReport(self.session, tickers)
 
         fn = getCsvDirectory() + "/report.csv"
         with open(fn, 'a', newline='') as file:
@@ -51,7 +54,7 @@ class ManageCandles:
 
     def getLargestTimeGap(self, ticker):
         s = getSession()
-        q = s.query(CandlesModel.timestamp).filter_by(stock=ticker).order_by(CandlesModel.timestamp).all()
+        q = s.query(self.model.timestamp).filter_by(stock=ticker).order_by(self.model.timestamp).all()
         maxsize = (0, 0)
         prevtime = q[0][0]
         for t in q:
@@ -68,7 +71,7 @@ class ManageCandles:
         for each minute. Note that this is atomic because it is intended for data on a single day. Use
         getFilledDataDays for multiday
         '''
-        data = CandlesModel.getTimeRangePlus(stock, begin, end, self.session)
+        data = self.model.getTimeRangePlus(stock, begin, end, self.session)
         if not data:
             return None
         datadict = [x.__dict__ for x in data]
@@ -131,9 +134,9 @@ class ManageCandles:
     def getMaxTimeForEachTicker(self, tickers=None):
         maxdict = dict()
         if tickers is None:
-            tickers = CandlesModel.getTickers(self.session)
+            tickers = self.model.getTickers(self.session)
         for tick in tickers:
-            t = CandlesModel.getMaxTime(tick, self.session)
+            t = self.model.getMaxTime(tick, self.session)
             if t:
                 maxdict[tick] = t
         return maxdict
@@ -147,7 +150,7 @@ class ManageCandles:
         """
         # end is just some time in the future
         end = dt2unix(dt.datetime.utcnow() + dt.timedelta(hours=5))
-        df = CandlesModel.getTimeRangeMultipleVpts(tickers, start, end, self.session)
+        df = self.model.getTimeRangeMultipleVpts(tickers, start, end, self.session)
         gainers = []
         losers = []
         for tick in df.stock.unique():
@@ -170,6 +173,43 @@ class ManageCandles:
         gainers.insert(0, ['stock', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
         losers.insert(0, ['stock', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
         return gainers, losers
+
+    def addCandles(self, stock, arr, session):
+        '''
+        [c, h, l, o, t, v]
+        '''
+        retries = 5
+        while retries > 0:
+            try:
+                init()
+                s = getSession()
+                arr = self.model.cleanDuplicatesFromResults(stock, arr, session)
+                if len(arr) == 0:
+                    return
+                for i, t in enumerate(arr, start=1):
+                    s.add(self.model(
+                        stock=stock,
+                        close=t[0],
+                        high=t[1],
+                        low=t[2],
+                        open=t[3],
+                        timestamp=t[4],
+                        volume=t[5]))
+                    if not i % 1000:
+                        s.commit()
+                        print(f'commited {i} records for stock {stock}')
+
+                print(f'commited {len(arr)} records for stock {stock}')
+                s.commit()
+                retries = 0
+            except Exception as ex:
+                print(ex, f'Retry #{retries}')
+                retries -= 1
+                continue
+            finally:
+                cleanup()
+
+
 
 
 def getRange():
