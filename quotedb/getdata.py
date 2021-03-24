@@ -159,7 +159,7 @@ def getCandles(stocks, start, end, model=CandlesModel):
     start = start if isinstance(start, int) else dt2unix(start)
     end = end if isinstance(end, int) else dt2unix(end)
     mk = ManageCandles(getSaConn, model, True)
-    df = model.getTimeRangeMultipleVpts(stocks, start, end, mk.session)
+    df = mk.getTimeRangeMultipleVpts(stocks, start, end)
     if df.empty:
         return pd.DataFrame()
     return df
@@ -323,7 +323,7 @@ if __name__ == "__main__":
     # j = getPolyTrade(stocks, start, end)
 
     # import pandas as pd
-    from quotedb.sp500 import nasdaq100symbols, random50
+    from quotedb.sp500 import random50
     # fc = FinnCandles([])
     # # stocks = fc.getSymbols()
     stocks = random50(numstocks=20)

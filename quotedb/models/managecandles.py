@@ -4,11 +4,11 @@ import datetime as dt
 import pandas as pd
 
 
-from quotedb.utils.util import dt2unix, unix2date, resample
-from quotedb.models.candlesmodel import CandlesModel
-from quotedb.models.allquotes_candlemodel import Allquotes
+from quotedb.utils.util import dt2unix, unix2date, unix2date_ny, resample
 from quotedb.models.metamod import getSession, init, cleanup
 from quotedb.dbconnection import getSaConn, getCsvDirectory
+from quotedb.polygon.polytrade import isMarketOpen
+from sqlalchemy import desc, func, distinct
 
 
 class ManageCandles:
@@ -32,7 +32,7 @@ class ManageCandles:
         """
         Could analyze differences in db holdings here, For now just print it out
         """
-        d = self.model.getReport(self.session, tickers)
+        d = self.getReport(self.session, tickers)
 
         fn = getCsvDirectory() + "/report.csv"
         with open(fn, 'a', newline='') as file:
@@ -71,7 +71,7 @@ class ManageCandles:
         for each minute. Note that this is atomic because it is intended for data on a single day. Use
         getFilledDataDays for multiday
         '''
-        data = self.model.getTimeRangePlus(stock, begin, end, self.session)
+        data = self.getTimeRangePlus(stock, begin, end)
         if not data:
             return None
         datadict = [x.__dict__ for x in data]
@@ -134,9 +134,9 @@ class ManageCandles:
     def getMaxTimeForEachTicker(self, tickers=None):
         maxdict = dict()
         if tickers is None:
-            tickers = self.model.getTickers(self.session)
+            tickers = self.getTickers(self.session)
         for tick in tickers:
-            t = self.model.getMaxTime(tick, self.session)
+            t = self.getMaxTime(tick, self.session)
             if t:
                 maxdict[tick] = t
         return maxdict
@@ -150,7 +150,7 @@ class ManageCandles:
         """
         # end is just some time in the future
         end = dt2unix(dt.datetime.utcnow() + dt.timedelta(hours=5))
-        df = self.model.getTimeRangeMultipleVpts(tickers, start, end, self.session)
+        df = self.getTimeRangeMultipleVpts(tickers, start, end)
         gainers = []
         losers = []
         for tick in df.stock.unique():
@@ -183,7 +183,7 @@ class ManageCandles:
             try:
                 init()
                 s = getSession()
-                arr = self.model.cleanDuplicatesFromResults(stock, arr, session)
+                arr = self.cleanDuplicatesFromResults(stock, arr, session)
                 if len(arr) == 0:
                     return
                 for i, t in enumerate(arr, start=1):
@@ -209,7 +209,131 @@ class ManageCandles:
             finally:
                 cleanup()
 
+    def getTimeRange(self, stock, start, end):
+        s = self.session
+        q = s.query(self.model).filter_by(stock=stock).filter(self.model.timestamp >= start).filter(self.model.timestamp <= end).all()
+        return q
 
+    def getTimeRangeMultiple(self, symbols, start, end):
+        """
+        Query candles for all stocks that have times between start and end
+        """
+        s = self.session
+
+        q = s.query(self.model).filter(
+            self.model.timestamp >= start).filter(
+            self.model.timestamp <= end).filter(
+            self.model.stock.in_(symbols)).order_by(
+            self.model.timestamp.asc(), self.model.stock.asc()).all()
+        return q
+
+    def getTimeRangeMultipleVpts_slow(self, symbols, start, end):
+        s = self.session
+
+        q = s.query(self.model.stock, self.model.close.label("price"), self.model.timestamp, self.model.volume).filter(
+            self.model.timestamp >= start).filter(
+                self.model.timestamp <= end).filter(
+                self.model.stock.in_(symbols)).order_by(
+                self.model.timestamp.asc(), self.model.stock.asc())
+        q = q.all()
+        return [r._asdict() for r in q]
+
+    def getTimeRangeMultipleVpts(self, symbols, start, end):
+        print(f'Getting candles for {len(symbols)} stocks between {unix2date_ny(start)} and {unix2date_ny(end)} NY time')
+        s = self.session
+        q = s.query(self.model.stock, self.model.close, self.model.timestamp, self.model.volume).filter(
+            self.model.timestamp >= start).filter(self.model.timestamp <= end).all()
+        df = pd.DataFrame([(d.stock, d.close, d.timestamp, d.volume) for d in q], columns=['stock', 'price', 'timestamp', 'volume'])
+        df = df[df.stock.isin(symbols)]
+        return df
+
+    def getTimeRangePlus(self, stock, start, end):
+        '''
+        Retrieve the timestamp range but guarantee that the first timestamp has either a current value
+        or a previous value
+        '''
+        data = self.getTimeRange(stock, start-(60*30), end)
+        if not data:
+            return []
+        if data[0].timestamp <= start:
+            return data
+        s = self.session
+        q = s.query(self.model).filter(self.model.timestamp < start).order_by(desc(self.model.timestamp)).first()
+        if q:
+            data.insert(0, q)
+        else:
+            # TODO
+            print('No current or earlier data for start')
+            raise ValueError('Programmers Exception, Here is the case to deal with')
+        return data
+
+    def getMaxTime(self, ticker, session):
+        s = session
+        q = s.query(func.max(self.model.timestamp)).filter_by(stock=ticker).one_or_none()
+        return q[0]
+
+    def getTickers(self):
+        s = self.session
+
+        tickers = s.query(distinct(self.model.stock)).all()
+        tickers = [x[0] for x in tickers]
+        return tickers
+
+    def cleanDuplicatesFromResults(self, stock, arr, session):
+        """
+        Remove results from arr that have a duplicate timestamp and stock in the db
+        """
+        s = session
+        td = {t[4]: t for t in arr}
+        times = set(list(td.keys()))
+        q = s.query(self.model.timestamp).filter_by(stock=stock).filter(
+                self.model.timestamp >= min(times)).filter(
+                self.model.timestamp <= max(times)).order_by(self.model.timestamp).all()
+        times2 = set([x[0] for x in q])
+        for tt in (times & times2):
+            del td[tt]
+        if len(times) > len(td):
+            print(f'Found {len(times) - len(td)} duplicates')
+        return list(td.values())
+
+    def getReport(self, session, tickers=None):
+        """
+        Broke it fix later returns {}
+        Currently developers tool only, it's too slow. It's Query problems and maybe some SA tweaking
+        But it is really useful even looking over it with eyes can see potential missing data based on
+        beginning dates. It will need to be automated. 100 stocks is very different than 8000
+        Get the min and max dates of tickers.
+        :params tickers: list, if tickers is None, report on every ticker in the db
+        :return: {ticker:[mindate<int>, maxdate<int>, numrec:<int>], ...}
+        """
+        # d = {}
+        # s = session
+        # if tickers is None:
+        #     tickers = s.query(distinct(self.model.stock)).all()
+        #     tickers = [x[0] for x in tickers]
+        # There is probably some cool way to get all the data in one sql statement. THIS COULD BE VERY TIME CONSUMING
+        # for tick in tickers[::-1]:
+        #     # I think first thing is just change this to a sql execute without ORM (did not help much)
+        #     # select min(timestamp), max(timestamp), count(timestamp) from candles where stock="SIRI";
+
+        #     with engine.connect() as con:
+        #         statement = text(f"""SELECT min(timestamp), max(timestamp), count(timestamp) FROM candles WHERE stock="{tick}";""")
+        #         q = con.execute(statement).fetchall()
+        #         if q[0][2] == 0:
+        #             d[tick] = [q[0][0], q[0][1], q[0][2]]
+        #             print(f'{tick}: {q[0][0]}: {q[0][1]}: {q[0][2]} ')
+        #         else:
+        #             d[tick] = [unix2date(q[0][0]), unix2date(q[0][1]), q[0][2]]
+        #             print(f'{tick}: {unix2date(q[0][0])}: {unix2date(q[0][1])}: {q[0][2]} ')
+        # return d
+        return {}
+
+    def printLatestTimes(self, stocks, session):
+        from quotedb.utils.util import unix2date
+        for stock in stocks:
+            t = self.getMaxTime(stock, session)
+            print(unix2date(t, unit='s').strftime("%A %B, %d %H:%M%S"))
+        print(isMarketOpen())
 
 
 def getRange():
