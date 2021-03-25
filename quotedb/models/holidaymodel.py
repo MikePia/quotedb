@@ -90,5 +90,5 @@ def test_isHoliday():
 
 if __name__ == '__main__':
     mh = ManageHolidayModel(getSaConn(), create=True)
-    # mh.saveHolidays('quotedb.models/holidays.csv')
+    mh.saveHolidays('quotedb/models/holidays.csv')
     test_isHoliday()

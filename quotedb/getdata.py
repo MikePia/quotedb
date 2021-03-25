@@ -10,7 +10,8 @@ import time
 
 import pandas as pd
 
-from quotedb.models.candlesmodel import CandlesModel, ManageCandles
+from quotedb.models.candlesmodel import CandlesModel
+from quotedb.models.managecandles import ManageCandles
 from quotedb.models.finntickmodel import FinnTickModel, ManageFinnTick
 from quotedb.models.polytrademodel import ManagePolyTrade, PolyTradeModel
 from quotedb.models.trademodel import ManageTrade, TradeModel
@@ -24,7 +25,7 @@ from quotedb.polygon.polytrade import PolygonApi
 # from quotedb.sp500 import getQ100_Sp500
 
 
-def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtodate=False):
+def getCurrentDataFile(stocks, startdelt, fn, start_gl, model=CandlesModel, format='json', bringtodate=False):
     """
     Explanation
     -----------
@@ -56,15 +57,15 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, format='json', bringtoda
     if bringtodate:
         # Note I think in production, a seperate running program will be updataing
         # this continuously
-        startCandles(stocks, start, latest=True, numcycles=0)
+        startCandles(stocks, start, model, latest=True, numcycles=0)
 
     end = dt2unix(dt.datetime.utcnow(), unit='s')
-    df = getCandles(stocks, start, end)
+    df = getCandles(stocks, start, end, model=model)
     ffn = formatFn(fn, format)
     writeFile(formatData(df, format), ffn, format)
 
     gainers, losers = localFilterStocks(df, stocks, start_gl)
-    # gainers, losers = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
+    gainers, losers = filterStocks(stocks, {'pricediff': start_gl}, model)  # TODO figure how to speed this call up. Thread? Stored procedure?
     gainers.extend(losers[1:])
     gainers = [x[0] for x in gainers][1:]
     # gainers.append('BINANCE:BTCUSDT')
@@ -101,10 +102,10 @@ def localFilterStocks(df, stocks, gl):
     losers = []
     if df.empty:
         return [], []
-    for tick in df.symbol.unique():
-        t = df[df.symbol == tick]
+    for tick in df.stock.unique():
+        t = df[df.stock == tick]
         t = t.copy()
-        t.sort_values(['time'], inplace=True)
+        t.sort_values(['timestamp'], inplace=True)
 
         firstprice, lastprice = t.iloc[0].price, t.iloc[-1].price
         pricediff = firstprice - lastprice
@@ -118,12 +119,12 @@ def localFilterStocks(df, stocks, gl):
     losers.sort(key=lambda x: x[2], reverse=True)
     gainers = gainers[:10]
     losers = losers[:10]
-    gainers.insert(0, ['symbol', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
-    losers.insert(0, ['symbol', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
+    gainers.insert(0, ['stock', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
+    losers.insert(0, ['stock', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
     return gainers, losers
 
 
-def filterStocks(stocks, filter):
+def filterStocks(stocks, filter, model=CandlesModel):
     '''
     Explanation
     -----------
@@ -136,13 +137,13 @@ def filterStocks(stocks, filter):
         pricediff filter
     '''
     if filter.get('pricediff'):
-        gainers, losers = getGainersLosers(stocks, filter['pricediff'][0], filter['pricediff'][1])
+        gainers, losers = getGainersLosers(stocks, filter['pricediff'][0], filter['pricediff'][1], model)
         return gainers, losers
     logging.info('No filters were applied')
     return stocks
 
 
-def getCandles(stocks, start, end):
+def getCandles(stocks, start, end, model=CandlesModel):
     '''
     Explanation
     ------------
@@ -157,8 +158,8 @@ def getCandles(stocks, start, end):
     # from quotedb.dbconnection import getCsvDirectory
     start = start if isinstance(start, int) else dt2unix(start)
     end = end if isinstance(end, int) else dt2unix(end)
-    mk = ManageCandles(getSaConn(), True)
-    df = CandlesModel.getTimeRangeMultipleVpts(stocks, start, end, mk.session)
+    mk = ManageCandles(getSaConn, model, True)
+    df = mk.getTimeRangeMultipleVpts(stocks, start, end)
     if df.empty:
         return pd.DataFrame()
     return df
@@ -169,11 +170,11 @@ def getCandles(stocks, start, end):
     # return df.to_numpy().tolist()
 
 
-def startCandles(stocks, start, latest=False, numcycles=9999999999):
+def startCandles(stocks, start, model=CandlesModel, latest=False, numcycles=9999999999):
     if isinstance(start, dt.datetime):
         start = dt2unix(start)
     fc = FinnCandles(stocks)
-    fc.cycleStockCandles(start, latest, numcycles)
+    fc.cycleStockCandles(start, model, latest, numcycles)
 
 
 def getTicks(stocks, start, end, api='fh', format='json'):
@@ -257,7 +258,7 @@ def startGetQuotes(stocks, start, stop, freq):
     sq.cycleQuotes(start, stop, freq, store=True)
 
 
-def getGainersLosers(tickers, start, numstocks):
+def getGainersLosers(tickers, start, numstocks, model=CandlesModel):
     """
     Explanation
     ------------
@@ -267,9 +268,9 @@ def getGainersLosers(tickers, start, numstocks):
     :params tickers: List<str>
     :params start: int: Unix time in seconds
     :params numstocks: The number of stocks to include in gainers and losers
-    :return: (list<list>, list<list>): (gainers, losers): Each sub list is [symbol, pricediff, percentagediff, firstprice, lastprice]
+    :return: (list<list>, list<list>): (gainers, losers): Each sub list is [stock, pricediff, percentagediff, firstprice, lastprice]
     """
-    mc = ManageCandles(getSaConn())
+    mc = ManageCandles(getSaConn(), model)
     return mc.filterGanersLosers(tickers, start, numstocks)
 
 
@@ -282,17 +283,17 @@ if __name__ == "__main__":
     # start = pd.Timestamp("2021-3-11 11:30", tz=tz).tz_convert("UTC").replace(tzinfo=None)
     # end = pd.Timestamp("2021-3-11 12:00", tz=tz).tz_convert("UTC").replace(tzinfo=None)
     ########################################
-    from quotedb.sp500 import nasdaq100symbols
-    stocks = nasdaq100symbols
-    # # start = dt.datetime.utcnow()
-    # # start = dt.datetime.utcnow() - dt.timedelta(days=60)
-    start = dt.datetime(2021, 3, 21)
-    end = dt.datetime.utcnow()
-
+    # from quotedb.sp500 import nasdaq100symbols
     # stocks = nasdaq100symbols
-    # # stocks = ['AAPL', 'SQ']
-    startCandles(stocks, start, latest=True)
-    # x = getCandles(stocks, start, end)
+    # # # start = dt.datetime.utcnow()
+    # # # start = dt.datetime.utcnow() - dt.timedelta(days=60)
+    # start = dt.datetime(2021, 3, 21)
+    # end = dt.datetime.utcnow()
+
+    # # stocks = nasdaq100symbols
+    # # # stocks = ['AAPL', 'SQ']
+    # startCandles(stocks, start, latest=True)
+    # # x = getCandles(stocks, start, end)
     #########################################
     # # x = getTicks(stocks, start, end)
     # # MyWebSocket(stocks)
@@ -322,19 +323,19 @@ if __name__ == "__main__":
     # j = getPolyTrade(stocks, start, end)
 
     # import pandas as pd
-    # from quotedb.sp500 import nasdaq100symbols, random50
+    from quotedb.sp500 import random50
     # fc = FinnCandles([])
     # # stocks = fc.getSymbols()
-    # stocks = random50(numstocks=20)
+    stocks = random50(numstocks=20)
     # # stocks.append('BINANCE:BTCUSDT')
     # # startdelt = dt.timedelta(days=75)
 
-    # startdelt = pd.Timestamp(2021, 3, 19, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None)
-    # # startdelt = dt.datetime(2021, 1, 1)
-    # fn = 'visualizenow.json'
-    # gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    # numrec = 10
-    # getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='visualize', bringtodate=False)
+    startdelt = pd.Timestamp(2021, 3, 19, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None)
+    startdelt = dt.datetime(2021, 1, 1)
+    fn = 'visualizenow.json'
+    gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    numrec = 10
+    getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='visualize', bringtodate=False)
 
     ##############################################
     # stocks = nasdaq100symbols

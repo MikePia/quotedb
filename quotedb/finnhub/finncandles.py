@@ -5,7 +5,10 @@ import requests
 import threading
 import pandas as pd
 
-from quotedb.models.candlesmodel import CandlesModel, ManageCandles
+from quotedb.models.candlesmodel import CandlesModel
+from quotedb .models.allquotes_candlemodel import AllquotesModel
+from quotedb.models.firstquotemodel import Firstquote, Firstquote_trades
+from quotedb.models.managecandles import ManageCandles
 # from quotedb.sp500 import nasdaq100symbols
 from quotedb.dbconnection import getFhToken, getSaConn, getCsvDirectory
 from quotedb.utils.util import dt2unix  # , unix2date
@@ -36,7 +39,7 @@ class FinnCandles:
         '''
         return self.storeCandles(*args)
 
-    def storeCandles(self, ticker, end, resolution=1, key=None, store=['csv']):
+    def storeCandles(self, ticker, end, resolution=1, model=CandlesModel,  key=None, store=['csv']):
         '''
         Query data for candle data for ticker at given start, end and resolution.
         Store it in csv and/or db
@@ -64,11 +67,11 @@ class FinnCandles:
                 print(f'Wrote {i} records to {fn}')
         if 'db' in store:
 
-            mc = self.getManageCandles()
+            mc = self.getManageCandles(model)
             retries = 5
             while retries > 0:
                 try:
-                    CandlesModel.addCandles(ticker, j, mc.session)
+                    mc.addCandles(ticker, j, mc.session)
                     retries = 0
 
                 except Exception as ex:
@@ -146,12 +149,12 @@ class FinnCandles:
                 break
         return total
 
-    def getManageCandles(self, reinit=False):
+    def getManageCandles(self, model, reinit=False):
         if self.manageCandles is None or reinit:
-            self.manageCandles = ManageCandles(getSaConn(), create=True)
+            self.manageCandles = ManageCandles(getSaConn(), model, create=True)
         return self.manageCandles
 
-    def cycleStockCandles(self, start, latest=False, numcycles=999999999):
+    def cycleStockCandles(self, start, model=CandlesModel, latest=False, numcycles=999999999):
         """
         Explanation
         ___________
@@ -167,7 +170,7 @@ class FinnCandles:
         :params numcycles: int
             Use this to truncate the loop.
         """
-        mc = self.getManageCandles()
+        mc = self.getManageCandles(model)
         # start = dt2unix(start, unit='s') if start else 0
         end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
         if latest:
@@ -178,14 +181,14 @@ class FinnCandles:
         while True:
             for i, ticker in enumerate(self.tickers):
                 print(f'\n{i}/{len(self.tickers)}: ', end='')
-                self.storeCandles(ticker, end, 1, store=["db"])
+                self.storeCandles(ticker, end, 1, model=model, store=["db"])
             print(f"===================== Cycled through {len(self.tickers)} stocks")
             if numcycles == 0:
                 break
             numcycles -= 1
             end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
 
-    def cycleStockCandles_mp(self, start, latest=False, numcycles=999999999):
+    def cycleStockCandles_mp(self, start, model=CandlesModel, latest=False, numcycles=999999999):
         """
         Explanation
         ___________
@@ -202,7 +205,7 @@ class FinnCandles:
         :params numcycles: int
             Use this to truncate the loop.
         """
-        mc = self.getManageCandles()
+        mc = self.getManageCandles(model)
         # start = dt2unix(start, unit='s') if start else 0
         end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
         if latest:
@@ -215,7 +218,7 @@ class FinnCandles:
             for i in range(0, len(self.tickers)-1):
                 # args = (self.tickers[i], end, i, store = ['db'])
                 try:
-                    args = (self.tickers[i], end, 1, None, ['db'])
+                    args = (self.tickers[i], end, 1, None, model,  ['db'])
                     t = threading.Thread(target=self.storeCandles, args=args)
                     t.start()
                     threads.append(t)
@@ -259,6 +262,39 @@ class FinnCandles:
             retries = 0
         return symbols
 
+    def getFirstQuote(self, timestamp, stocks="all", model=AllquotesModel):
+        """
+        Explanation
+        -----------
+        Create a new firstquote or update current. Guarantee that there will be an entry for
+        every symbol in stocks as much as possible. Some of listed stocks get an illegal access
+        error from finnhub. The user will be best served if the the data has already been collected
+        before makeing this call. Call startCandles with a date that precedes timestamp by some amout
+        of time.
+
+        Parameters
+        ----------
+        :params timestamp: int: unixtime
+        :params stocks: union[str, list]: "all" will get candles from evey available US exchange. Otherwise
+            send a list of the stockss to be included
+        :params model: SqlAlchemy model: Currently either CandlesModel or AllqutoesModel. Will determine which table to use.
+        """
+        # plus = 60*60*3    # The number of seconds to pad the start time.
+        stocks = stocks if isinstance(stocks, list) else self.getSymbols() if stocks == "all" else None
+        if not stocks:
+            logging.info("Invalid request in getFirstQuote")
+            return None
+        mc = ManageCandles(getSaConn(), model)
+        candles = mc.getFirstQuoteData(timestamp)
+
+        fq = [Firstquote_trades(stock=d['stock'],
+                                high=d['high'],
+                                low=d['low'],
+                                open=d['open'],
+                                close=d['close'],
+                                volume=d['volume']) for d in [dict(x) for x in candles]]
+        Firstquote.addFirstquote(timestamp, fq, mc.session)
+
 
 if __name__ == '__main__':
     ##############################################
@@ -275,10 +311,15 @@ if __name__ == '__main__':
     # start = dt2unix(dt.datetime(2021, 2, 1), unit='s')
     # gc.cycleStockCandles(start, latest=True)
     ######################################################
+    # fc = FinnCandles([])
+    # x = fc.getSymbols()
+    # stocks = ['AAPL', 'TSLA', 'ROPKU', 'SQ', 'BBB']
+    # fc = FinnCandles(stocks)
+    # start = dt2unix(pd.Timestamp(2020, 12, 1))
+    # fc.cycleStockCandles_mp(start, CandlesModel)
+    # print('done')
+    ########################################################
+    import datetime as dt
+    timestamp = dt2unix(dt.datetime.utcnow()) - (60 * 60 * 5)
     fc = FinnCandles([])
-    x = fc.getSymbols()
-    stocks = ['AAPL', 'TSLA', 'ROPKU', 'SQ', 'BBB']
-    fc = FinnCandles(stocks)
-    start = dt2unix(pd.Timestamp(2020, 12, 1))
-    fc.cycleStockCandles_mp(start)
-    print('done')
+    fc.getFirstQuote(timestamp)
