@@ -177,7 +177,8 @@ class FinnCandles:
             startTimes = mc.getMaxTimeForEachTicker(self.tickers)
         for t in self.cycle:
             self.cycle[t] = start if not latest else max(startTimes.get(t, 0), start)
-        print(f'Going to retrieve data from finnhub for {len(self.tickers)} stocks')
+        tabname = "candles" if model == CandlesModel else "allquotes"
+        print(f'Going to retrieve data from finnhub for {len(self.tickers)} stocks, and place them in {tabname}')
         while True:
             for i, ticker in enumerate(self.tickers):
                 print(f'\n{i}/{len(self.tickers)}: ', end='')
