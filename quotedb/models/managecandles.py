@@ -12,11 +12,20 @@ from sqlalchemy import desc, func, distinct
 
 
 class ManageCandles:
+    """
+    Explanation
+    -----------
+    Manage sessions and common api for various candles tables
+    """
     engine = None
     session = None
 
     def __init__(self, db, model, create=False):
         '''
+        Explanation
+        ___________
+        Create a manageCandles object. It can run queries for various candle table.
+        Currently that includes the tables 'candles', 'allquotes', and 'firstquotes'
         :params db: a SQLalchemy connection string.
         '''
         self.db = db
@@ -335,6 +344,14 @@ class ManageCandles:
             print(unix2date(t, unit='s').strftime("%A %B, %d %H:%M%S"))
         print(isMarketOpen())
 
+    def getDeltaData(self, symbols, start, end):
+        """
+        Not clear on the requirements for this data yet.
+        """
+        data = self.getTimeMultipleVpts(symbols, start, end)
+        return data
+
+ 
 
 def getRange():
     d1 = dt.date(2021, 2, 23)

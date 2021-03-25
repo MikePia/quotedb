@@ -2,7 +2,7 @@ from quotedb.models.metamod import (init, Base)
 from sqlalchemy import Column, String, Integer, Float
 
 
-class Allquotes(Base):
+class AllquotesModel(Base):
     '''
     Inheritance of CandleModel would seem the right move but its not due to how
     the concrete table inheritance works in sqlalchemy. Instead, the best performing
