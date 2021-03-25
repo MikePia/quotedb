@@ -34,6 +34,13 @@ def cleanup():
         print(ex, 'Exception in cleanup')
 
 
+def getEngine():
+    global ENGINE
+    if not ENGINE:
+        init()
+    return ENGINE
+
+
 def getSession():
     global SESSION
     if not SESSION:

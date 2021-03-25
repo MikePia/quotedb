@@ -5,10 +5,10 @@ import pandas as pd
 
 
 from quotedb.utils.util import dt2unix, unix2date, unix2date_ny, resample
-from quotedb.models.metamod import getSession, init, cleanup
+from quotedb.models.metamod import getSession, init, cleanup, getEngine
 from quotedb.dbconnection import getSaConn, getCsvDirectory
 from quotedb.polygon.polytrade import isMarketOpen
-from sqlalchemy import desc, func, distinct
+from sqlalchemy import desc, func, distinct, text
 
 
 class ManageCandles:
@@ -228,7 +228,7 @@ class ManageCandles:
         Query candles for all stocks that have times between start and end
         """
         s = self.session
-
+ 
         q = s.query(self.model).filter(
             self.model.timestamp >= start).filter(
             self.model.timestamp <= end).filter(
@@ -256,12 +256,12 @@ class ManageCandles:
         df = df[df.stock.isin(symbols)]
         return df
 
-    def getTimeRangePlus(self, stock, start, end):
+    def getTimeRangePlus(self, stock, start, end, plus=(60*30)):
         '''
         Retrieve the timestamp range but guarantee that the first timestamp has either a current value
         or a previous value
         '''
-        data = self.getTimeRange(stock, start-(60*30), end)
+        data = self.getTimeRange(stock, start-plus, end)
         if not data:
             return []
         if data[0].timestamp <= start:
@@ -351,7 +351,19 @@ class ManageCandles:
         data = self.getTimeMultipleVpts(symbols, start, end)
         return data
 
- 
+    def getFirstQuoteData(self, timestamp):
+
+        with getEngine().connect() as con:
+            statement = text(f"""
+                SELECT s1.*
+                    FROM allquotes s1
+                        inner join  (SELECT *,  max(timestamp) as mts
+                            FROM allquotes
+                            WHERE timestamp <= {timestamp} GROUP BY stock) s2
+                    on s2.stock = s1.stock and s1.timestamp = s2.mts """)
+            q = con.execute(statement).fetchall()
+        return q
+
 
 def getRange():
     d1 = dt.date(2021, 2, 23)
