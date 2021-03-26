@@ -57,13 +57,13 @@ class Firstquote(Base):
         Explanation
         -----------
         Retrieve the available first qotes between start and end
-        
+
         Return
         ------
-        :return: list<int>: A list of timestamps in the databases between start and end 
+        :return: list<int>: A list of timestamps in the databases between start and end
         '''
         s = session
-        q = s.query(Firstquote.timestamp).filter(Firstquote.timestamp >= start).filter(Firstquote.timestamp <= end).all()
+        q = s.query(Firstquote).filter(Firstquote.timestamp >= start).filter(Firstquote.timestamp <= end).all()
         return q
 
     @classmethod
@@ -78,9 +78,6 @@ class Firstquote(Base):
         fq = Firstquote.getFirstquote(timestamp, session)
         if fq:
             s.delete(fq)
-
-
-
 
 
 class Firstquote_trades(Base):

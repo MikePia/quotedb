@@ -11,8 +11,10 @@ import time
 import pandas as pd
 
 from quotedb.models.candlesmodel import CandlesModel
+from quotedb.models.allquotes_candlemodel import AllquotesModel
 from quotedb.models.managecandles import ManageCandles
 from quotedb.models.finntickmodel import FinnTickModel, ManageFinnTick
+from quotedb.models.firstquotemodel import Firstquote
 from quotedb.models.polytrademodel import ManagePolyTrade, PolyTradeModel
 from quotedb.models.trademodel import ManageTrade, TradeModel
 from quotedb.utils.util import dt2unix, formatFn, writeFile, formatData
@@ -97,9 +99,23 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, model=CandlesModel, form
 
 def localFilterStocks(df, stocks, gl):
     '''
+    Explanation
+    -----------
+    A version of getGainersAndLoser that wirks on an existing object.
+
+    Paramaters
+    ----------
+    :params df: DataFrame: Must include a field labeled 'price' or 'close' and a field labeled 'timestamp'
+    :params stock: list: str
+    :params gl:tuple(start, numstocks)
     '''
     gainers = []
     losers = []
+    cols = df.columns
+    price_key = 'close' if 'close' in cols else 'price' if 'price' in cols else None
+    if not price_key or 'timestamp' not in cols:
+        logging.error("Invalid data format")
+        raise ValueError("Invalid data formt")
     if df.empty:
         return [], []
     for tick in df.stock.unique():
@@ -107,7 +123,7 @@ def localFilterStocks(df, stocks, gl):
         t = t.copy()
         t.sort_values(['timestamp'], inplace=True)
 
-        firstprice, lastprice = t.iloc[0].price, t.iloc[-1].price
+        firstprice, lastprice = t.iloc[0][price_key], t.iloc[-1][price_key]
         pricediff = firstprice - lastprice
         percentage = abs(pricediff / firstprice)
         if pricediff >= 0:
@@ -117,8 +133,8 @@ def localFilterStocks(df, stocks, gl):
 
     gainers.sort(key=lambda x: x[2], reverse=True)
     losers.sort(key=lambda x: x[2], reverse=True)
-    gainers = gainers[:10]
-    losers = losers[:10]
+    gainers = gainers[:gl[1]]
+    losers = losers[:gl[1]]
     gainers.insert(0, ['stock', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
     losers.insert(0, ['stock', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
     return gainers, losers
@@ -274,6 +290,34 @@ def getGainersLosers(tickers, start, numstocks, model=CandlesModel):
     return mc.filterGanersLosers(tickers, start, numstocks)
 
 
+def createFirstquote(timestamp, model=AllquotesModel):
+    """
+    Explanation
+    ------------
+    Create an entry in the firstquote table fro {timestamp} and related firstquote_trades. The result will
+    depend on the data that is already gathered in the table represented by {model}. If the {timestamp} is already
+    in the table add any new entries found in the database since it was last modified.
+
+    Parameters
+    ----------
+    :params timestamp: int: Unix timestamp in seconds. utc time
+    :params model: A sqlalchemy model: Currently either AllquotesModel or CandleModel
+    """
+    fc = FinnCandles([])
+    fc.createFirstQuote(timestamp, model=model)
+
+
+def getFirstQuote(timestamp, wiggle=60, model=AllquotesModel):
+    from quotedb.models.metamod import getSession
+    s = getSession()
+    fqs = Firstquote.availFirstQuotes(timestamp-wiggle, timestamp, s)
+
+    if fqs:
+        return fqs[-1]
+    createFirstquote(timestamp, model=model)
+    return Firstquote.getFirstquote(timestamp, s)
+
+
 if __name__ == "__main__":
     pass
     pass
@@ -323,19 +367,19 @@ if __name__ == "__main__":
     # j = getPolyTrade(stocks, start, end)
 
     # import pandas as pd
-    from quotedb.sp500 import random50
+    # from quotedb.sp500 import random50
     # fc = FinnCandles([])
     # # stocks = fc.getSymbols()
-    stocks = random50(numstocks=20)
+    # stocks = random50(numstocks=20)
     # # stocks.append('BINANCE:BTCUSDT')
     # # startdelt = dt.timedelta(days=75)
 
-    startdelt = pd.Timestamp(2021, 3, 19, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None)
-    startdelt = dt.datetime(2021, 1, 1)
-    fn = 'visualizenow.json'
-    gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    numrec = 10
-    getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='visualize', bringtodate=False)
+    # startdelt = pd.Timestamp(2021, 3, 19, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None)
+    # startdelt = dt.datetime(2021, 1, 1)
+    # fn = 'visualizenow.json'
+    # gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    # numrec = 10
+    # getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='visualize', bringtodate=False)
 
     ##############################################
     # stocks = nasdaq100symbols
@@ -344,10 +388,28 @@ if __name__ == "__main__":
     # startTickWS(stocks, store=['json'], fn=f'{getCsvDirectory()}/ws_json.json')
     ##############################################
     # import pandas as pd
-    # from pprint import pprint
-    # start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    # stocks = nasdaq100symbols
-    # gainers, losers = getGainersLosers(stocks, start)
-    # pprint(gainers)
-    # print()
-    # pprint(losers)
+    from quotedb.sp500 import nasdaq100symbols
+    from pprint import pprint
+    start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    end = dt2unix(dt.datetime.utcnow())
+    stocks = nasdaq100symbols
+    numstocks = 10
+    # gainers, losers = getGainersLosers(stocks, start, numstocks)
+
+    df = getCandles(stocks, start, end)
+    gainers, losers = localFilterStocks(df, stocks, (start, numstocks))
+
+    pprint(gainers)
+    print()
+    pprint(losers)
+    ######################################################
+    # from quotedb.utils.util import dt2unix_ny
+
+    # d = dt.datetime(2021, 3, 25, 3, 0, 0)
+    # timestamp = dt2unix_ny(d)
+    # print('naivie time', d, 'Corresponding utc for newyofk time', timestamp)
+    # createFirstquote(timestamp)
+    ######################################################
+    # from quotedb.utils.util import dt2unix_ny
+    # timestamp = dt2unix_ny(dt.datetime(2021, 3, 25, 3, 5, 0))
+    # fqs = getFirstQuote(timestamp)

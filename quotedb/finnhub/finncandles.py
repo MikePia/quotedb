@@ -267,11 +267,13 @@ class FinnCandles:
         """
         Explanation
         -----------
-        Create a new firstquote or update current. Guarantee that there will be an entry for
-        every symbol in stocks as much as possible. Some of listed stocks get an illegal access
-        error from finnhub. The user will be best served if the the data has already been collected
-        before makeing this call. Call startCandles with a date that precedes timestamp by some amout
-        of time.
+        Create a new firstquote or update current. Try to guarantee that there will be an entry for
+        every symbol in ALLSTOCKS as much as possible. Some of listed stocks get an illegal access
+        error from finnhub. The data should have already beeen collected into the table represented
+        by {model} before makeing this call.
+
+        To collect the data (prior to creating firstquotes) use startCandles with a date that precedes
+        timestamp by some amout of time. But in production, that call should run continuously
 
         Parameters
         ----------
@@ -288,13 +290,28 @@ class FinnCandles:
         mc = ManageCandles(getSaConn(), model)
         candles = mc.getFirstQuoteData(timestamp)
 
-        fq = [Firstquote_trades(stock=d['stock'],
-                                high=d['high'],
-                                low=d['low'],
-                                open=d['open'],
-                                close=d['close'],
-                                volume=d['volume']) for d in [dict(x) for x in candles]]
-        Firstquote.addFirstquote(timestamp, fq, mc.session)
+        fqs = []
+        for candle in candles:
+            fq = Firstquote_trades()
+            fq.stock = candle.stock
+            fq.close = candle.close
+            if candle.timestamp < timestamp:
+                fq.high = fq.low = fq.open = candle.close
+                # Recored the volume if the time is within 1 minute
+                fq.volume = 0 if timestamp - candle.timestamp > 60 else candle.volume
+            else:
+                fq.high = candle.high
+                fq.low = candle.low
+                fq.open = candle.open
+                fq.volume = candle.volume
+            fqs.append(fq)
+        # fq = [Firstquote_trades(stock=d['stock'],
+        #                         high=d['high'],
+        #                         low=d['low'],
+        #                         open=d['open'],
+        #                         close=d['close'],
+        #                         volume=d['volume']) for d in [dict(x) for x in candles]]
+        Firstquote.addFirstquote(timestamp, fqs, mc.session)
 
 
 if __name__ == '__main__':
@@ -323,7 +340,7 @@ if __name__ == '__main__':
     import datetime as dt
     from quotedb.utils.util import dt2unix_ny
 
-    d = timestamp = dt.datetime(2021,3, 25, 3, 0, 0)
+    d = timestamp = dt.datetime(2021, 3, 25, 3, 0, 0)
     timestamp = dt2unix_ny(d)
     print('naivie time', d, 'Corresponding utc for newyofk time', timestamp)
     # timestamp = dt2unix(dt.datetime.utcnow()) - (60 * 60 * 5)
