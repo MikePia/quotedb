@@ -6,7 +6,7 @@ import threading
 import pandas as pd
 
 from quotedb.models.candlesmodel import CandlesModel
-from quotedb .models.allquotes_candlemodel import AllquotesModel
+from quotedb.models.allquotes_candlemodel import AllquotesModel
 from quotedb.models.firstquotemodel import Firstquote, Firstquote_trades
 from quotedb.models.managecandles import ManageCandles
 # from quotedb.sp500 import nasdaq100symbols
@@ -263,7 +263,7 @@ class FinnCandles:
             retries = 0
         return symbols
 
-    def getFirstQuote(self, timestamp, stocks="all", model=AllquotesModel):
+    def createFirstQuote(self, timestamp, stocks="all", model=AllquotesModel):
         """
         Explanation
         -----------
@@ -283,7 +283,7 @@ class FinnCandles:
         # plus = 60*60*3    # The number of seconds to pad the start time.
         stocks = stocks if isinstance(stocks, list) else self.getSymbols() if stocks == "all" else None
         if not stocks:
-            logging.info("Invalid request in getFirstQuote")
+            logging.info("Invalid request in createFirstQuote")
             return None
         mc = ManageCandles(getSaConn(), model)
         candles = mc.getFirstQuoteData(timestamp)
@@ -321,6 +321,11 @@ if __name__ == '__main__':
     # print('done')
     ########################################################
     import datetime as dt
-    timestamp = dt2unix(dt.datetime.utcnow()) - (60 * 60 * 5)
+    from quotedb.utils.util import dt2unix_ny
+
+    d = timestamp = dt.datetime(2021,3, 25, 3, 0, 0)
+    timestamp = dt2unix_ny(d)
+    print('naivie time', d, 'Corresponding utc for newyofk time', timestamp)
+    # timestamp = dt2unix(dt.datetime.utcnow()) - (60 * 60 * 5)
     fc = FinnCandles([])
-    fc.getFirstQuote(timestamp)
+    fc.createFirstQuote(timestamp)
