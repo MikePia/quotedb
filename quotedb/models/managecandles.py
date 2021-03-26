@@ -1,10 +1,10 @@
 import csv
 import datetime as dt
-
+import json
 import pandas as pd
 
 
-from quotedb.utils.util import dt2unix, unix2date, unix2date_ny, resample
+from quotedb.utils.util import dt2unix, unix2date, unix2date_ny, dt2unix_ny, resample
 from quotedb.models.metamod import getSession, init, cleanup, getEngine
 from quotedb.dbconnection import getSaConn, getCsvDirectory
 from quotedb.polygon.polytrade import isMarketOpen
@@ -228,7 +228,7 @@ class ManageCandles:
         Query candles for all stocks that have times between start and end
         """
         s = self.session
- 
+
         q = s.query(self.model).filter(
             self.model.timestamp >= start).filter(
             self.model.timestamp <= end).filter(
@@ -251,7 +251,10 @@ class ManageCandles:
         print(f'Getting candles for {len(symbols)} stocks between {unix2date_ny(start)} and {unix2date_ny(end)} NY time')
         s = self.session
         q = s.query(self.model.stock, self.model.close, self.model.timestamp, self.model.volume).filter(
-            self.model.timestamp >= start).filter(self.model.timestamp <= end).all()
+            self.model.timestamp >= start).filter(self.model.timestamp <= end)
+        print(str(q))
+        print(start, end)
+        q = q.all()
         df = pd.DataFrame([(d.stock, d.close, d.timestamp, d.volume) for d in q], columns=['stock', 'price', 'timestamp', 'volume'])
         df = df[df.stock.isin(symbols)]
         return df
@@ -344,12 +347,53 @@ class ManageCandles:
             print(unix2date(t, unit='s').strftime("%A %B, %d %H:%M%S"))
         print(isMarketOpen())
 
-    def getDeltaData(self, symbols, start, end):
+    def getDeltaData(self, stocks, start, end, fq, format="df"):
         """
-        Not clear on the requirements for this data yet.
+        Explanation
+        -----------
+        Request candle and delta data from a candle table. The delta data will refer to the price at start
+        for each stock. That information will be found in {fq}. {fq.timestamp} must be before start.
+
+        Parameters
+        ----------
+        :params stocks: list
+        :params start: int: unix time in seconds
+        :params end: int: unix time in seconds
+        :params fq: Firstquote result set of 1
+        :params format: str: one of [df, json, csv]
+        :raise Valuedata: if fq.timestamp > start
         """
-        data = self.getTimeMultipleVpts(symbols, start, end)
-        return data
+        if fq.timestamp > start:
+            raise ValueError("Invalid timestamp in fq")
+        candles = self.getTimeRangeMultiple(stocks, start, end)
+        columns = ['stock', 'open', 'high', 'low', 'close',  'timestamp', 'volume']
+        df = pd.DataFrame([(d.stock, d.open, d.high, d.low, d.close, d.timestamp, d.volume) for d in candles], columns=columns)
+        columns = ['stock', 'open', 'high', 'low', 'close', 'volume']
+        df2 = pd.DataFrame([(d.stock, d.open, d.high, d.low, d.close, d.volume) for d in fq.firstquote_trades], columns=columns)
+        # df2.set_index(['stock'])
+
+        # df = pd.concat(
+        #     [df, pd.DataFrame([[0, 0.0, 0]], index=df.index, columns=['deltat', 'deltap', 'deltav'])], axis=1)
+
+        missingfrommain = []
+        newdf = pd.DataFrame()
+        for s in df.stock.unique():
+            s1 = df[df.stock == s]
+            s2 = df2[df2.stock == s]
+            if s2.empty:
+                missingfrommain.append(s)
+                continue
+            s1['deltat'] = df[df.stock == s].timestamp - fq.timestamp
+            s1['deltap'] = df2[df2.stock == s].close.iloc[0] - df[df.stock == s].close
+            newdf = newdf.append(s1)
+            print()
+        newdf.set_index(['timestamp'], inplace=True,)
+        if format == 'json':
+            return newdf.to_json(orient="records")
+        elif format == "csv":
+            return newdf.to_csv()
+
+        return newdf
 
     def getFirstQuoteData(self, timestamp):
 
@@ -357,12 +401,20 @@ class ManageCandles:
             statement = text(f"""
                 SELECT s1.*
                     FROM allquotes s1
-                        inner join  (SELECT *,  max(timestamp) as mts
+                        inner join  (SELECT *, max(timestamp) as mts
                             FROM allquotes
                             WHERE timestamp <= {timestamp} GROUP BY stock) s2
                     on s2.stock = s1.stock and s1.timestamp = s2.mts """)
             q = con.execute(statement).fetchall()
-        return q
+        # Remove duplicates
+        stocks = []
+        ret = []
+        for qq in q:
+            if qq.stock not in stocks:
+                stocks.append(qq.stock)
+                ret.append(qq)
+
+        return ret
 
 
 def getRange():
@@ -402,7 +454,19 @@ if __name__ == '__main__':
     # mc = ManageCandles(getSaConn())
     # df = CandlesModel.getTimeRangeMultipleVpts(stocks, start, end, mc.session)
     #############################################
-    mc = ManageCandles(getSaConn(), create=True)
-    start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    end = dt2unix(pd.Timestamp.utcnow().replace(tzinfo=None))
-    x = mc.getFilledData('AAPL', start, end)
+    # mc = ManageCandles(getSaConn(), create=True)
+    # start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    # end = dt2unix(pd.Timestamp.utcnow().replace(tzinfo=None))
+    # x = mc.getFilledData('AAPL', start, end)
+    #############################################
+    from quotedb.getdata import getFirstQuote
+    from quotedb.models.allquotes_candlemodel import AllquotesModel
+    from quotedb.sp500 import getQ100_Sp500
+
+    timestamp = dt2unix_ny(dt.datetime(2021, 3, 25, 3, 5, 0))
+    fq = getFirstQuote(timestamp)
+    end = dt2unix(dt.datetime.utcnow())
+    stocks = getQ100_Sp500()
+
+    mc = ManageCandles(getSaConn(), AllquotesModel)
+    mc.getDeltaData(stocks, timestamp, end, fq,)
