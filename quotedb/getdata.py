@@ -318,6 +318,13 @@ def getFirstQuote(timestamp, wiggle=60, model=AllquotesModel):
     return Firstquote.getFirstquote(timestamp, s)
 
 
+def getDeltaData(self, stocks, start, end, fq, model=AllquotesModel, format="df"):
+    if fq is None:
+        fq = getFirstQuote(start, model=model)
+    mc = ManageCandles(getSaConn(), model)
+    x = mc.getDeltaData(stocks, start, end, fq, format)
+
+
 if __name__ == "__main__":
     pass
     pass
@@ -413,3 +420,17 @@ if __name__ == "__main__":
     # from quotedb.utils.util import dt2unix_ny
     # timestamp = dt2unix_ny(dt.datetime(2021, 3, 25, 3, 5, 0))
     # fqs = getFirstQuote(timestamp)
+    ###########################################################
+    # from quotedb.getdata import getFirstQuote
+    from quotedb.models.allquotes_candlemodel import AllquotesModel
+    from quotedb.sp500 import getQ100_Sp500
+    from quotedb.utils.util import dt2unix_ny
+
+    timestamp = dt2unix_ny(dt.datetime(2021, 3, 25, 3, 5, 0))
+    # fq = getFirstQuote(timestamp)
+    fq = None
+    end = dt2unix(dt.datetime.utcnow())
+    stocks = getQ100_Sp500()
+
+    mc = ManageCandles(getSaConn(), AllquotesModel)
+    mc.getDeltaData(stocks, start, end, fq)
