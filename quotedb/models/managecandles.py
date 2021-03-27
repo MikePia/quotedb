@@ -251,10 +251,7 @@ class ManageCandles:
         print(f'Getting candles for {len(symbols)} stocks between {unix2date_ny(start)} and {unix2date_ny(end)} NY time')
         s = self.session
         q = s.query(self.model.stock, self.model.close, self.model.timestamp, self.model.volume).filter(
-            self.model.timestamp >= start).filter(self.model.timestamp <= end)
-        print(str(q))
-        print(start, end)
-        q = q.all()
+            self.model.timestamp >= start).filter(self.model.timestamp <= end).all()
         df = pd.DataFrame([(d.stock, d.close, d.timestamp, d.volume) for d in q], columns=['stock', 'price', 'timestamp', 'volume'])
         df = df[df.stock.isin(symbols)]
         return df
@@ -459,14 +456,4 @@ if __name__ == '__main__':
     # end = dt2unix(pd.Timestamp.utcnow().replace(tzinfo=None))
     # x = mc.getFilledData('AAPL', start, end)
     #############################################
-    from quotedb.getdata import getFirstQuote
-    from quotedb.models.allquotes_candlemodel import AllquotesModel
-    from quotedb.sp500 import getQ100_Sp500
-
-    timestamp = dt2unix_ny(dt.datetime(2021, 3, 25, 3, 5, 0))
-    fq = getFirstQuote(timestamp)
-    end = dt2unix(dt.datetime.utcnow())
-    stocks = getQ100_Sp500()
-
-    mc = ManageCandles(getSaConn(), AllquotesModel)
-    mc.getDeltaData(stocks, timestamp, end, fq,)
+    pass
