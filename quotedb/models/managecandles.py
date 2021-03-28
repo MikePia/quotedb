@@ -2,13 +2,14 @@ import csv
 import datetime as dt
 import json
 import pandas as pd
-
+import time
 
 from quotedb.utils.util import dt2unix, unix2date, unix2date_ny, dt2unix_ny, resample
 from quotedb.models.metamod import getSession, init, cleanup, getEngine
 from quotedb.dbconnection import getSaConn, getCsvDirectory
 from quotedb.polygon.polytrade import isMarketOpen
 from sqlalchemy import desc, func, distinct, text
+
 
 
 class ManageCandles:
@@ -226,15 +227,31 @@ class ManageCandles:
     def getTimeRangeMultiple(self, symbols, start, end):
         """
         Query candles for all stocks that have times between start and end
+        Programming note
+        ----------------
+        The query keeps giving me a memory error. The queries work from mysql cmd. Trying various
+        combinations and letting pandas to some of the filtering/sortting
+
         """
         s = self.session
 
         q = s.query(self.model).filter(
             self.model.timestamp >= start).filter(
-            self.model.timestamp <= end).filter(
-            self.model.stock.in_(symbols)).order_by(
-            self.model.timestamp.asc(), self.model.stock.asc()).all()
-        return q
+            self.model.timestamp <= end)
+
+        # q = s.query(self.model).filter(
+        #     self.model.timestamp >= start).filter(
+        #     self.model.timestamp <= end).filter(
+        #     self.model.stock.in_(symbols)).order_by(
+        #     self.model.timestamp.asc())
+        # print(str(q))
+        q = q.all()
+        columns = ['stock', 'high', 'low', 'open', 'close', 'timestamp', 'volume']
+        df = pd.DataFrame([(d.stock, d.high, d.low, d.open, d.close, d.timestamp, d.volume) for d in q], columns=columns)
+        df = df[df.stock.isin(symbols)]
+        df = df.sort_values(['timestamp', 'stock'])
+        return df
+    
 
     def getTimeRangeMultipleVpts_slow(self, symbols, start, end):
         s = self.session
@@ -362,9 +379,7 @@ class ManageCandles:
         """
         if fq.timestamp > start:
             raise ValueError("Invalid timestamp in fq")
-        candles = self.getTimeRangeMultiple(stocks, start, end)
-        columns = ['stock', 'open', 'high', 'low', 'close',  'timestamp', 'volume']
-        df = pd.DataFrame([(d.stock, d.open, d.high, d.low, d.close, d.timestamp, d.volume) for d in candles], columns=columns)
+        df = self.getTimeRangeMultiple(stocks, start, end)
         columns = ['stock', 'open', 'high', 'low', 'close', 'volume']
         df2 = pd.DataFrame([(d.stock, d.open, d.high, d.low, d.close, d.volume) for d in fq.firstquote_trades], columns=columns)
         # df2.set_index(['stock'])
@@ -383,7 +398,6 @@ class ManageCandles:
             s1['deltat'] = df[df.stock == s].timestamp - fq.timestamp
             s1['deltap'] = df2[df2.stock == s].close.iloc[0] - df[df.stock == s].close
             newdf = newdf.append(s1)
-            print()
         newdf.set_index(['timestamp'], inplace=True,)
         if format == 'json':
             return newdf.to_json(orient="records")

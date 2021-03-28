@@ -318,11 +318,12 @@ def getFirstQuote(timestamp, wiggle=60, model=AllquotesModel):
     return Firstquote.getFirstquote(timestamp, s)
 
 
-def getDeltaData(self, stocks, start, end, fq, model=AllquotesModel, format="df"):
+def getDeltaData(stocks, start, end, fq, model=AllquotesModel, format="df"):
     if fq is None:
         fq = getFirstQuote(start, model=model)
     mc = ManageCandles(getSaConn(), model)
     x = mc.getDeltaData(stocks, start, end, fq, format)
+    return x
 
 
 if __name__ == "__main__":
@@ -395,20 +396,20 @@ if __name__ == "__main__":
     # startTickWS(stocks, store=['json'], fn=f'{getCsvDirectory()}/ws_json.json')
     ##############################################
     # import pandas as pd
-    from quotedb.sp500 import nasdaq100symbols
-    from pprint import pprint
-    start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    end = dt2unix(dt.datetime.utcnow())
-    stocks = nasdaq100symbols
-    numstocks = 10
-    # gainers, losers = getGainersLosers(stocks, start, numstocks)
+    # from quotedb.sp500 import nasdaq100symbols
+    # from pprint import pprint
+    # start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    # end = dt2unix(dt.datetime.utcnow())
+    # stocks = nasdaq100symbols
+    # numstocks = 10
+    # # gainers, losers = getGainersLosers(stocks, start, numstocks)
 
-    df = getCandles(stocks, start, end)
-    gainers, losers = localFilterStocks(df, stocks, (start, numstocks))
+    # df = getCandles(stocks, start, end)
+    # gainers, losers = localFilterStocks(df, stocks, (start, numstocks))
 
-    pprint(gainers)
-    print()
-    pprint(losers)
+    # pprint(gainers)
+    # print()
+    # pprint(losers)
     ######################################################
     # from quotedb.utils.util import dt2unix_ny
 
@@ -424,13 +425,19 @@ if __name__ == "__main__":
     # from quotedb.getdata import getFirstQuote
     from quotedb.models.allquotes_candlemodel import AllquotesModel
     from quotedb.sp500 import getQ100_Sp500
+    from quotedb.sp500 import nasdaq100symbols
     from quotedb.utils.util import dt2unix_ny
 
-    timestamp = dt2unix_ny(dt.datetime(2021, 3, 25, 3, 5, 0))
+    # timestamp = dt2unix_ny(dt.datetime(2021, 3, 25, 3, 5, 0))
     # fq = getFirstQuote(timestamp)
     fq = None
+    start = dt2unix(pd.Timestamp(2021,  3, 26, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     end = dt2unix(dt.datetime.utcnow())
-    stocks = getQ100_Sp500()
+    # stocks = getQ100_Sp500()
+    stocks = nasdaq100symbols
 
-    mc = ManageCandles(getSaConn(), AllquotesModel)
-    mc.getDeltaData(stocks, start, end, fq)
+    # mc = ManageCandles(getSaConn(), AllquotesModel)
+    # mc.getDeltaData(stocks, start, end, fq)
+    
+    x = getDeltaData(stocks, start, end, fq)
+    print(())
