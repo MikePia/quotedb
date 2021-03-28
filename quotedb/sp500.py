@@ -1,5 +1,25 @@
+import os
 import random
+
 import pandas as pd
+
+
+def getSymbols():
+
+    # The file was downlaoded from here. It is probably possible to to automated acces to an ftp file that is updated nightly
+    # url = 'https://www.nasdaq.com/market-activity/stocks/screener'
+
+    fn = ''
+    thisdir = os.path.split(__file__)[0]
+    files = os.listdir(thisdir)
+    for file in files:
+        if file.startswith("nasdaq_screener") and file > fn:
+            fn = file
+    if fn:
+        stocks = pd.read_csv(os.path.join(thisdir, fn))
+        return list(stocks.Symbol)
+
+    raise ValueError('Stock symbols were not found')
 
 
 tables = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')

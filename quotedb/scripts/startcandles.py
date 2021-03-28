@@ -10,13 +10,15 @@ from quotedb.getdata import startCandles
 
 from quotedb.models.candlesmodel import CandlesModel
 from quotedb.models.allquotes_candlemodel import AllquotesModel
-from quotedb.sp500 import getQ100_Sp500, nasdaq100symbols
+from quotedb.sp500 import getQ100_Sp500, nasdaq100symbols, getSymbols
 from quotedb.utils.util import dt2unix
 
 if __name__ == '__main__':
     # stocks = getQ100_Sp500()
     fc = FinnCandles([])
-    stocks = sorted(fc.getSymbols())
+    # stocks = sorted(getSymbols())
+    # stocks = sorted(nasdaq100symbols)
+    stocks = getSymbols()
     # stocks = sorted(getQ100_Sp500())
     # stocks = ['CHTR', 'CVX', 'CMG', 'CB', 'CHD', 'CI', 'CINF', 'CTAS', 'CSCO',
     # '         C', 'CFG', 'CTXS', 'CLX', 'CME', 'CMS', 'KO', 'CTSH', 'CL', 'CMCSA', 'CMA']

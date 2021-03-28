@@ -10,6 +10,7 @@ from quotedb.models.allquotes_candlemodel import AllquotesModel
 from quotedb.models.firstquotemodel import Firstquote, Firstquote_trades
 from quotedb.models.managecandles import ManageCandles
 # from quotedb.sp500 import nasdaq100symbols
+from quotedb.sp500 import getSymbols
 from quotedb.dbconnection import getFhToken, getSaConn, getCsvDirectory
 from quotedb.utils.util import dt2unix  # , unix2date
 
@@ -283,7 +284,7 @@ class FinnCandles:
         :params model: SqlAlchemy model: Currently either CandlesModel or AllqutoesModel. Will determine which table to use.
         """
         # plus = 60*60*3    # The number of seconds to pad the start time.
-        stocks = stocks if isinstance(stocks, list) else self.getSymbols() if stocks == "all" else None
+        stocks = stocks if isinstance(stocks, list) else getSymbols() if stocks == "all" else None
         if not stocks:
             logging.info("Invalid request in createFirstQuote")
             return None
@@ -329,14 +330,6 @@ if __name__ == '__main__':
     # start = dt2unix(dt.datetime(2021, 2, 1), unit='s')
     # gc.cycleStockCandles(start, latest=True)
     ######################################################
-    # fc = FinnCandles([])
-    # x = fc.getSymbols()
-    # stocks = ['AAPL', 'TSLA', 'ROPKU', 'SQ', 'BBB']
-    # fc = FinnCandles(stocks)
-    # start = dt2unix(pd.Timestamp(2020, 12, 1))
-    # fc.cycleStockCandles_mp(start, CandlesModel)
-    # print('done')
-    ########################################################
     import datetime as dt
     from quotedb.utils.util import dt2unix_ny
 

@@ -369,6 +369,7 @@ if __name__ == "__main__":
 
     # print('done')
     #########################################
+    # from quotedb.sp500.getSymbols
     # stocks = None
     # start = dt2unix(dt.datetime.utcnow() - dt.timedelta(hours=3), unit='n')
     # end = dt2unix(dt.datetime.utcnow(), unit='n')
@@ -377,7 +378,7 @@ if __name__ == "__main__":
     # import pandas as pd
     # from quotedb.sp500 import random50
     # fc = FinnCandles([])
-    # # stocks = fc.getSymbols()
+    # # stocks = getSymbols()
     # stocks = random50(numstocks=20)
     # # stocks.append('BINANCE:BTCUSDT')
     # # startdelt = dt.timedelta(days=75)

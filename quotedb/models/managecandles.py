@@ -380,6 +380,8 @@ class ManageCandles:
         if fq.timestamp > start:
             raise ValueError("Invalid timestamp in fq")
         df = self.getTimeRangeMultiple(stocks, start, end)
+        if df.empty:
+            return pd.DataFrame()
         columns = ['stock', 'open', 'high', 'low', 'close', 'volume']
         df2 = pd.DataFrame([(d.stock, d.open, d.high, d.low, d.close, d.volume) for d in fq.firstquote_trades], columns=columns)
         # df2.set_index(['stock'])
