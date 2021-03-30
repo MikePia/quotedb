@@ -67,7 +67,7 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, model=CandlesModel, form
     writeFile(formatData(df, format), ffn, format)
 
     gainers, losers = localFilterStocks(df, stocks, start_gl)
-    gainers, losers = filterStocks(stocks, {'pricediff': start_gl}, model)  # TODO figure how to speed this call up. Thread? Stored procedure?
+    # gainers, losers = filterStocks(stocks, {'pricediff': start_gl}, model)  # TODO figure how to speed this call up. Thread? Stored procedure?
     gainers.extend(losers[1:])
     gainers = [x[0] for x in gainers][1:]
     # gainers.append('BINANCE:BTCUSDT')
@@ -94,7 +94,8 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, model=CandlesModel, form
         gainers.extend(losers[1:])
         gainers = [x[0] for x in gainers][1:]
         # gainers.append('BINANCE:BTCUSDT')
-        ws_thread.changesubscription(gainers, newfn=ffn)
+        if gainers:
+            ws_thread.changesubscription(gainers, newfn=ffn)
 
 
 def localFilterStocks(df, stocks, gl):
@@ -109,6 +110,8 @@ def localFilterStocks(df, stocks, gl):
     :params stock: list: str
     :params gl:tuple(start, numstocks)
     '''
+    if df.empty:
+        return [], []
     gainers = []
     losers = []
     cols = df.columns
@@ -116,8 +119,6 @@ def localFilterStocks(df, stocks, gl):
     if not price_key or 'timestamp' not in cols:
         logging.error("Invalid data format")
         raise ValueError("Invalid data formt")
-    if df.empty:
-        return [], []
     for tick in df.stock.unique():
         t = df[df.stock == tick]
         t = t.copy()
@@ -369,26 +370,28 @@ if __name__ == "__main__":
 
     # print('done')
     #########################################
-    # from quotedb.sp500.getSymbols
+    from quotedb.sp500 import nasdaq100symbols, getSymbols
+    # from quotedb.sp500 import random50
+    from quotedb.utils.util import dt2unix_ny
     # stocks = None
     # start = dt2unix(dt.datetime.utcnow() - dt.timedelta(hours=3), unit='n')
     # end = dt2unix(dt.datetime.utcnow(), unit='n')
     # j = getPolyTrade(stocks, start, end)
 
     # import pandas as pd
-    # from quotedb.sp500 import random50
     # fc = FinnCandles([])
-    # # stocks = getSymbols()
+    stocks = getSymbols()
     # stocks = random50(numstocks=20)
     # # stocks.append('BINANCE:BTCUSDT')
     # # startdelt = dt.timedelta(days=75)
 
-    # startdelt = pd.Timestamp(2021, 3, 19, 13, 45).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None)
+    start = dt2unix_ny(dt.datetime(2021, 3, 30, 13, 45))
     # startdelt = dt.datetime(2021, 1, 1)
-    # fn = 'visualizenow.json'
+    fn = 'visualizenow.json'
     # gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    # numrec = 10
-    # getCurrentDataFile(stocks, startdelt, fn, (gltime, numrec), format='visualize', bringtodate=False)
+    numrec = 10
+
+    getCurrentDataFile(stocks, start, fn, (start, numrec), model=AllquotesModel, format='visualize', bringtodate=False)
 
     ##############################################
     # stocks = nasdaq100symbols
@@ -397,13 +400,17 @@ if __name__ == "__main__":
     # startTickWS(stocks, store=['json'], fn=f'{getCsvDirectory()}/ws_json.json')
     ##############################################
     # import pandas as pd
-    # from quotedb.sp500 import nasdaq100symbols
+    # from quotedb.sp500 import nasdaq100symbols, getSymbols
     # from pprint import pprint
-    # start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    # start = dt2unix(pd.Timestamp(2021,  3, 29, 16, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     # end = dt2unix(dt.datetime.utcnow())
     # stocks = nasdaq100symbols
+    # stocks = getSymbols()
     # numstocks = 10
-    # # gainers, losers = getGainersLosers(stocks, start, numstocks)
+    # model = AllquotesModel
+    # gainers, losers = getGainersLosers(stocks, start, numstocks, model=model)
+    # print("gainers", gainers)
+    # print("losers", losers)
 
     # df = getCandles(stocks, start, end)
     # gainers, losers = localFilterStocks(df, stocks, (start, numstocks))
@@ -424,21 +431,18 @@ if __name__ == "__main__":
     # fqs = getFirstQuote(timestamp)
     ###########################################################
     # from quotedb.getdata import getFirstQuote
-    from quotedb.models.allquotes_candlemodel import AllquotesModel
-    from quotedb.sp500 import getQ100_Sp500
-    from quotedb.sp500 import nasdaq100symbols
-    from quotedb.utils.util import dt2unix_ny
+    # from quotedb.models.allquotes_candlemodel import AllquotesModel
+    # from quotedb.sp500 import getSymbols
 
     # timestamp = dt2unix_ny(dt.datetime(2021, 3, 25, 3, 5, 0))
     # fq = getFirstQuote(timestamp)
-    fq = None
-    start = dt2unix(pd.Timestamp(2021,  3, 26, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    end = dt2unix(dt.datetime.utcnow())
+    # fq = None
+    # start = dt2unix(pd.Timestamp(2021,  3, 29, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    # end = dt2unix(dt.datetime.utcnow())
     # stocks = getQ100_Sp500()
-    stocks = nasdaq100symbols
+    # stocks = getSymbols()
 
     # mc = ManageCandles(getSaConn(), AllquotesModel)
     # mc.getDeltaData(stocks, start, end, fq)
-    
-    x = getDeltaData(stocks, start, end, fq)
-    print(())
+
+    # x = getDeltaData(stocks, start, end, fq)
