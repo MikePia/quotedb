@@ -20,12 +20,5 @@ class TopquotesModel(Base):
     open = Column(Float, nullable=False)
     timestamp = Column(Integer, nullable=False, index=True)
     volume = Column(Integer, nullable=False)
-
-
-class ManageTopQuote(ManageCandles):
-    def __init__(self)
-
-
-if __name__ == '__main__':
-    init()
-    print()
+    delta_t = Column(Integer, index=True)
+    delta_p = Column(Float)

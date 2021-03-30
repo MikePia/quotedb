@@ -9,6 +9,7 @@ from quotedb.models.candlesmodel import CandlesModel
 from quotedb.models.allquotes_candlemodel import AllquotesModel
 from quotedb.models.firstquotemodel import Firstquote, Firstquote_trades
 from quotedb.models.managecandles import ManageCandles
+from quotedb.models.managetopquotes import ManageTopQuote
 # from quotedb.sp500 import nasdaq100symbols
 from quotedb.sp500 import getSymbols
 from quotedb.dbconnection import getFhToken, getSaConn, getCsvDirectory
@@ -152,7 +153,10 @@ class FinnCandles:
 
     def getManageCandles(self, model, reinit=False):
         if self.manageCandles is None or reinit:
-            self.manageCandles = ManageCandles(getSaConn(), model, create=True)
+            if model.__tablename__ == "topquotes":
+                self.manageCandles = ManageTopQuote(self.tickers, getSaConn(), model, create=True)
+            else:
+                self.manageCandles = ManageCandles(getSaConn(), model, create=True)
         return self.manageCandles
 
     def cycleStockCandles(self, start, model=CandlesModel, latest=False, numcycles=999999999):
@@ -178,8 +182,7 @@ class FinnCandles:
             startTimes = mc.getMaxTimeForEachTicker(self.tickers)
         for t in self.cycle:
             self.cycle[t] = start if not latest else max(startTimes.get(t, 0), start)
-        tabname = "candles" if model == CandlesModel else "allquotes"
-        print(f'Going to retrieve data from finnhub for {len(self.tickers)} stocks, and place them in {tabname}')
+        print(f'Going to retrieve data from finnhub for {len(self.tickers)} stocks, and place them in {model.__tablename__}')
         while True:
             for i, ticker in enumerate(self.tickers):
                 print(f'\n{i}/{len(self.tickers)}: ', end='')

@@ -11,7 +11,6 @@ from quotedb.polygon.polytrade import isMarketOpen
 from sqlalchemy import desc, func, distinct, text
 
 
-
 class ManageCandles:
     """
     Explanation
@@ -251,7 +250,6 @@ class ManageCandles:
         df = df[df.stock.isin(symbols)]
         df = df.sort_values(['timestamp', 'stock'])
         return df
-    
 
     def getTimeRangeMultipleVpts_slow(self, symbols, start, end):
         s = self.session
