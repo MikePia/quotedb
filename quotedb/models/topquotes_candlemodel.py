@@ -1,7 +1,5 @@
-from quotedb.models.managecandles import ManageCandles
-from quotedb.models.metamod import (init, Base)
+from quotedb.models.metamod import Base
 from sqlalchemy import Column, String, Integer, Float
-
 
 
 class TopquotesModel(Base):
