@@ -151,10 +151,10 @@ class FinnCandles:
                 break
         return total
 
-    def getManageCandles(self, model, reinit=False):
+    def getManageCandles(self, model, reinit=False, fq_time=None):
         if self.manageCandles is None or reinit:
             if model.__tablename__ == "topquotes":
-                self.manageCandles = ManageTopQuote(self.tickers, getSaConn(), model, create=True)
+                self.manageCandles = ManageTopQuote(self.tickers, getSaConn(), model, fq_time=fq_time, create=True)
             else:
                 self.manageCandles = ManageCandles(getSaConn(), model, create=True)
         return self.manageCandles
@@ -175,7 +175,7 @@ class FinnCandles:
         :params numcycles: int
             Use this to truncate the loop.
         """
-        mc = self.getManageCandles(model)
+        mc = self.getManageCandles(model, fq_time=start)
         # start = dt2unix(start, unit='s') if start else 0
         end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
         if latest:
@@ -274,7 +274,7 @@ class FinnCandles:
         Create a new firstquote or update current. Try to guarantee that there will be an entry for
         every symbol in ALLSTOCKS as much as possible. Some of listed stocks get an illegal access
         error from finnhub. The data should have already beeen collected into the table represented
-        by {model} before makeing this call.
+        by {model} before making this call.
 
         To collect the data (prior to creating firstquotes) use startCandles with a date that precedes
         timestamp by some amout of time. But in production, that call should run continuously
