@@ -26,7 +26,7 @@ def getSymbols():
     """
     Explanation
     -----------
-    Gets the symbols for the US market. The source is nasdaq.com. Secondary offering names are 
+    Gets the symbols for the US market. The source is nasdaq.com. Secondary offering names are
     changed to the version finnhub accepts.
 
     Return
@@ -67,7 +67,7 @@ def getSymbols():
             tick = f'{sp[0]}.{sp[1]}'
             if tick in s2:
                 symbols.add(tick)
-    return symbols
+    return sorted(symbols)
 
 
 tables = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
@@ -113,6 +113,5 @@ if __name__ == '__main__':
     # x = random50(nasdaq100symbols)
     x = getQ100_Sp500()
     print(len(x))
-    x = getMappedSymbols()
+    x = getSymbols()
     print(len(x))
-

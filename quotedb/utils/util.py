@@ -16,7 +16,7 @@ def dt2unix(adate, unit='s'):
 
     if unit == 'm':
         return int((adate - EPOC).total_seconds() * 1000)
- 
+
     return int((adate - EPOC).total_seconds())
 
 
@@ -41,15 +41,16 @@ def unix2date_ny(u, unit='s'):
     return x
 
 
-def resample(df, col, rule):
+def resample(df, col, rule, unit='s'):
+    div = 1 if unit == 's' else 1000.0 if unit == 'ms' else 1000000000
     df = df.copy()
 
     # convert epoch times to datetime
-    df.timestamp = df.time.apply(
-        lambda ts: dt.datetime.fromtimestamp(ts))
+    df['time'] = df.time.apply(
+        lambda ts: dt.datetime.fromtimestamp(ts / div))
 
     # make the datetimes into an index
-    df.set_index(col, inplace=True)
+    df.set_index('time', inplace=True)
 
     # resample to desired period
     df = df.resample(rule).asfreq().reset_index()

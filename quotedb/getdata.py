@@ -10,20 +10,23 @@ import time
 
 import pandas as pd
 
-from quotedb.models.candlesmodel import CandlesModel
+from quotedb.dbconnection import getCsvDirectory, getSaConn
+from quotedb.finnhub.finncandles import FinnCandles
+from quotedb.finnhub.finntrade_ws import MyWebSocket
+from quotedb.finnhub.stockquote import StockQuote
 from quotedb.models.allquotes_candlemodel import AllquotesModel
-from quotedb.models.managecandles import ManageCandles
+from quotedb.models.common import createFirstQuote
+
+from quotedb.models.candlesmodel import CandlesModel
 from quotedb.models.finntickmodel import FinnTickModel, ManageFinnTick
 from quotedb.models.firstquotemodel import Firstquote
+from quotedb.models.managecandles import ManageCandles
 from quotedb.models.polytrademodel import ManagePolyTrade, PolyTradeModel
 from quotedb.models.trademodel import ManageTrade, TradeModel
-from quotedb.utils.util import dt2unix, formatFn, writeFile, formatData
-
-from quotedb.dbconnection import getSaConn
-from quotedb.finnhub.finncandles import FinnCandles
-from quotedb.finnhub.stockquote import StockQuote
-from quotedb.finnhub.finntrade_ws import MyWebSocket
 from quotedb.polygon.polytrade import PolygonApi
+from quotedb.sp500 import random50
+from quotedb.utils.util import dt2unix, formatData, formatFn, writeFile
+
 # from quotedb.sp500 import getQ100_Sp500
 
 
@@ -172,7 +175,7 @@ def getCandles(stocks, start, end, model=CandlesModel):
     :params start: int (unix date in seconds) or datetime type
     :params end: int (unix date in seconds) or datetime type
     '''
-    # from quotedb.dbconnection import getCsvDirectory
+
     start = start if isinstance(start, int) else dt2unix(start)
     end = end if isinstance(end, int) else dt2unix(end)
     mk = ManageCandles(getSaConn, model, True)
@@ -211,10 +214,29 @@ def getTicks(stocks, start, end, api='fh', format='json'):
     return j
 
 
-def startTickWS(stocks, fn='datafile', store=['csv']):
-    mws = MyWebSocket(stocks, fn, store=store)
+def startTickWS(stocks, fn='datafile', store=['csv'], delt=None):
+    mws = MyWebSocket(stocks, fn, store=store, delt=delt)
     mws.start()
     return mws
+
+
+def startTickWSKeepAlive(stocks, fn, store, delt=None, polltime=5):
+
+    ws_thread = startTickWS(stocks, fn,  store, delt=delt)
+
+    while True:
+        cur = time.time()
+        nexttime = cur + 240
+
+        while time.time() < nexttime:
+            if not ws_thread.is_alive():
+                print('Websocket was stopped: restarting...')
+
+                ws_thread = startTickWS(stocks, store=[format], fn=fn)
+            print(' ** ')
+            time.sleep(5)
+
+        # This is where a new gainers could be found new subscription could be called
 
 
 def getTicksREST(stocks, start, end):
@@ -291,7 +313,7 @@ def getGainersLosers(tickers, start, numstocks, model=CandlesModel):
     return mc.filterGanersLosers(tickers, start, numstocks)
 
 
-def createFirstquote(timestamp, model=AllquotesModel):
+def createFirstquote(timestamp, model=AllquotesModel, stocks='all'):
     """
     Explanation
     ------------
@@ -304,8 +326,7 @@ def createFirstquote(timestamp, model=AllquotesModel):
     :params timestamp: int: Unix timestamp in seconds. utc time
     :params model: A sqlalchemy model: Currently either AllquotesModel or CandleModel
     """
-    fc = FinnCandles([])
-    fc.createFirstQuote(timestamp, model=model)
+    createFirstQuote(timestamp, model, stocks)
 
 
 def getFirstQuote(timestamp, wiggle=60, model=AllquotesModel):
@@ -370,9 +391,9 @@ if __name__ == "__main__":
 
     # print('done')
     #########################################
-    from quotedb.sp500 import nasdaq100symbols, getSymbols
+    # from quotedb.sp500 import nasdaq100symbols, getSymbols
     # from quotedb.sp500 import random50
-    from quotedb.utils.util import dt2unix_ny
+    # from quotedb.utils.util import dt2unix_ny
     # stocks = None
     # start = dt2unix(dt.datetime.utcnow() - dt.timedelta(hours=3), unit='n')
     # end = dt2unix(dt.datetime.utcnow(), unit='n')
@@ -380,24 +401,30 @@ if __name__ == "__main__":
 
     # import pandas as pd
     # fc = FinnCandles([])
-    stocks = getSymbols()
+    # stocks = getSymbols()
     # stocks = random50(numstocks=20)
     # # stocks.append('BINANCE:BTCUSDT')
     # # startdelt = dt.timedelta(days=75)
 
-    start = dt2unix_ny(dt.datetime(2021, 3, 30, 13, 45))
+    # start = dt2unix_ny(dt.datetime(2021, 3, 30, 13, 45))
     # startdelt = dt.datetime(2021, 1, 1)
-    fn = 'visualizenow.json'
+    # fn = 'visualizenow.json'
     # gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    numrec = 10
+    # numrec = 10
 
-    getCurrentDataFile(stocks, start, fn, (start, numrec), model=AllquotesModel, format='visualize', bringtodate=False)
+    # getCurrentDataFile(stocks, start, fn, (start, numrec), model=AllquotesModel, format='visualize', bringtodate=False)
 
     ##############################################
-    # stocks = nasdaq100symbols
-    # # enable woking in off hours with some data from finnhub
-    # stocks.append('BINANCE:BTCUSDT')
-    # startTickWS(stocks, store=['json'], fn=f'{getCsvDirectory()}/ws_json.json')
+
+    stocks = list(random50(numstocks=5))
+    stocks.append('BINANCE:BTCUSDT')
+    # enable woking in off hours with some data from finnhub
+    fn = f'{getCsvDirectory()}/ws_json.json'
+    delt = dt.timedelta(seconds=0.25)
+    format = 'db'
+
+    startTickWSKeepAlive(stocks, fn, store=[format])
+
     ##############################################
     # import pandas as pd
     # from quotedb.sp500 import nasdaq100symbols, getSymbols
@@ -418,18 +445,11 @@ if __name__ == "__main__":
     # pprint(gainers)
     # print()
     # pprint(losers)
-    ######################################################
-    # from quotedb.utils.util import dt2unix_ny
-
-    # d = dt.datetime(2021, 3, 25, 3, 0, 0)
-    # timestamp = dt2unix_ny(d)
-    # print('naivie time', d, 'Corresponding utc for newyofk time', timestamp)
-    # createFirstquote(timestamp)
-    ######################################################
+    # #####################################################
     # from quotedb.utils.util import dt2unix_ny
     # timestamp = dt2unix_ny(dt.datetime(2021, 3, 25, 3, 5, 0))
     # fqs = getFirstQuote(timestamp)
-    ###########################################################
+    # ##########################################################
     # from quotedb.getdata import getFirstQuote
     # from quotedb.models.allquotes_candlemodel import AllquotesModel
     # from quotedb.sp500 import getSymbols
