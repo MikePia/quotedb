@@ -78,26 +78,25 @@ class ManageTopQuote:
                     raise NotImplementedError
                     # s.query(TopquotesModel).filter(TopquotesModel.timestamp <= fq[1])
         else:
-            raise NotImplementedError
 
-        # TODO: Ensure the time corresponds with a minute marker
-        # This really needs to be tested  (this is not right, sort of OK for MVP but will need some careful fixing later)
-        d = fq_time
-        fqt = dt2unix(dt.datetime(d.year, d.month, d.day, d.hour, d.minute))
-        fc = FinnCandles([])
-        trades = fc.createFirstquote(fqt, stocks=stocks, model=None,  local=True)
-        for trade in trades:
-            t = TopquotesModel(stock=trade.stock,
-                               close=trade.close,
-                               high=trade.high,
-                               low=trade.low,
-                               open=trade.open,
-                               timestamp=trade.timestamp,
-                               volume=trade.volume,
-                               delta_t=0,
-                               delta_p=0.0)
-            s.add(t)
-        s.commit()
+            # TODO: Ensure the time corresponds with a minute marker
+            # This really needs to be tested  (this is not right, sort of OK for MVP but will need some careful fixing later)
+            d = fq_time
+            fqt = dt2unix(dt.datetime(d.year, d.month, d.day, d.hour, d.minute))
+            fc = FinnCandles([])
+            trades = fc.createFirstquote(fqt, stocks=stocks, model=None,  local=True)
+            for trade in trades:
+                t = TopquotesModel(stock=trade.stock,
+                                   close=trade.close,
+                                   high=trade.high,
+                                   low=trade.low,
+                                   open=trade.open,
+                                   timestamp=trade.timestamp,
+                                   volume=trade.volume,
+                                   delta_t=0,
+                                   delta_p=0.0)
+                s.add(t)
+            s.commit()
 
     def updateFirstQuote(self, timestamp):
         """
@@ -109,7 +108,12 @@ class ManageTopQuote:
         -----------------
         Put off the implementation until this concept is proved workable
         """
-        raise NotImplementedError('Put off the implementation till this concept is proved workable')
+        s = getSession()
+        q = s.query(TopquotesModel).limit(10).all()
+        if not q:
+            self.installFirstQuote(self.stocks, fq_time=timestamp)
+        else:
+            raise NotImplementedError('Put off the implementation till this concept is proved workable')
 
     # @override
     def addCandles(self, stock, df, session):
@@ -157,7 +161,7 @@ class ManageTopQuote:
                         open=df.iloc[i].open,
                         timestamp=df.iloc[i].timestamp,
                         volume=df.iloc[i].volume,
-                        delta_p=df.iloc[i]['close'] - self.fq[0][df.iloc[i].stock][0],
+                        delta_p=(df.iloc[i]['close'] - self.fq[0][df.iloc[i].stock][0]) / self.fq[0][df.iloc[i].stock][0],
                         delta_t=df.iloc[i]['timestamp'] - self.fq[1],
                         # delta_v=df.iloc[i]['volume'] - self.fq[0][df.iloc[i].stock][1],
                         ))

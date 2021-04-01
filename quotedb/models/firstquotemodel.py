@@ -9,9 +9,10 @@ The data used to gather this data may come from finnhub our our database. This c
 implementation will all come from finnhub)
 """
 
-from quotedb.models.metamod import Base, init
+from quotedb.models.metamod import Base, getEngine
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import text
 
 
 class Firstquote(Base):
@@ -52,6 +53,22 @@ class Firstquote(Base):
                 s.commit()
 
     @classmethod
+    def getNumStocks(cls, id, stocklist=False):
+
+        with getEngine().connect() as con:
+            if not stocklist:
+                statement = text(f"""
+                    SELECT count(distinct ft.stock), f.timestamp
+                    FROM firstquote_trades ft, firstquote f WHERE ft.firstquote_id = {id} """)
+            else:
+                statement = text(f"""
+                    SELECT distinct ft.stock,  f.timestamp
+                    FROM firstquote_trades ft, firstquote f WHERE ft.firstquote_id = {id} """)
+            q = con.execute(statement).fetchall()
+
+        return q
+
+    @classmethod
     def availFirstQuotes(cls, start, end, session):
         '''
         Explanation
@@ -78,6 +95,13 @@ class Firstquote(Base):
         fq = Firstquote.getFirstquote(timestamp, session)
         if fq:
             s.delete(fq)
+
+    @classmethod
+    def getFirstquoteTimestamps(cls, session, low=None, high=None):
+        s = session
+        if not low and not high:
+            q = s.query(Firstquote).all()
+            return q
 
 
 class Firstquote_trades(Base):
@@ -107,5 +131,15 @@ Firstquote.firstquote_trades = relationship("Firstquote_trades", back_populates=
 
 # Base.metadata.create_all(engine)
 if __name__ == '__main__':
-    init()
+    # init()
     # Base.metadata.create_all(engine)
+    # #####################################################
+    from quotedb.models.metamod import getSession
+    # print(Firstquote.getFirstquoteTimestamps(getSession()))
+
+    # #####################################################
+    print(Firstquote.getNumStocks(10))
+    print()
+    # print(Firstquote.getNumStocks(10, stocklist=True)[:20])
+    for fq in Firstquote.availFirstQuotes(0, 999999999999999, getSession()):
+        print(fq.id, fq.timestamp, 'numstocks:', len(fq.firstquote_trades))

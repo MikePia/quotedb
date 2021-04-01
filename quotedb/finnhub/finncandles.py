@@ -6,12 +6,8 @@ import threading
 import pandas as pd
 
 from quotedb.models.candlesmodel import CandlesModel
-from quotedb.models.allquotes_candlemodel import AllquotesModel
-from quotedb.models.firstquotemodel import Firstquote, Firstquote_trades
 from quotedb.models.managecandles import ManageCandles
 from quotedb.models.managetopquotes import ManageTopQuote
-# from quotedb.sp500 import nasdaq100symbols
-from quotedb.sp500 import getSymbols
 from quotedb.dbconnection import getFhToken, getSaConn, getCsvDirectory
 from quotedb.utils.util import dt2unix  # , unix2date
 
@@ -267,58 +263,8 @@ class FinnCandles:
             retries = 0
         return symbols
 
-    def createFirstQuote(self, timestamp, stocks="all", model=AllquotesModel):
-        """
-        Explanation
-        -----------
-        Create a new firstquote or update current. Try to guarantee that there will be an entry for
-        every symbol in ALLSTOCKS as much as possible. Some of listed stocks get an illegal access
-        error from finnhub. The data should have already beeen collected into the table represented
-        by {model} before making this call.
 
-        To collect the data (prior to creating firstquotes) use startCandles with a date that precedes
-        timestamp by some amout of time. But in production, that call should run continuously
-
-        Parameters
-        ----------
-        :params timestamp: int: unixtime
-        :params stocks: union[str, list]: "all" will get candles from evey available US exchange. Otherwise
-            send a list of the stockss to be included
-        :params model: SqlAlchemy model: Currently either CandlesModel or AllqutoesModel. Will determine which table to use.
-        """
-        # plus = 60*60*3    # The number of seconds to pad the start time.
-        stocks = stocks if isinstance(stocks, list) else getSymbols() if stocks == "all" else None
-        if not stocks:
-            logging.info("Invalid request in createFirstQuote")
-            return None
-        mc = ManageCandles(getSaConn(), model)
-        candles = mc.getFirstQuoteData(timestamp)
-
-        fqs = []
-        for candle in candles:
-            fq = Firstquote_trades()
-            fq.stock = candle.stock
-            fq.close = candle.close
-            if candle.timestamp < timestamp:
-                fq.high = fq.low = fq.open = candle.close
-                # Recored the volume if the time is within 1 minute
-                fq.volume = 0 if timestamp - candle.timestamp > 60 else candle.volume
-            else:
-                fq.high = candle.high
-                fq.low = candle.low
-                fq.open = candle.open
-                fq.volume = candle.volume
-            fqs.append(fq)
-        # fq = [Firstquote_trades(stock=d['stock'],
-        #                         high=d['high'],
-        #                         low=d['low'],
-        #                         open=d['open'],
-        #                         close=d['close'],
-        #                         volume=d['volume']) for d in [dict(x) for x in candles]]
-        Firstquote.addFirstquote(timestamp, fqs, mc.session)
-
-
-if __name__ == '__main__':
+# if __name__ == '__main__':
     ##############################################
     # fc = FinnCandles([])
     # # stocks = nasdaq100symbols
@@ -328,17 +274,8 @@ if __name__ == '__main__':
     # print(end)
     # end = dt2unix(end, unit='s')
     # fc.getDateRange(ticker, start, end)
-    ##################################################
+    # #################################################
     # gc = FinnCandles(nasdaq100symbols)
     # start = dt2unix(dt.datetime(2021, 2, 1), unit='s')
     # gc.cycleStockCandles(start, latest=True)
-    ######################################################
-    import datetime as dt
-    from quotedb.utils.util import dt2unix_ny
-
-    d = timestamp = dt.datetime(2021, 3, 25, 3, 0, 0)
-    timestamp = dt2unix_ny(d)
-    print('naivie time', d, 'Corresponding utc for newyofk time', timestamp)
-    # timestamp = dt2unix(dt.datetime.utcnow()) - (60 * 60 * 5)
-    fc = FinnCandles([])
-    fc.createFirstQuote(timestamp)
+    # #####################################################

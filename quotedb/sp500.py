@@ -4,7 +4,7 @@ import random
 import pandas as pd
 
 
-def getSymbols():
+def getSymbolsFromQFile():
 
     # The file was downlaoded from here. It is probably possible to to automated acces to an ftp file that is updated nightly
     # url = 'https://www.nasdaq.com/market-activity/stocks/screener'
@@ -22,7 +22,7 @@ def getSymbols():
     raise ValueError('Stock symbols were not found')
 
 
-def getSymbolsFromQFile():
+def getSymbols():
     """
     Explanation
     -----------
