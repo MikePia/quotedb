@@ -18,7 +18,7 @@ if __name__ == '__main__':
     # stocks = sorted(nasdaq100symbols)
     stocks = getSymbols()
 
-    start = dt2unix(pd.Timestamp(2021, 3, 31, 9, 30).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    start = dt2unix(pd.Timestamp(2021, 4, 2, 12, 36).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     # model = TopquotesModel
     model = AllquotesModel
     startCandles(stocks, start, model, latest=True)

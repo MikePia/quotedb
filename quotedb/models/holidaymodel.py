@@ -89,6 +89,10 @@ def test_isHoliday():
 
 
 if __name__ == '__main__':
-    mh = ManageHolidayModel(getSaConn(), create=True)
-    mh.saveHolidays('quotedb/models/holidays.csv')
-    test_isHoliday()
+    from quotedb.models.metamod import getSession
+
+    # mh = ManageHolidayModel(getSaConn(), create=True)
+    # mh.saveHolidays('quotedb/models/holidays.csv')
+    # test_isHoliday()
+    d = dt.date.today()
+    print(HolidayModel.isHoliday(d, getSession()))
