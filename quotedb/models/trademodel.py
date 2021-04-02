@@ -33,24 +33,25 @@ class TradeModel(Base):
     condition = Column(Integer)
 
     @classmethod
-    def addTrades(cls, arr, engine):
+    def addTrades(cls, df, engine):
         '''
         [p, t, v, c]
         '''
         s = Session(bind=engine)
         # arr = TradesModel.cleanDuplicatesFromResults(symbol, arr, engine)
-        for i, t in enumerate(arr, 1):
+        for i in range(len(df)):
+            t = df.iloc[i]
             condition = ','.join([str(x) for x in t['c']]) if t['c'] else ''
             s.add(TradeModel(
-                  symbol=t['s'],
-                  price=t['p'],
-                  time=t['t'],
-                  volume=t['v'],
+                  symbol=t['stock'],
+                  price=t['price'],
+                  time=t['timestamp'],
+                  volume=t['volume'],
                   condition=condition))
-            if not i % 50:
+            if not i+1 % 50:
                 s.commit()
                 print(f'commited {i} records to trade table')
-        print(f'Commited {len(arr)} records to trade table')
+        print(f'Commited {len(df)} records to trade table')
         s.commit()
 
     @classmethod

@@ -72,11 +72,13 @@ def formatFn(fn, format):
 
 
 def formatData(df, store):
-    if 'json' in store:
-        if df.empty:
-            return ''
-        return df.to_json()
-    elif 'visualize' in store:
+    """
+    Paramaters
+    ----------
+    :params df: DataFrame. If store includes visualize, must include the collumns ['timestamp', 'stock']
+    :params store: list. 
+    """
+    if 'visualize' in store:
         if df.empty:
             return ''
         df.sort_values(['timestamp', 'stock'])
@@ -85,18 +87,23 @@ def formatData(df, store):
             tick = df[df.timestamp == t]
             visualize.append({int(t): tick[['stock', 'price', 'volume']].values.tolist()})
         return json.dumps(visualize)
+    elif 'json' in store:
+        if df.empty:
+            return ''
+        return df.to_json()
     elif 'csv' in store:
         if df.empty:
             return [[]]
-        return df.to_numpy().tolist()
+        return df.to_csv(header=True)
 
 
-def writeFile(j, fn, format):
-    if format in ['json', 'visualize']:
-        with open(fn, 'w') as f:
+def writeFile(j, fn, store):
+    mode = 'a' if os.path.exists(fn) else 'w'
+    if 'visualize' in store or 'json' in store:
+        with open(fn, mode) as f:
             f.write(j)
-    elif format == 'csv':
-        with open(fn, 'w', newline='') as f:
+    elif 'csv' in 'store':
+        with open(fn, mode, newline='') as f:
             writer = csv.writer(f)
             for row in j:
                 writer.writerow(row)

@@ -6,7 +6,7 @@ import threading
 import time
 import websocket
 from quotedb.models.trademodel import ManageTrade, TradeModel
-from quotedb.dbconnection import getFhToken, getCsvDirectory, getSaConn
+from quotedb.dbconnection import getFhToken, getSaConn
 from quotedb.utils.util import formatData, writeFile
 
 
@@ -72,32 +72,12 @@ class MyWebSocket(threading.Thread):
                     print('New data to deal with here ...', len(newdata))
                 else:
                     return
-            if 'csv' in self.store:
-                trades = [[t['s'], t['p'], t['t'], t['v']] for t in j['data']]
-                with open(self.fn, 'a', newline='') as f:
-                    csvwriter = csv.writer(f)
-                    for trade in trades:
-                        csvwriter.writerow(trade)
-                # Oversharaing
-                # print(f'Added {sum([x[3] for x in trades])} shares in', {x[0] for x in trades})
-                print('.', end='')
-                # pprint(f'Wrote {len(trades)} trades to {self.fn}')
-            elif 'json' in self.store:
-                with open(self.fn, 'a') as f:
-                    f.write(json.dumps(j))
-                    # print(f'Wrote {len(j["data"])} trades to file {self.fn}')
-                    print('.', end='')
-            elif 'visualize' in self.store:
-                df = pd.DataFrame([[t['s'], t['p'], t['t'], t['v']] for t in j['data']])
+            if 'json' in store or 'visualize' in store or 'csv' in store:
                 print('.', end='')
                 writeFile(formatData(df, self.store), self.fn, self.store)
-            elif 'dev' in self.store:
-                print('.', end='')
-                # self.store.append('visualize')
-                writeFile(formatData(newdata, ['visualize']), self.fn, 'visualize')
 
             if 'db' in self.store:
-                TradeModel.addTrades(j['data'], self.mt.engine)
+                TradeModel.addTrades(df, self.mt.engine)
 
         else:
             print(message)
@@ -180,13 +160,14 @@ class MyWebSocket(threading.Thread):
 if __name__ == "__main__":
     ###########################################
     from quotedb.sp500 import nasdaq100symbols
+    from quotedb.utils.util import formatFn
     stocks = nasdaq100symbols
     stocks.append("BINANCE:BTCUSDT")
     stocks.append("IC MARKETS:1")
-    fn = getCsvDirectory() + "/testfile.json"
-    delt = dt.timedelta(seconds=0.25)
-    # delt = None
-    store = ['dev']
+    fn = formatFn("/testfile_csvasdf.csv", format='json')
+    # delt = dt.timedelta(seconds=0.25)
+    delt = None
+    store = ['db']
     # store = ['visualize']
     mws = MyWebSocket(stocks, fn, store=store, delt=delt)
     mws.start()
@@ -198,28 +179,3 @@ if __name__ == "__main__":
             mws.start()
         time.sleep(20)
         print(' ** ')
-
-    #############################################
-
-    # group1 = list(random50())
-    # group2 = list(random50())
-    # group1.append("BINANCE:BTCUSDT")
-    # group1.append("IC MARKETS:1")
-    # group2.append("BINANCE:BTCUSDT")
-    # group2.append("IC MARKETS:1")
-    # # stocks = ['SILLY',  'AAPL', 'SQ', 'ROKU', 'TSLA', 'BINANCE:BTCUSDT']
-    # fn = getCsvDirectory() + "/testfile.csv"
-    # mws = MyWebSocket(group1, fn, ['csv'])
-    # mws.start()
-    # print('\n============================= SLEEP =============================\n')
-    # time.sleep(10)
-    # print('\n=============================================================')
-    # print('=============================================================')
-    # print('=============================================================')
-    # print('=============================================================')
-    # mws.changesubscription(group2, newfn=getCsvDirectory() + '/newtestfile.csv')
-    # time.sleep(10)
-    # print('about to quit')
-    # sys.exit()
-
-    # print('done')
