@@ -1,7 +1,7 @@
 import datetime as dt
 import pandas as pd
 from quotedb.dbconnection import getSaConn
-# from quotedb.getdata import createFirstquote
+from quotedb.models.common import createFirstQuote
 from quotedb.models.metamod import getSession, init, cleanup
 from quotedb.models.topquotes_candlemodel import TopquotesModel
 from quotedb.utils.util import dt2unix
@@ -84,7 +84,7 @@ class ManageTopQuote:
             d = fq_time
             fqt = dt2unix(dt.datetime(d.year, d.month, d.day, d.hour, d.minute))
             fc = FinnCandles([])
-            trades = fc.createFirstquote(fqt, stocks=stocks, model=None,  local=True)
+            trades = createFirstquote(fqt, stocks=stocks, model=None,  local=True)
             for trade in trades:
                 t = TopquotesModel(stock=trade.stock,
                                    close=trade.close,

@@ -44,6 +44,8 @@ def getFirstQuoteData(timestamp, tablename="allquotes", thestocks=None):
         if qq.stock not in stocks:
             stocks.append(qq.stock)
             ret.append(qq)
+        else:
+            print(qq)
     if not ret:
         return pd.DataFrame()
 
@@ -53,7 +55,7 @@ def getFirstQuoteData(timestamp, tablename="allquotes", thestocks=None):
     return df
 
 
-def createFirstQuote(timestamp, model, stocks="all"):
+def createFirstQuote(timestamp, model, stocks="all", local=False):
     """
     Explanation
     -----------
@@ -71,6 +73,9 @@ def createFirstQuote(timestamp, model, stocks="all"):
     :params stocks: union[str, list]: "all" will get candles from evey available US exchange. Otherwise
         send a list of the stockss to be included
     :params model: SqlAlchemy model: Currently either CandlesModel or AllqutoesModel. Will determine which table to use.
+    :params local: bool: If false, save to the database
+    :params return: dict: {timestamp:timestamp, firstquotes_trades: list<Firstquote_trades>} The list is a local version
+    without the database relation.
     """
     # plus = 60*60*3    # The number of seconds to pad the start time.
     stocks = stocks if isinstance(stocks, list) else getSymbols() if stocks == "all" else None
@@ -101,7 +106,9 @@ def createFirstQuote(timestamp, model, stocks="all"):
     #                         open=d['open'],
     #                         close=d['close'],
     #                         volume=d['volume']) for d in [dict(x) for x in candles]]
-    Firstquote.addFirstquote(timestamp, fqs, getSession())
+    if not local:
+        Firstquote.addFirstquote(timestamp, fqs, getSession())
+    return {"timestamp": timestamp, "firstquote_trades": fqs}
 
 
 if __name__ == "__main__":
@@ -120,5 +127,5 @@ if __name__ == "__main__":
     from quotedb.utils.util import dt2unix_ny
 
     timestamp = dt2unix_ny(dt.datetime(2021, 3, 31, 13, 0, 0))
-    x = createFirstQuote(timestamp, model=AllquotesModel, stocks=nasdaq100symbols)
+    x = createFirstQuote(timestamp, model=AllquotesModel, stocks=nasdaq100symbols, local=True)
     print()
