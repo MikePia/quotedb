@@ -1,6 +1,7 @@
 import datetime as dt
-from quotedb.getdata import getCandles, startCandles
+from quotedb.getdata import getCandles
 from quotedb.sp500 import nasdaq100symbols
+
 
 def dostuff():
 
@@ -12,12 +13,11 @@ def dostuff():
 
     print(f'Retrieved {len(x)} items')
     return f'Retrieved {len(x)} items'
-    
+
+
 dostuff()
-    
-# callum switched 
+
+# callum switched
 # dostuff()
 # off 20210324_21115
 # calling dostuff() in shiny app instead
-
-
