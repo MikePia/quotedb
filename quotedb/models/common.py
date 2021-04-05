@@ -44,8 +44,6 @@ def getFirstQuoteData(timestamp, tablename="allquotes", thestocks=None):
         if qq.stock not in stocks:
             stocks.append(qq.stock)
             ret.append(qq)
-        else:
-            print(qq)
     if not ret:
         return pd.DataFrame()
 
@@ -55,7 +53,7 @@ def getFirstQuoteData(timestamp, tablename="allquotes", thestocks=None):
     return df
 
 
-def createFirstQuote(timestamp, model, stocks="all", local=False):
+def createFirstQuote(timestamp, model, stocks="all", local=False, usecache=False):
     """
     Explanation
     -----------
@@ -74,8 +72,10 @@ def createFirstQuote(timestamp, model, stocks="all", local=False):
         send a list of the stockss to be included
     :params model: SqlAlchemy model: Currently either CandlesModel or AllqutoesModel. Will determine which table to use.
     :params local: bool: If false, save to the database
+    :params usecache: bool: If true, use stored firstquote with the given timestamp. The stocks included in firstquote
+        are not guaranteed by this library or the database.
     :params return: dict: {timestamp:timestamp, firstquotes_trades: list<Firstquote_trades>} The list is a local version
-    without the database relation.
+        without the database relation.
     """
     # plus = 60*60*3    # The number of seconds to pad the start time.
     stocks = stocks if isinstance(stocks, list) else getSymbols() if stocks == "all" else None
@@ -83,6 +83,11 @@ def createFirstQuote(timestamp, model, stocks="all", local=False):
         logging.info("Invalid request in createFirstQuote")
         return None
     # mc = ManageCandles(getSaConn(), model)
+    s = getSession()
+    if usecache:
+        fq = Firstquote.getFirstquote(timestamp, s)
+        if fq:
+            return fq
     candles = getFirstQuoteData(timestamp, model.__tablename__, thestocks=stocks)
 
     fqs = []
@@ -107,8 +112,9 @@ def createFirstQuote(timestamp, model, stocks="all", local=False):
     #                         close=d['close'],
     #                         volume=d['volume']) for d in [dict(x) for x in candles]]
     if not local:
-        Firstquote.addFirstquote(timestamp, fqs, getSession())
-    return {"timestamp": timestamp, "firstquote_trades": fqs}
+        Firstquote.addFirstquote(timestamp, fqs, s)
+    fq = Firstquote(timestamp=timestamp, Firstquote_trades=fqs)
+    return fq
 
 
 if __name__ == "__main__":
@@ -127,5 +133,5 @@ if __name__ == "__main__":
     from quotedb.utils.util import dt2unix_ny
 
     timestamp = dt2unix_ny(dt.datetime(2021, 3, 31, 13, 0, 0))
-    x = createFirstQuote(timestamp, model=AllquotesModel, stocks=nasdaq100symbols, local=True)
+    x = createFirstQuote(timestamp, model=AllquotesModel, stocks=nasdaq100symbols, local=True, usecache=True)
     print()

@@ -274,3 +274,5 @@ Including this because this data is both historical and real time. Can give it a
 * for each tick there should be an array of ticker objects, where each object includes a ticker name, the value to be plotted on the y-axis (% change in price), the value to be plotted on the x-axis (perhaps market cap, volume, or change in volume - Don can provide guidance), and optionally a value on which to scale the ticker's size on the chart
 * the same list of tickers should be provided for each timestamp (even if there's no change from the prior timestamp)
 * data can be provided in either json format or a csv file at this point, but eventually we'll be working with json data sent by the server
+# notes
+gainers and losers with topquotes

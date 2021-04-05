@@ -1,6 +1,5 @@
 import csv
 import datetime as dt
-import json
 import os
 
 import pandas as pd
@@ -71,22 +70,27 @@ def formatFn(fn, format):
     return fn
 
 
-def formatData(df, store):
+def formatData(df, store, fill=False):
     """
     Paramaters
     ----------
     :params df: DataFrame. If store includes visualize, must include the collumns ['timestamp', 'stock']
-    :params store: list. 
+    :params store: list.
     """
     if 'visualize' in store:
         if df.empty:
             return ''
-        df.sort_values(['timestamp', 'stock'])
+        df.sort_values(['timestamp', 'stock'], inplace=True)
         visualize = []
         for t in df.timestamp.unique():
+            # Note that t is a numpy.datetime. int(t) converts to Epoch in ns.
             tick = df[df.timestamp == t]
-            visualize.append({int(t): tick[['stock', 'price', 'volume']].values.tolist()})
-        return json.dumps(visualize)
+            cols = ['stock', 'price', 'volume']
+            if fill:
+                cols.extend(['delta_p', 'delta_t', 'delta_v'])
+
+            visualize.append({int(int(t) / 1000000): tick[cols].to_json(orient="records")})
+        return str(visualize)
     elif 'json' in store:
         if df.empty:
             return ''
