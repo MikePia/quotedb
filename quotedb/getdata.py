@@ -234,9 +234,46 @@ def startTickWSKeepAlive(stocks, fn, store, delt=None, polltime=5):
 
                 ws_thread = startTickWS(stocks, store=[format], fn=fn)
             print(' ** ')
-            time.sleep(5)
+            time.sleep(polltime)
 
         # This is where a new gainers could be found new subscription could be called
+
+
+def startTickWS_SampleFill(stocks, fn, fq, delt=dt.timedelta(seconds=0.25), polltime=5):
+    """
+    Explanation
+    -----------
+    Calls the finnhub websocket and subscribes to stocks. Writes the file fn{timestamp}.json
+    and continues to add to it until stop. Uses the Firstquote (fq) to provide delta information.
+    The format of the output is resampled to {delt} and each tick has an entry for enach stock
+
+    Paramaters
+    ----------
+    :params stocks: list: of stocks
+    :params fn: str: filename
+    :params fq: [int<unixtime>, Firstquote]: If fq is an int, a Firstquote object will be retrieved or created for it.
+    :params delt: timedelta: This is used for the resampling value. 1/4 second by default
+    :params polltime: int: Seconds between a keepalive call for the websocket.  If the connection fails, it will be restarted
+    """
+    fn = formatFn(fn, format='json')
+    resample_td = delt
+    store = ['visualize']
+
+    if isinstance(fq, int):
+        d = fq
+        fq = createFirstQuote(d, AllquotesModel, stocks=stocks, usecache=True)
+        if set([x.stock for x in fq.firstquote_trades]) != set(stocks):
+            fq = createFirstQuote(d, AllquotesModel, stocks=stocks, usecache=False)
+        print()
+    mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
+    mws.start()
+    while True:
+        if not mws.is_alive():
+            print('Websocket was stopped: restarting...')
+            mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
+            mws.start()
+        time.sleep(polltime)
+        print(' ** ')
 
 
 def getTicksREST(stocks, start, end):
@@ -415,15 +452,19 @@ if __name__ == "__main__":
     # getCurrentDataFile(stocks, start, fn, (start, numrec), model=AllquotesModel, format='visualize', bringtodate=False)
 
     ##############################################
-
-    stocks = list(random50(numstocks=5))
-    stocks.append('BINANCE:BTCUSDT')
+    from quotedb.utils.util import dt2unix_ny
+    stocks = list(random50(numstocks=7))
+    stocks = ['CERN', 'CSCO', 'GILD', 'KDP', 'MAR', 'MU', 'AAPL']
+    # stocks.append('BINANCE:BTCUSDT')
     # enable woking in off hours with some data from finnhub
     fn = f'{getCsvDirectory()}/ws_json.json'
     delt = dt.timedelta(seconds=0.25)
     format = 'db'
 
-    startTickWSKeepAlive(stocks, fn, store=[format])
+    # startTickWSKeepAlive(stocks, fn, store=[format])
+    fq = dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
+    # stocks = ['AAPL', 'ROKU', 'TSLA', 'INTC', 'CCL', 'VIAC', 'ZKIN', 'AMD']
+    startTickWS_SampleFill(stocks, fn, fq, delt=delt)
 
     ##############################################
     # import pandas as pd

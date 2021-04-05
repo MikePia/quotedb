@@ -28,7 +28,7 @@ class Firstquote(Base):
         """
         Explanation
         -----------
-        Create a new firstquote or add to the firstquote_trades array or do nothing
+        Create a new firstquote or change firstquote_trades array or do nothing
 
         Paramaters
         ----------
@@ -40,17 +40,10 @@ class Firstquote(Base):
         q = Firstquote.getFirstquote(timestamp, s)
         if not q:
             s.add(Firstquote(timestamp=timestamp, firstquote_trades=candles))
-            s.commit()
         else:
-            addthese = []
-            stocks = [t.stock for t in q.firstquote_trades]
-            for candle in candles:
-                if candle.stock not in stocks:
-                    addthese.append(candle)
-            if addthese:
-                q.firststock_trades.extend(addthese)
-                s.add(q)
-                s.commit()
+            q.firstquote_trades = candles
+
+        s.commit()
 
     @classmethod
     def getNumStocks(cls, id, stocklist=False):

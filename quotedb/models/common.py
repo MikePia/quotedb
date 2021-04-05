@@ -113,7 +113,7 @@ def createFirstQuote(timestamp, model, stocks="all", local=False, usecache=False
     #                         volume=d['volume']) for d in [dict(x) for x in candles]]
     if not local:
         Firstquote.addFirstquote(timestamp, fqs, s)
-    fq = Firstquote(timestamp=timestamp, Firstquote_trades=fqs)
+    fq = Firstquote(timestamp=timestamp, firstquote_trades=fqs)
     return fq
 
 
