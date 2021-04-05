@@ -19,15 +19,15 @@ class Keys(Base):
     key = Column(String)
 
     @classmethod
-    def getKey(cls, name, engine):
-        s = Session(bind=engine)
+    def getKey(cls, name, session):
+        s = session
         q = s.query(Keys).filter_by(name=name).one_or_none()
         return q.key if q else None
 
     @classmethod
-    def addKey(cls, name, key, engine):
+    def addKey(cls, name, key, session):
         """Add or update a key"""
-        s = Session(bind=engine)
+        s = session
         q = s.query(Keys).filter_by(name=name).one_or_none()
         if q:
             q.key = key
@@ -38,18 +38,36 @@ class Keys(Base):
         s.commit()
 
     @classmethod
-    def removeKey(cls, name, engine):
-        s = Session(bind=engine)
+    def removeKey(cls, name, session):
+        s = session
         q = s.query(Keys).filter_by(name=name).one_or_none()
         if q:
             s.delete(q)
             s.commit()
 
     @classmethod
-    def getAll(cls, engine):
-        s = Session(bind=engine)
+    def getAll(cls, session):
+        s = session
         q = s.query(Keys).all()
         return q
+    
+    @classmethod
+    def installDb(cls, session, install='dev'):
+        """
+        Explanation
+        -----------
+        Set the active db to either the testdb or the livedb. Store the livedb
+        name in mysql_db_bak key
+        """
+        # s = Session(bind=engine)
+        devdb = Keys.getKey('mysql_db_dev', session)
+        db = Keys.getKey('mysql_db', session)
+        bakdb = Keys.getKey('mysql_db_bak', session)
+        if install == 'dev':
+            Keys.addKey('mysql_db_bak', db, session)
+            Keys.addKey('mysql_db', devdb, session)
+        else:
+            Keys.addKey('mysql_db', bakdb, session)
 
 
 class ManageKeys:
@@ -59,12 +77,15 @@ class ManageKeys:
         '''
         self.db = db
         self.engine = create_engine(self.db)
+        self.session = Session(bind=self.engine)
         if create:
             self.createTables()
 
     def createTables(self):
         self.session = Session(bind=self.engine)
         Base.metadata.create_all(self.engine)
+
+    
 
 
 def fortesting():
@@ -79,6 +100,6 @@ def fortesting():
 
 if __name__ == '__main__':
     mk = ManageKeys('sqlite:///test_keys.sqlite', True)
-    Keys.getAll(mk.engine)
+    Keys.getAll(mk.session)
     print('done')
     print('done')

@@ -16,34 +16,34 @@ class Mysqlconn:
     mk = ManageKeys(sdb)
 
     def getHost(self):
-        return Keys.getKey('mysql_ip', self.mk.engine)
+        return Keys.getKey('mysql_ip', self.mk.session)
 
     def getPort(self):
-        return Keys.getKey('mysql_port', self.mk.engine)
+        return Keys.getKey('mysql_port', self.mk.session)
 
     def getUser(self):
-        return Keys.getKey('mysql_user', self.mk.engine)
+        return Keys.getKey('mysql_user', self.mk.session)
 
     def getPw(self):
-        return Keys.getKey('mysql_pw', self.mk.engine)
+        return Keys.getKey('mysql_pw', self.mk.session)
 
     def getDb(self):
-        return Keys.getKey('mysql_db', self.mk.engine)
+        return Keys.getKey('mysql_db', self.mk.session)
 
     def getSaMysqlConn(self):
         return f'mysql+pymysql://{self.getUser()}:{self.getPw()}@{self.getHost()}/{self.getDb()}'
 
     # Couple of non mysql items
     def getCsvDirectory(self):
-        d = Keys.getKey('csv_directory', self.mk.engine)
+        d = Keys.getKey('csv_directory', self.mk.session)
         return d
 
     def getFhToken(self):
         '''Out of place but easy'''
-        return Keys.getKey('fh_token', self.mk.engine)
+        return Keys.getKey('fh_token', self.mk.session)
 
     def getPolygonToken(self):
-        return Keys.getKey('poly_token', self.mk.engine)
+        return Keys.getKey('poly_token', self.mk.session)
 
 
 # ====================== singleton accessors =========================
