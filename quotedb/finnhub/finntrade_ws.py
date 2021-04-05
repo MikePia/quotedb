@@ -1,13 +1,16 @@
-import csv
+import copy
 import datetime as dt
 import json
+import logging
 import pandas as pd
 import threading
-import time
 import websocket
-from quotedb.models.trademodel import ManageTrade, TradeModel
 from quotedb.dbconnection import getFhToken, getSaConn
-from quotedb.utils.util import formatData, writeFile
+from quotedb.models.allquotes_candlemodel import AllquotesModel
+from quotedb.models.common import createFirstQuote
+
+from quotedb.models.trademodel import ManageTrade, TradeModel
+from quotedb.utils.util import formatData, writeFile, dt2unix_ny
 
 
 class MyWebSocket(threading.Thread):
@@ -24,24 +27,55 @@ class MyWebSocket(threading.Thread):
     :params store: list:  May include [csv, json, db]
         Either csv or json can be written to but not both. csv is default. If db is included,
         data will be written to the database.
-    :params delt: timedelta: If it is not node, aggreagate the results by the resample amount.
+    :params resample_td: timedelta: If it is not None, aggreagate the results by the amount.
+    :params ffill: bool. Is only active if resample_td has a value. If True, provide value for every
+        timestamp and stock in self.tickers.
+    :params fq: Firstquote or None. If it exists, it indicates data should include delta_p and delat_t.
+        The data will be calculated by the difference, for any [timestamp, stock], between the data in
+        firstquote and current trade record.
 
     Programming notes TODO
     ----------------------
-    retool csv, json, and visualize to use the resampled result if it is there. I don't think
-    we need to store to  databse with resampled data.
+    The firstquote timestamp is in seconds. The data from the websocket is milliseconds.
+    retool csv, json, and visualize to use the resampled result if it is there. I think
+    we need disable db storage for filled data, or create a temporary table on request.
     """
 
-    def __init__(self, tickers, fn, store=['csv'], delt=None):
+    def __init__(self, tickers, fn, store=['csv'], resample_td=None, ffill=False, fq=None):
         threading.Thread.__init__(MyWebSocket)
         self.tickers = tickers
-        self.delt = delt
+        self.delt = resample_td
+        # Active only if resample_dt has a value
+        self.ffill = ffill
         self.fn = fn
         self.store = store
         self.daemon = True
         self.aggregate = pd.DataFrame()
-        self.aggmin = 0
-        self.aggmax = 0
+
+        # These three are active if fq has a value. The currentquote (cq) will be used to track
+        # prices when no trades are happening for a stock. The missing stocks will be replaced with
+        # the first data from a trade for a stock.
+        self.missing = []
+        self.fq = None
+        self.cq = None
+        if fq:
+            # We need to be able to select these by stock. Dataframe or dict? go dict
+            # Have to also change the type of the enclosing fq, it has a relationship with firstquote_trades
+            # Also changing to 'trade' format (matches ws data)  no high, low or open and price = close
+            # result is {'timestamp': <int>, 'firstquote_trades': <DataFrame>}
+            firstquote_trades = {x.stock: [x.close, x.volume] for x in fq.firstquote_trades}
+            # firstquote_trades = pd.DataFrame([(x.stock, x.close, x.volume) for x in fq.firstquote_trades], columns=cols)
+            if set(self.tickers) != set(firstquote_trades.keys()):
+                x = set(self.tickers) - set(firstquote_trades.keys())
+                if x:
+                    self.missing = list(x)
+                    logging.warning(f'WARNING: Missing information for requested stock(s): {x}')
+                    logging.warning(f'WARNING: Using a firstquote of 0.0 for: {x}. The first returned data will replace the 0.0')
+                for missing in x:
+                    firstquote_trades[missing] = [0.0, 0]
+            self.fq = {'timestamp': fq.timestamp, 'firstquote_trades': firstquote_trades}
+
+            self.cq = copy.deepcopy(self.fq)
 
     def run(self):
         websocket.enableTrace(True)
@@ -63,19 +97,21 @@ class MyWebSocket(threading.Thread):
             df = pd.DataFrame(j['data'])
             df = df.rename(columns={'p': 'price', 's': 'stock', 't': 'timestamp', 'v': 'volume'})
             if self.delt is not None:
-                # Gathere togethere at least 5 secondes of data to aggregate
+                # Gathere togethere at least 5 seconds of data to aggregate
                 self.aggregate = self.aggregate.append(df)
                 times = list(self.aggregate.timestamp)
                 if (max(times) - min(times)) >= 5000:
-                    newdata = self.resampleit()
+                    if self.ffill:
+                        df = self.resampleit_fill()
+                    else:
+                        df = self.resampleit()
                     self.aggregate = pd.DataFrame()
-                    print('New data to deal with here ...', len(newdata))
+                    print('New data to deal with here ...', len(df))
                 else:
                     return
             if 'json' in store or 'visualize' in store or 'csv' in store:
                 print('.', end='')
-                writeFile(formatData(df, self.store), self.fn, self.store)
-
+                writeFile(formatData(df, self.store, self.ffill), self.fn, self.store)
             if 'db' in self.store:
                 TradeModel.addTrades(df, self.mt.engine)
 
@@ -147,35 +183,115 @@ class MyWebSocket(threading.Thread):
         # Do the resampling, forward fill price, sum the volume and leave unfilled as 0's
         fdf = pd.DataFrame()
         for stock in newdf.stock.unique():
+            # fqstock = fq[fq.rirstquote_trades==stock]
             x2 = newdf[newdf.stock == stock]
             newerdf = x2.resample(self.delt).asfreq()
             newerdf = x2[['price']].resample(self.delt).mean().ffill()
             newerdf['volume'] = x2[['volume']].resample(self.delt).sum()
             newerdf['timestamp'] = newerdf.index
             newerdf['stock'] = stock
+            # newerdf['delta_p'] =
+            fdf = fdf.append(newerdf)
+        return fdf
+
+    def resampleit_fill(self):
+        df = self.aggregate
+        fqt = self.fq['firstquote_trades']
+
+        # Convert epoch to datetime and set it as index
+        div = 1000
+
+        newdf = pd.DataFrame()
+        for count, tm in enumerate(df.timestamp.unique()):
+            tm_df = df[df.timestamp == tm]
+            for i, stock in enumerate(tm_df.stock.unique()):
+
+                # If re got a trade for one of the missing stocks, add it to firstquote (self.fq)
+                if self.missing:
+                    deleteme = []
+                    for mis in self.missing:
+                        if mis in tm_df.stock.unique():
+                            deleteme.append(mis)
+                            fqt[mis][0] = tm_df[tm_df.stock == mis].price.unique()[0]
+                            self.fq['firstquote_trades'] = fqt
+                    for dem in deleteme:
+                        self.missing.remove(dem)
+
+                # Consolodate trades with identical timestamps, The operations are identity ops for singles
+                # self.cq = 'asdf'
+                tick_df = tm_df[tm_df.stock == stock]
+                row = {}
+                row['price'] = sum([tick_df.iloc[i].price * tick_df.iloc[i].volume for i in range(len(tick_df))]) / sum(tick_df.volume)
+                row['timestamp'] = int(tm)
+                row['stock'] = stock
+                row['volume'] = sum(tick_df.volume)
+                row['delta_p'] = (row['price'] - fqt[stock][0]) / fqt[stock][0]
+                row['delta_v'] = row['volume'] - fqt[stock][1]
+                row['delta_t'] = (row['timestamp'] - (self.fq['timestamp'] * div)) / div
+                newdf = newdf.append(row, ignore_index=True)
+                self.cq['firstquote_trades'][stock] = [row['price'], row['volume']]
+
+            for addme in (set(self.tickers) - set(tm_df.stock)):
+                row = {}
+                row['stock'] = addme
+                row['price'] = self.cq['firstquote_trades'][addme][0]
+
+                row['timestamp'] = tm
+                row['volume'] = 0
+                row['delta_p'] = row['price'] - fqt[addme][0]
+                row['delta_v'] = -fqt[addme][1]
+                row['delta_t'] = (tm - (self.fq['timestamp'] * div)) / div
+                newdf = newdf.append(row, ignore_index=True)
+
+        newdf['timestamp'] = newdf.timestamp.apply(lambda ts: dt.datetime.fromtimestamp(ts / div))
+        newdf.set_index('timestamp', inplace=True, drop=False)
+        newdf.index.name = None
+
+        # This needs to be an argument to the method
+        # Do the resampling, forward fill price, sum the volume and leave unfilled as 0's
+        fdf = pd.DataFrame()
+        for stock in newdf.stock.unique():
+            tick_df = newdf[newdf.stock == stock]
+            newerdf = tick_df.resample(self.delt).asfreq()
+            newerdf = tick_df[['price']].resample(self.delt).mean().ffill()
+            newerdf['volume'] = tick_df[['volume']].resample(self.delt).sum()
+            newerdf['timestamp'] = newerdf.index
+            newerdf['stock'] = stock
+            newerdf['delta_p'] = tick_df[['delta_p']].resample(self.delt).mean().ffill()
+            newerdf['delta_v'] = tick_df[['delta_v']].resample(self.delt).mean().ffill()
+            newerdf['delta_t'] = tick_df[['delta_t']].resample(self.delt).mean().ffill()
             fdf = fdf.append(newerdf)
         return fdf
 
 
 if __name__ == "__main__":
     ###########################################
-    from quotedb.sp500 import nasdaq100symbols
+    import time
     from quotedb.utils.util import formatFn
-    stocks = nasdaq100symbols
-    stocks.append("BINANCE:BTCUSDT")
-    stocks.append("IC MARKETS:1")
     fn = formatFn("/testfile_csvasdf.csv", format='json')
-    # delt = dt.timedelta(seconds=0.25)
-    delt = None
-    store = ['db']
-    # store = ['visualize']
-    mws = MyWebSocket(stocks, fn, store=store, delt=delt)
+    # # resample_td = dt.timedelta(seconds=0.25)
+    resample_td = dt.timedelta(seconds=0.25)
+    store = ['visualize']
+    stocks = ['AAPL', 'ROKU', 'TSLA', 'INTC', 'CCL', 'VIAC', 'ZKIN', 'AMD']
+    stocks.append("BINANCE:BTCUSDT")
+
+    d = dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
+    fq = createFirstQuote(d, AllquotesModel, stocks=stocks, usecache=True)
+    mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
     mws.start()
     while True:
         if not mws.is_alive():
             print('Websocket was stopped: restarting...')
-            mws = MyWebSocket(stocks, fn, store=store, delt=delt)
+            mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
 
             mws.start()
         time.sleep(20)
         print(' ** ')
+    ######################################################
+    # d = dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
+    # stocks = ['AAPL', 'ROKU', 'TSLA', 'INTC', 'CCL', 'VIAC', 'ZKIN', 'AMD']
+    # stocks.append("BINANCE:BTCUSDT")
+    # fn = 'bubblething.json'
+    # store = ['csv']
+    # fq = createFirstQuote(d, AllquotesModel, stocks=stocks, usecache=True)
+    # mws = MyWebSocket(stocks, fn, store=store, fq=fq)
