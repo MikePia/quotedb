@@ -50,7 +50,7 @@ class Keys(Base):
         s = session
         q = s.query(Keys).all()
         return q
-    
+
     @classmethod
     def installDb(cls, session, install='dev'):
         """
@@ -64,7 +64,6 @@ class Keys(Base):
         db = Keys.getKey('mysql_db', session)
         bakdb = Keys.getKey('mysql_db_bak', session)
         if install == 'dev':
-            Keys.addKey('mysql_db_bak', db, session)
             Keys.addKey('mysql_db', devdb, session)
         else:
             Keys.addKey('mysql_db', bakdb, session)
@@ -84,8 +83,6 @@ class ManageKeys:
     def createTables(self):
         self.session = Session(bind=self.engine)
         Base.metadata.create_all(self.engine)
-
-    
 
 
 def fortesting():
