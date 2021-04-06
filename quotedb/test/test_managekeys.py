@@ -34,20 +34,20 @@ class TestManageKeys(TestCase):
         from quotedb.models.managekeys import constr
         mk = ManageKeys(constr)
         Keys.installDb(mk.session, install='dev')
-        db = getSaConn()
+        db = getSaConn(refresh=True)
         self.assertGreater(db.find("/dev_stockdb"), 0)
 
     def test_installDb_uninstall(self):
         from quotedb.models.managekeys import constr
         mk = ManageKeys(constr)
         Keys.installDb(mk.session, install='prod')
-        db = getSaConn()
+        db = getSaConn(refresh=True)
         self.assertGreater(db.find("/stockdb"), 0)
 
 
 if __name__ == '__main__':
-    # unittest.main()
-    tm = TestManageKeys()
-    tm.test_installDb()
-    tm.test_installDb_uninstall()
+    unittest.main()
+    # tm = TestManageKeys()
+    # tm.test_installDb()
+    # tm.test_installDb_uninstall()
     # print(getSaConn())

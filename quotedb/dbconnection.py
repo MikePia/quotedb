@@ -55,12 +55,12 @@ def getCsvDirectory():
     return CSV_DIRECTORY
 
 
-def getSaConn():
+def getSaConn(refresh=False):
     '''
     Get the Sqlalchemy Mysql connection string using the pymysql module
     '''
     global MYSQL_CON
-    if MYSQL_CON is None:
+    if MYSQL_CON is None or refresh:
         msc = Mysqlconn()
         MYSQL_CON = msc.getSaMysqlConn()
     return MYSQL_CON
