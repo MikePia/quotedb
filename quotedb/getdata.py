@@ -191,6 +191,21 @@ def getCandles(stocks, start, end, model=CandlesModel):
 
 
 def startCandles(stocks, start, model=CandlesModel, latest=False, numcycles=9999999999):
+    """
+    Explanation
+    -----------
+    Cycle through stocks, retrieve data from finnhub  and save it to the database
+
+    Paramaters
+    ----------
+    :params stocks: list<str>: List of stocks
+    :params start: int: Unix time. Get data beginning at this time
+    :params model: A sqlalchemy model: Currently one of [AllquotesModel, TopquotesModel, CandleModel] 
+    :params latest: bool: If True, Get the latest data in the table for each stock, if it is greater than
+        the start value, begin collection ther instead of start
+    :params numcycles: int: Will stop execution upon completion of cycles. 
+    """
+
     if isinstance(start, dt.datetime):
         start = dt2unix(start)
     fc = FinnCandles(stocks)
@@ -237,7 +252,6 @@ def startTickWSKeepAlive(stocks, fn, store, delt=None, polltime=5):
             time.sleep(polltime)
 
         # This is where a new gainers could be found new subscription could be called
-
 
 def startTickWS_SampleFill(stocks, fn, fq, delt=dt.timedelta(seconds=0.25), polltime=5):
     """
@@ -361,7 +375,7 @@ def createFirstquote(timestamp, model=AllquotesModel, stocks='all'):
     Parameters
     ----------
     :params timestamp: int: Unix timestamp in seconds. utc time
-    :params model: A sqlalchemy model: Currently either AllquotesModel or CandleModel
+    :params model: A sqlalchemy model: Currently one of [AllquotesModel, TopquotesModel, CandleModel]
     """
     createFirstQuote(timestamp, model, stocks)
 
