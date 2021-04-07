@@ -10,7 +10,7 @@ import time
 
 import pandas as pd
 
-from quotedb.dbconnection import getCsvDirectory, getSaConn
+from quotedb.dbconnection import getSaConn
 from quotedb.finnhub.finncandles import FinnCandles
 from quotedb.finnhub.finntrade_ws import MyWebSocket
 from quotedb.finnhub.stockquote import StockQuote
@@ -24,7 +24,6 @@ from quotedb.models.managecandles import ManageCandles
 from quotedb.models.polytrademodel import ManagePolyTrade, PolyTradeModel
 from quotedb.models.trademodel import ManageTrade, TradeModel
 from quotedb.polygon.polytrade import PolygonApi
-from quotedb.sp500 import random50
 from quotedb.utils.util import dt2unix, formatData, formatFn, writeFile
 
 # from quotedb.sp500 import getQ100_Sp500
@@ -163,7 +162,7 @@ def filterStocks(stocks, filter, model=CandlesModel):
     return stocks
 
 
-def getCandles(stocks, start, end, model=CandlesModel):
+def getCandles(stocks, start, end, model=AllquotesModel):
     '''
     Explanation
     ------------
@@ -200,10 +199,10 @@ def startCandles(stocks, start, model=CandlesModel, latest=False, numcycles=9999
     ----------
     :params stocks: list<str>: List of stocks
     :params start: int: Unix time. Get data beginning at this time
-    :params model: A sqlalchemy model: Currently one of [AllquotesModel, TopquotesModel, CandleModel] 
+    :params model: A sqlalchemy model: Currently one of [AllquotesModel, TopquotesModel, CandleModel]
     :params latest: bool: If True, Get the latest data in the table for each stock, if it is greater than
         the start value, begin collection ther instead of start
-    :params numcycles: int: Will stop execution upon completion of cycles. 
+    :params numcycles: int: Will stop execution upon completion of cycles.
     """
 
     if isinstance(start, dt.datetime):
@@ -252,6 +251,7 @@ def startTickWSKeepAlive(stocks, fn, store, delt=None, polltime=5):
             time.sleep(polltime)
 
         # This is where a new gainers could be found new subscription could be called
+
 
 def startTickWS_SampleFill(stocks, fn, fq, delt=dt.timedelta(seconds=0.25), polltime=5):
     """
@@ -377,18 +377,35 @@ def createFirstquote(timestamp, model=AllquotesModel, stocks='all'):
     :params timestamp: int: Unix timestamp in seconds. utc time
     :params model: A sqlalchemy model: Currently one of [AllquotesModel, TopquotesModel, CandleModel]
     """
-    createFirstQuote(timestamp, model, stocks)
+    return createFirstQuote(timestamp, model, stocks)
 
 
-def getFirstQuote(timestamp, wiggle=60, model=AllquotesModel):
+def getFirstQuote(timestamp, wiggle=0, model=AllquotesModel):
+    """
+    Explanation
+    -----------
+    Either retrives an existing Firstquote or creates and retrieves a new one
+
+    Paramaters
+    -----------
+    :params timestamp: int Unix time
+    :params wiggle: int: In seconds, The number of seconds leeway to accept a Firstquote if it exists
+    :params model: One of [CandlesModel, AllquotesModel, TopquotesModel]
+    :params return: A Firstquote object
+
+    Programming Notes
+    -----------------
+    Have published the two methods in quotedb.models.common as the the API to use. This works fine. test upcoming :)
+    """
     from quotedb.models.metamod import getSession
     s = getSession()
     fqs = Firstquote.availFirstQuotes(timestamp-wiggle, timestamp, s)
 
     if fqs:
         return fqs[-1]
-    createFirstquote(timestamp, model=model)
-    return Firstquote.getFirstquote(timestamp, s)
+    return createFirstquote(timestamp, model=model)
+    # init()
+    # return Firstquote.getFirstquote(timestamp, getSession())
 
 
 def getDeltaData(stocks, start, end, fq, model=AllquotesModel, format="df"):
@@ -401,32 +418,20 @@ def getDeltaData(stocks, start, end, fq, model=AllquotesModel, format="df"):
 
 if __name__ == "__main__":
     pass
-    pass
-    # stocks = ["PDD", "ROKU", "ROST", "SBUX", "SIRI", "SWKS", "TCOM", "TXN", "VRSK", "VRSN", "VRTX", "WBA", "WDAY", "XEL", "XLNX", "ZM", ]
-    # stocks = ['AAPL', 'AMZN', 'ROKU', 'GME', 'TSLA', 'BB', 'SQ', 'MU', 'BINANCE:BTCUSDT']
-    # tz = 'US/Eastern'
-    # start = pd.Timestamp("2021-3-11 11:30", tz=tz).tz_convert("UTC").replace(tzinfo=None)
-    # end = pd.Timestamp("2021-3-11 12:00", tz=tz).tz_convert("UTC").replace(tzinfo=None)
-    ########################################
-    # from quotedb.sp500 import nasdaq100symbols
+    # from quotedb.sp500 import getSymbols
     # stocks = nasdaq100symbols
-    # # # start = dt.datetime.utcnow()
-    # # # start = dt.datetime.utcnow() - dt.timedelta(days=60)
-    # start = dt.datetime(2021, 3, 21)
+    # stocks = getSymbols()
+    # start = dt.datetime.utcnow()
+    # start = dt.datetime.utcnow() - dt.timedelta(days=7)
+    # # start = dt.datetime(2021, 3, 21)
     # end = dt.datetime.utcnow()
 
-    # # stocks = nasdaq100symbols
-    # # # stocks = ['AAPL', 'SQ']
-    # startCandles(stocks, start, latest=True)
-    # # x = getCandles(stocks, start, end)
+    # # # stocks = nasdaq100symbols
+    # # # # stocks = ['AAPL', 'SQ']
+    # # startCandles(stocks, start, latest=True)
+    # x = getCandles(stocks, start, end)
+    # print(len(x))
     #########################################
-    # # x = getTicks(stocks, start, end)
-    # # MyWebSocket(stocks)
-    # dadate = dt.date(2021, 3, 11)
-    # delt = pd.Timedelta(minutes=30)
-    # # startLastXTicks(stocks, dadate, delt)
-    # x = getTicksREST(stocks, start, end)
-    ########################
 
     # stocks = getQ100_Sp500()
     # start = dt.datetime.utcnow()
@@ -442,68 +447,25 @@ if __name__ == "__main__":
 
     # print('done')
     #########################################
-    # from quotedb.sp500 import nasdaq100symbols, getSymbols
-    # from quotedb.sp500 import random50
     # from quotedb.utils.util import dt2unix_ny
-    # stocks = None
-    # start = dt2unix(dt.datetime.utcnow() - dt.timedelta(hours=3), unit='n')
-    # end = dt2unix(dt.datetime.utcnow(), unit='n')
-    # j = getPolyTrade(stocks, start, end)
-
-    # import pandas as pd
-    # fc = FinnCandles([])
-    # stocks = getSymbols()
     # stocks = random50(numstocks=20)
-    # # stocks.append('BINANCE:BTCUSDT')
-    # # startdelt = dt.timedelta(days=75)
-
     # start = dt2unix_ny(dt.datetime(2021, 3, 30, 13, 45))
-    # startdelt = dt.datetime(2021, 1, 1)
     # fn = 'visualizenow.json'
-    # gltime = dt2unix(pd.Timestamp(2021,  3, 15, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     # numrec = 10
 
     # getCurrentDataFile(stocks, start, fn, (start, numrec), model=AllquotesModel, format='visualize', bringtodate=False)
-
     ##############################################
-    from quotedb.utils.util import dt2unix_ny
-    stocks = list(random50(numstocks=7))
-    stocks = ['CERN', 'CSCO', 'GILD', 'KDP', 'MAR', 'MU', 'AAPL']
-    # stocks.append('BINANCE:BTCUSDT')
-    # enable woking in off hours with some data from finnhub
-    fn = f'{getCsvDirectory()}/ws_json.json'
-    delt = dt.timedelta(seconds=0.25)
-    format = 'db'
-
-    # startTickWSKeepAlive(stocks, fn, store=[format])
-    fq = dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
-    # stocks = ['AAPL', 'ROKU', 'TSLA', 'INTC', 'CCL', 'VIAC', 'ZKIN', 'AMD']
-    startTickWS_SampleFill(stocks, fn, fq, delt=delt)
-
-    ##############################################
-    # import pandas as pd
-    # from quotedb.sp500 import nasdaq100symbols, getSymbols
-    # from pprint import pprint
-    # start = dt2unix(pd.Timestamp(2021,  3, 29, 16, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    # end = dt2unix(dt.datetime.utcnow())
-    # stocks = nasdaq100symbols
-    # stocks = getSymbols()
-    # numstocks = 10
-    # model = AllquotesModel
-    # gainers, losers = getGainersLosers(stocks, start, numstocks, model=model)
-    # print("gainers", gainers)
-    # print("losers", losers)
-
-    # df = getCandles(stocks, start, end)
-    # gainers, losers = localFilterStocks(df, stocks, (start, numstocks))
-
-    # pprint(gainers)
-    # print()
-    # pprint(losers)
-    # #####################################################
     # from quotedb.utils.util import dt2unix_ny
-    # timestamp = dt2unix_ny(dt.datetime(2021, 3, 25, 3, 5, 0))
+    # stocks = ['CERN', 'CSCO', 'GILD', 'KDP', 'MAR', 'MU', 'AAPL']
+    # fn = f'{getCsvDirectory()}/ws_json.json'
+    # delt = dt.timedelta(seconds=0.25)
+    # fq = dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
+    # startTickWS_SampleFill(stocks, fn, fq, delt=delt)
+    ##############################################
+    # from quotedb.utils.util import dt2unix_ny
+    # timestamp = dt2unix_ny(dt.datetime(2021, 4, 6, 18, 0, 0))
     # fqs = getFirstQuote(timestamp)
+    # print(len(fqs.firstquote_trades))
     # ##########################################################
     # from quotedb.getdata import getFirstQuote
     # from quotedb.models.allquotes_candlemodel import AllquotesModel
