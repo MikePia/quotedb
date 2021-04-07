@@ -2,6 +2,7 @@
 Use a sqlite db to store tokens and keys including password
 to the mysql db
 """
+import logging
 from sqlalchemy import create_engine, Column, String, Integer
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -57,16 +58,28 @@ class Keys(Base):
         Explanation
         -----------
         Set the active db to either the testdb or the livedb. Store the livedb
-        name in mysql_db_bak key
+        user, name and pw  in *_bak keys. Note that this relies on the intital setup
+        to be correct.
+
+        Programming Notes
+        -----------------
+        I don't have mysql permission to reuse my mysql username for a second database.
+        So creating a dev database means creating a dev database user. I am hacking
+        this to store the db, name, pw in 3 seperate backup keys.
         """
         # s = Session(bind=engine)
-        devdb = Keys.getKey('mysql_db_dev', session)
-        db = Keys.getKey('mysql_db', session)
-        bakdb = Keys.getKey('mysql_db_bak', session)
         if install == 'dev':
-            Keys.addKey('mysql_db', devdb, session)
+            # Install the dev db, user and password as current
+            Keys.addKey('mysql_db', Keys.getKey('mysql_db_dev', session), session)
+            Keys.addKey('mysql_user', Keys.getKey('mysql_user_dev', session), session)
+            Keys.addKey('mysql_pw', Keys.getKey('mysql_pw_dev', session), session)
+        elif install == "production":
+            # Install the main db, user and password as current
+            Keys.addKey('mysql_db', Keys.getKey('mysql_db_bak', session), session)
+            Keys.addKey('mysql_user', Keys.getKey('mysql_user_bak', session), session)
+            Keys.addKey('mysql_pw', Keys.getKey('mysql_pw_bak', session), session)
         else:
-            Keys.addKey('mysql_db', bakdb, session)
+            logging.info("Databse was not changed")
 
 
 class ManageKeys:
