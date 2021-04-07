@@ -1,7 +1,8 @@
 """
 The first MVP will take precedence over testing. But will add a few tests here and there.
 """
-
+import datetime as dt
+import logging
 from pandas import Timestamp as ts
 
 from quotedb.models.metamod import getSession, init, getEngine, cleanup
@@ -73,10 +74,38 @@ class TestFirstQuoteModel(TestCase):
         self.assertIn('firstquote', getEngine().table_names())
         self.assertIn('firstquote_trades', getEngine().table_names())
 
+    def test_availFirstQuotes(self):
+        """
+        Exercise the method and verify it ruturns the correct types and timestamps are 1975 or greater
+        """
+
+        start = dt2unix(dt.datetime(2010, 1, 1))
+        end = dt2unix(dt.datetime.utcnow())
+        fqs = Firstquote.availFirstQuotes(start, end, getSession())
+        for fq in fqs:
+            self.assertLess(157766400, fq.timestamp)
+            if len(fq.firstquote_trades) > 0:
+                self.assertIsInstance(fq.firstquote_trades[0], Firstquote_trades)
+
+    def test_getNumStocks(self):
+        """
+        Exercise the method and confirm it return the right type
+        """
+        start = dt2unix(dt.datetime(2010, 1, 1))
+        end = dt2unix(dt.datetime.utcnow())
+        fqs = Firstquote.availFirstQuotes(start, end, getSession())
+        if not fqs:
+            logging.error("Found not first quotes in test_firstquotes.test_getNumStocks")
+            return
+        for fq in fqs:
+            self.assertIsInstance(Firstquote.getNumStocks(fq.id), int)
+
 
 if __name__ == '__main__':
     import unittest
-    unittest.main()
-    # tfq = TestFirstQuoteModel()
+    # unittest.main()
+    tfq = TestFirstQuoteModel()
     # tfq.test_update()
     # tfq.test_tableCreation()
+    tfq.test_availFirstQuotes()
+    # tfq.test_getNumStocks()

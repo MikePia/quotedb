@@ -8,7 +8,7 @@ An update method will determine if allstocks has changed and request new data if
 The data used to gather this data may come from finnhub our our database. This class won't care(but the initial
 implementation will all come from finnhub)
 """
-
+import logging
 from quotedb.models.metamod import Base, getEngine
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
@@ -46,20 +46,19 @@ class Firstquote(Base):
         s.commit()
 
     @classmethod
-    def getNumStocks(cls, id, stocklist=False):
+    def getNumStocks(cls, id):
 
         with getEngine().connect() as con:
-            if not stocklist:
-                statement = text(f"""
-                    SELECT count(distinct ft.stock), f.timestamp
-                    FROM firstquote_trades ft, firstquote f WHERE ft.firstquote_id = {id} """)
-            else:
-                statement = text(f"""
-                    SELECT distinct ft.stock,  f.timestamp
-                    FROM firstquote_trades ft, firstquote f WHERE ft.firstquote_id = {id} """)
+            statement = text(f"""
+                SELECT count(distinct ft.stock) as count, f.timestamp as timestamp
+                FROM firstquote_trades ft, firstquote f WHERE ft.firstquote_id = {id} """)
             q = con.execute(statement).fetchall()
-
-        return q
+            if not q:
+                return None
+            return q[-1].count
+            
+        logging.error("Failed to connect")
+        return None
 
     @classmethod
     def availFirstQuotes(cls, start, end, session):
@@ -131,8 +130,13 @@ if __name__ == '__main__':
     # print(Firstquote.getFirstquoteTimestamps(getSession()))
 
     # #####################################################
-    print(Firstquote.getNumStocks(10))
+    print(Firstquote.getNumStocks(5))
     print()
     # print(Firstquote.getNumStocks(10, stocklist=True)[:20])
     for fq in Firstquote.availFirstQuotes(0, 999999999999999, getSession()):
         print(fq.id, fq.timestamp, 'numstocks:', len(fq.firstquote_trades))
+
+
+    """
+    SELECT count(distinct ft.stock), f.timestamp FROM firstquote_trades ft, firstquote f WHERE ft.firstquote_id = 5
+    """
