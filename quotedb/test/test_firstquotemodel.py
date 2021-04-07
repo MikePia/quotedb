@@ -4,7 +4,6 @@ The first MVP will take precedence over testing. But will add a few tests here a
 
 from pandas import Timestamp as ts
 
-from quotedb.dbconnection import getSaConn
 from quotedb.models.metamod import getSession, init, getEngine, cleanup
 from quotedb.utils.util import dt2unix
 from quotedb.models.firstquotemodel import Firstquote, Firstquote_trades

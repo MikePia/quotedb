@@ -17,7 +17,7 @@ class TestManageKeys(TestCase):
 
     def test_AllKeys(self):
         # Test all keys in the main sqlite db are present and have a value
-        keys = ["fh_token", "poly_token", "mysql_ip", "mysql_port", "mysql_user", "mysql_pw", 
+        keys = ["fh_token", "poly_token", "mysql_ip", "mysql_port", "mysql_user", "mysql_pw",
                 "mysql_db", "mysql_db_bak", "mysql_user_bak", "mysql_pw_bak",
                 "mysql_db_dev", "mysql_user_dev", "mysql_pw_dev"]
         mk = ManageKeys(constr)

@@ -41,8 +41,8 @@ def getEngine():
     return ENGINE
 
 
-def getSession():
+def getSession(refresh=False):
     global SESSION
-    if not SESSION:
+    if not SESSION or refresh:
         init()
     return SESSION

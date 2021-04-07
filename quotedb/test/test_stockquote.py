@@ -1,14 +1,10 @@
 """
 Test the REST api calls in StockQuote
 """
-import random
 import sys
-import datetime as dt
 import unittest
-from quotedb.utils.util import dt2unix
 from unittest import TestCase
 from quotedb.dbconnection import getSaConn
-from quotedb.finnhub.stockquote import StockQuote
 
 
 class TestStockQuote(TestCase):
