@@ -5,7 +5,7 @@ The first MVP will take precedence over testing. But will add a few tests here a
 from pandas import Timestamp as ts
 
 from quotedb.dbconnection import getSaConn
-from quotedb.models.metamod import getSession, init, getEngine
+from quotedb.models.metamod import getSession, init, getEngine, cleanup
 from quotedb.utils.util import dt2unix
 from quotedb.models.firstquotemodel import Firstquote, Firstquote_trades
 from quotedb.models.managekeys import ManageKeys, Keys, constr
@@ -39,12 +39,14 @@ class TestFirstQuoteModel(TestCase):
         Firstquote.deleteFirstquote(t, s)
         x = Firstquote.getFirstquote(t, s)
         self.assertIsNone(x)
+        cleanup()
 
     def test_update(self):
         """
         Test that Firstquote.addquotes will update  when the timestamp already exists
         """
-        s = getSession()
+        init()
+        s = getSession(refresh=True)
         t = dt2unix(ts("19800303"))
         st = ['SNORK', 'KRONS', 'GETRICH', 'QUICK']
         op = [20, 30, 40, 50]
@@ -63,6 +65,7 @@ class TestFirstQuoteModel(TestCase):
         Firstquote.deleteFirstquote(t, s)
         x = Firstquote.getFirstquote(t, s)
         self.assertIsNone(x)
+        cleanup()
 
     def test_tableCreation(self):
         mk = ManageKeys(constr)
@@ -73,6 +76,8 @@ class TestFirstQuoteModel(TestCase):
 
 
 if __name__ == '__main__':
-    tfq = TestFirstQuoteModel()
+    import unittest
+    unittest.main()
+    # tfq = TestFirstQuoteModel()
     # tfq.test_update()
-    tfq.test_tableCreation()
+    # tfq.test_tableCreation()
