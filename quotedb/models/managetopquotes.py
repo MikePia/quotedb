@@ -1,7 +1,6 @@
 import datetime as dt
 import pandas as pd
 from quotedb.dbconnection import getSaConn
-from quotedb.models.common import createFirstQuote
 from quotedb.models.metamod import getSession, init, cleanup
 from quotedb.models.topquotes_candlemodel import TopquotesModel
 from quotedb.utils.util import dt2unix
@@ -43,7 +42,7 @@ class ManageTopQuote:
         fq = self.getFirstquote()
         if fq is None:
             if fq_time is None:
-                raise ValueError('Topquote has no first quote')
+                raise ValueError('Topquote has no first quote and fq_time is None')
             self.fq = self.installFirstQuote(stocks, fq_time=fq_time)
         elif fq:
             self.fq = fq
@@ -239,6 +238,11 @@ class ManageTopQuote:
     def getMaxTime(self, ticker, session):
         s = session
         q = s.query(func.max(self.model.timestamp)).filter_by(stock=ticker).one_or_none()
+        return q[0]
+
+    def getMinTime(self, ticker, session):
+        s = session
+        q = s.query(func.min(self.model.timestamp)).filter_by(stock=ticker).one_or_none()
         return q[0]
 
 

@@ -113,6 +113,27 @@ def writeFile(j, fn, store):
                 writer.writerow(row)
 
 
+def getPrevTuesWed(td):
+    '''
+    Explanation
+    -----------
+    Utility method to get a probable market open day prior to td. Created for
+    unittest.
+    :params td: A Datetime object
+    '''
+    deltdays = 7
+    if td.weekday() == 0:
+        deltdays = 5
+    elif td.weekday() < 3:
+        deltdays = 0
+    elif td.weekday() < 5:
+        deltdays = 2
+    else:
+        deltdays = 4
+    before = td - dt.timedelta(deltdays)
+    return before
+
+
 if __name__ == '__main__':
     # assert dt2unix(dt.datetime(2021, 2, 13)) == 1613174400
     # assert dt2unix(dt.datetime(2021, 2, 11)) == 1613001600

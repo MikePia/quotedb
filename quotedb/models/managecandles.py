@@ -217,6 +217,14 @@ class ManageCandles:
                 cleanup()
 
     def getTimeRange(self, stock, start, end):
+        """
+        Paramaters
+        ----------
+        :params stock: list<str>:
+        :params start: int: Unix time
+        :params end: int Unix time
+        :params return: List<model>: list of candles as sa types
+        """
         s = self.session
         q = s.query(self.model).filter_by(stock=stock).filter(self.model.timestamp >= start).filter(self.model.timestamp <= end).all()
         return q
@@ -291,7 +299,13 @@ class ManageCandles:
 
     def getMaxTime(self, ticker, session):
         s = session
-        q = s.query(func.max(self.model.timestamp)).filter_by(stock=ticker).one_or_none()
+        q = s.query(func.max(self.model.timestamp)).filter_by(stock=ticker)
+        q = q.one_or_none()
+        return q[0]
+
+    def getMinTime(self, ticker, session):
+        s = session
+        q = s.query(func.min(self.model.timestamp)).filter_by(stock=ticker).one_or_none()
         return q[0]
 
     def getTickers(self):

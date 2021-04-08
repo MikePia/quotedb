@@ -37,18 +37,39 @@ class FinnCandles:
         '''
         return self.storeCandles(*args)
 
-    def storeCandles(self, ticker, end, resolution=1, model=CandlesModel,  key=None, store=['csv']):
+    def storeCandles(self, ticker, end, start=None,  model=CandlesModel, key=None, store=['csv'], resolution=1):
         '''
-        Query data for candle data for ticker at given start, end and resolution.
-        Store it in csv and/or db
-        :params store: arr containing combination of ['csv', 'db']
+        Explanataion
+        ------------
+        Get data from finnhub for candle data for ticker at given start, end and resolution.
+        Save to file and/or db. Will write to at most one file. Preference in order is
+        json, csv. This method processes data from one stock. The file name will
+        be {stock}_{start}_{end}_{resolution}.{format}. The file will be written to the installation
+        defined directory accessed by getCsvDirectory()
+
+        Paramaters
+        ----------
+        :params ticker: str: the stock ticker
+        :params end: int: Unix time
+        :params start: int: Unix time. If called directly, use this paramater. Internal calls, e.g.
+            from cycleStocks, populate self.cycle.stocks with current max date
+        :params resolution: int: The candle interval. Generally leave the default of 1
+        :params model: db model: [CandlesModel, AllquotesModel, TopquotesModel]
+        :params store: arr containing combination of ['json', csv', db']
+        :params return: str: the filename. Will be None if no file was requested
+        TODO: implement json
         '''
         # print()
         print(f'Beginning requests for {ticker}: ', end='')
+        if start:
+            self.cycle[ticker] = max(start, self.cycle[ticker])
         j = self.getDateRange(ticker, self.cycle[ticker], end, resolution)
         # while True:
         if not j:
             return
+        fn = None
+        if 'json' in store:
+            print('json not implemented in FinnCandles.storeCandles')
         if 'csv' in store:
             fn = getCsvDirectory() + f'/{ticker}_{self.cycle[ticker]}_{end}_{resolution}.csv'
             # If the exact fn exists, the data should be the same
@@ -77,9 +98,10 @@ class FinnCandles:
                     logging.error("Db failed, retrying")
                     logging.error(ex)
 
-        self.cycle[ticker] = j[-1][4]+1
+        self.cycle[ticker] = max(j[-1][4]+1, self.cycle[ticker])
+        return fn
 
-    def getCandles(self, symbol, start, end, resolution=1):
+    def getCandles_fh(self, symbol, start, end, resolution=1):
         '''
         Explanation
         -----------
@@ -135,7 +157,7 @@ class FinnCandles:
         '''
         total = []
         while True:
-            j = self.getCandles(symbol, start, end, resolution)
+            j = self.getCandles_fh(symbol, start, end, resolution)
             if not j or j['s'] == 'no_data':
                 break
 
@@ -181,8 +203,8 @@ class FinnCandles:
         print(f'Going to retrieve data from finnhub for {len(self.tickers)} stocks, and place them in {model.__tablename__}')
         while True:
             for i, ticker in enumerate(self.tickers):
-                print(f'\n{i}/{len(self.tickers)}: ', end='')
-                self.storeCandles(ticker, end, 1, model=model, store=["db"])
+                print(f'\n{i+1}/{len(self.tickers)}: ', end='')
+                self.storeCandles(ticker, end, model=model, store=["db"])
             print(f"===================== Cycled through {len(self.tickers)} stocks")
             if numcycles == 0:
                 break
