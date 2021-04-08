@@ -56,7 +56,7 @@ class Firstquote(Base):
             if not q:
                 return None
             return q[-1].count
-            
+
         logging.error("Failed to connect")
         return None
 
@@ -87,6 +87,7 @@ class Firstquote(Base):
         fq = Firstquote.getFirstquote(timestamp, session)
         if fq:
             s.delete(fq)
+            s.commit()
 
     @classmethod
     def getFirstquoteTimestamps(cls, session, low=None, high=None):
@@ -135,8 +136,3 @@ if __name__ == '__main__':
     # print(Firstquote.getNumStocks(10, stocklist=True)[:20])
     for fq in Firstquote.availFirstQuotes(0, 999999999999999, getSession()):
         print(fq.id, fq.timestamp, 'numstocks:', len(fq.firstquote_trades))
-
-
-    """
-    SELECT count(distinct ft.stock), f.timestamp FROM firstquote_trades ft, firstquote f WHERE ft.firstquote_id = 5
-    """

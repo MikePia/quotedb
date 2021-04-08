@@ -23,21 +23,12 @@ def getFirstQuoteData(timestamp, tablename="allquotes", thestocks=None):
     with getEngine().connect() as con:
         statement = text(f"""
             SELECT s1.*
-                FROM allquotes s1
+                FROM {tablename} s1
                     inner join  (SELECT *, max(timestamp) as mts
                         FROM {tablename}
                         WHERE timestamp <= {timestamp} GROUP BY stock) s2
                 on s2.stock = s1.stock and s1.timestamp = s2.mts """)
         q = con.execute(statement).fetchall()
-        # ############## pager ex
-        # some_query = Query([TableBlaa])
-
-        # query = some_query.limit(number_of_rows_per_page).offset(page_number*number_of_rows_per_page)
-        # #  -- OR --
-        # query = some_query.slice(page_number*number_of_rows_per_page, (page_number*number_of_rows_per_page)+number_of_rows_per_page)
-        # current_pages_rows = session.execute(query).fetchall()
-
-    # Remove duplicates
     stocks = []
     ret = []
     for qq in q:
@@ -60,7 +51,8 @@ def createFirstQuote(timestamp, model, stocks="all", local=False, usecache=False
     Create a new firstquote or update current. Try to guarantee that there will be an entry for
     every symbol in ALLSTOCKS as much as possible. Some of listed stocks get an illegal access
     error from finnhub. The data should have already beeen collected into the table represented
-    by {model} before making this call.
+    by {model} before making this call. From a list retrieved in getFirstQuoteData, this method
+    sets the timestamp and data all to the same timestamp, adjusting candle values to match.
 
     To collect the data (prior to creating firstquotes) use startCandles with a date that precedes
     timestamp by some amout of time. But in production, that call should run continuously
@@ -105,12 +97,6 @@ def createFirstQuote(timestamp, model, stocks="all", local=False, usecache=False
             fq.open = candle.open
             fq.volume = candle.volume
         fqs.append(fq)
-    # fq = [Firstquote_trades(stock=d['stock'],
-    #                         high=d['high'],
-    #                         low=d['low'],
-    #                         open=d['open'],
-    #                         close=d['close'],
-    #                         volume=d['volume']) for d in [dict(x) for x in candles]]
     if not local:
         Firstquote.addFirstquote(timestamp, fqs, s)
     fq = Firstquote(timestamp=timestamp, firstquote_trades=fqs)
