@@ -395,7 +395,9 @@ def getFirstQuote(timestamp, wiggle=0, model=AllquotesModel):
 
     Programming Notes
     -----------------
-    Have published the two methods in quotedb.models.common as the the API to use. This works fine. test upcoming :)
+    Have published the two methods in quotedb.models.common as the the API to use.
+    This works fine. test upcoming :) and is used internally. (Need to evaluate that)
+    But the methods in common are better for an API.
     """
     from quotedb.models.metamod import getSession
     s = getSession()
