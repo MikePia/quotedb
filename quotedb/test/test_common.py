@@ -1,16 +1,19 @@
 '''
 Test the First quote access with 2 models and their manager class
 '''
+import datetime as dt
 import pandas as pd
 from quotedb.dbconnection import getSaConn
+from quotedb.finnhub.finncandles import FinnCandles
 from quotedb.models.allquotes_candlemodel import AllquotesModel
 from quotedb.models.candlesmodel import CandlesModel
 
 from quotedb.models.common import createFirstQuote, getFirstQuoteData
 from quotedb.models.firstquotemodel import Firstquote
 from quotedb.models.managecandles import ManageCandles
-
 from quotedb.models.metamod import getSession, cleanup, init
+from quotedb.scripts.installtestdb import installTestDb
+from quotedb.utils.util import getPrevTuesWed, dt2unix_ny
 
 # import unittest
 from unittest import TestCase
@@ -18,10 +21,23 @@ import unittest
 
 
 class TestCommon(TestCase):
+    stocks = None
+    start = None
 
     @classmethod
     def setUpClass(cls):
-        print("TestCommon.setUpClass()")
+        print("\nTestCommon.setUpClass()")
+        installTestDb(install="dev")
+        init()
+        db = getSaConn(refresh=True)
+        assert db.find("dev_stockdb") > 0
+        cls.stocks = ['AAPL', 'SQ', 'XPEV', 'TSLA']
+        d = getPrevTuesWed(dt.datetime.now())
+        cls.start = dt2unix_ny(dt.datetime(d.year, d.month, d.day, 10, 30))
+
+        fc = FinnCandles(cls.stocks)
+        fc.cycleStockCandles(cls.start, numcycles=1)
+
         s = getSession(refresh=True)
         mkq = ManageCandles(getSaConn(), AllquotesModel)
         cls.maxaapl_q = mkq.getMaxTime('AAPL', s)
@@ -41,11 +57,19 @@ class TestCommon(TestCase):
         cleanup()
         # If this fails, the db is pretty empty
 
+    @classmethod
+    def tearDownClass(cls):
+        print("tearDownClass TestFinnCandles()")
+        installTestDb(install="production")
+        db = getSaConn(refresh=True)
+        print('Resetting db to stockdb')
+        assert db.find("dev_stockdb") < 0
+
     def test_getFirstQuoteData_allquote(self):
         print("test_getFirstquote_allquotes()")
         init()
         start = self.maxaapl_q - (60*60*2)
-        thestocks = ['AAPL', "TSLA", "ROKU"]
+        thestocks = self.stocks
         fqd = getFirstQuoteData(start, AllquotesModel.__tablename__, thestocks=thestocks)
         self.assertIsInstance(fqd, pd.DataFrame)
         msg = "A failure here may mean the stocks were not all in the database"
@@ -56,7 +80,7 @@ class TestCommon(TestCase):
         print("test_getFirstquote_candles()")
         init()
         start = self.maxaapl_c - (60*60*2)
-        thestocks = ['AAPL', "TSLA", "ROKU"]
+        thestocks = self.stocks
         fqd = getFirstQuoteData(start, CandlesModel.__tablename__, thestocks=thestocks)
         self.assertIsInstance(fqd, pd.DataFrame)
         msg = "A failure here may mean the stocks were not all in the database"
@@ -73,7 +97,7 @@ class TestCommon(TestCase):
         s = getSession(refresh=True)
         start = self.maxaapl_q - (60*60*2)
 
-        stocks = ['AAPL', "TSLA", "ROKU"]
+        stocks = self.stocks
         while True:
             # Find a blank spot to create first quote
             fq = Firstquote.getFirstquote(start, s)
@@ -100,7 +124,7 @@ class TestCommon(TestCase):
         print("test_createFirstquote_candles()")
         s = getSession(refresh=True)
         start = self.maxaapl_c - (60*60*2)
-        stocks = ['AAPL', "TSLA", "ROKU"]
+        stocks = self.stocks
         while True:
             # Find a blank spot to create first quote
             fq = Firstquote.getFirstquote(start, s)
