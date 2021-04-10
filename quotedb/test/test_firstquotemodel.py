@@ -68,8 +68,7 @@ class TestFirstQuoteModel(TestCase):
         cleanup()
 
     def test_tableCreation(self):
-        mk = ManageKeys(constr)
-        Keys.installDb(mk.session)
+        Keys.installDb()
         init()
         self.assertIn('firstquote', getEngine().table_names())
         self.assertIn('firstquote_trades', getEngine().table_names())

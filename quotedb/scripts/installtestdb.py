@@ -48,8 +48,7 @@ def installTestDb(install="production", show=False):
         db = "dev_stockdb" if db.find("dev_stockdb") > 0 else 'stockdb'
         print(f'\n{db} is the current database\n')
         return
-    mk = ManageKeys(sqlitedb)
-    Keys.installDb(mk.session, install=install)
+    Keys.installDb(install=install)
     db = getSaConn()
     db = "dev_stockdb" if db.find("dev_stockdb") > 0 else 'stockdb'
     print(f'\n{db} is the current database\n')

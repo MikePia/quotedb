@@ -5,12 +5,51 @@ to the mysql db
 import logging
 from sqlalchemy import create_engine, Column, String, Integer
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, scoped_session
 from quotedb.scripts.env import sqlitedb
 
 constr = sqlitedb
 Base = declarative_base()
 Session = sessionmaker()
+
+SESSION = None
+ENGINE = None
+SQLITE_DB_URL = sqlitedb
+
+
+def init_sqlite():
+    global ENGINE, Session, SESSION
+    try:
+        ENGINE = create_engine(SQLITE_DB_URL)
+        Base.metadata.create_all(ENGINE)
+        Session = scoped_session(sessionmaker(bind=ENGINE))
+        SESSION = Session()
+        db = "dev_stockdb" if SQLITE_DB_URL.find("dev_stockdb") > 0 else "stockddb"
+        logging.debug(f"initializing session for {db}")
+    except Exception as ex:
+        print('========================    RRRRRRRRR    =============================')
+        print(ex, 'Exception in init of sqlite db')
+
+def cleanup_sqlite():
+    try:
+        SESSION.close()
+        ENGINE.dispose()
+    except Exception as ex:
+        print(ex, 'Exception in cleanup')
+
+def getEngine():
+    global ENGINE
+    if not ENGINE:
+        init_sqlite()
+    return ENGINE
+
+
+def getSession(refresh=False):
+    global SESSION
+    if not SESSION or refresh:
+        init_sqlite()
+    return SESSION
+
 
 
 class Keys(Base):
@@ -53,7 +92,7 @@ class Keys(Base):
         return q
 
     @classmethod
-    def installDb(cls, session, install='dev'):
+    def installDb(cls, install='dev'):
         """
         Explanation
         -----------
@@ -68,6 +107,8 @@ class Keys(Base):
         this to store the db, name, pw in 3 seperate backup keys.
         """
         # s = Session(bind=engine)
+        init_sqlite()
+        session = getSession()
         if install == 'dev':
             # Install the dev db, user and password as current
             Keys.addKey('mysql_db', Keys.getKey('mysql_db_dev', session), session)
@@ -80,6 +121,7 @@ class Keys(Base):
             Keys.addKey('mysql_pw', Keys.getKey('mysql_pw_bak', session), session)
         else:
             logging.info("Databse was not changed")
+        cleanup_sqlite()
 
 
 class ManageKeys:

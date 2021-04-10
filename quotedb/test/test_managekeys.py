@@ -42,15 +42,13 @@ class TestManageKeys(TestCase):
         self.assertEqual(q, [])
 
     def test_installDb(self):
-        mk = ManageKeys(constr)
-        Keys.installDb(mk.session, install='dev')
+        Keys.installDb(install='dev')
         db = getSaConn(refresh=True)
         print(db)
         self.assertGreater(db.find("/dev_stockdb"), 0)
 
     def test_installDb_uninstall(self):
-        mk = ManageKeys(constr)
-        Keys.installDb(mk.session, install='production')
+        Keys.installDb(install='production')
         db = getSaConn(refresh=True)
         print(db)
         self.assertGreater(db.find("/stockdb"), 0)
