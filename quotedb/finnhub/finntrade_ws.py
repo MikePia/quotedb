@@ -109,7 +109,7 @@ class MyWebSocket(threading.Thread):
                     print('New data to deal with here ...', len(df))
                 else:
                     return
-            if 'json' in store or 'visualize' in store or 'csv' in store:
+            if 'json' in self.store or 'visualize' in self.store or 'csv' in self.store:
                 print('.', end='')
                 writeFile(formatData(df, self.store, self.ffill), self.fn, self.store)
             if 'db' in self.store:

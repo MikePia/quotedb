@@ -109,7 +109,6 @@ def fortesting():
 
 
 if __name__ == '__main__':
-    mk = ManageKeys('sqlite:///test_keys.sqlite', True)
-    Keys.getAll(mk.session)
-    print('done')
-    print('done')
+    mk = ManageKeys(constr, True)
+    for k in Keys.getAll(mk.session):
+        print(k.name, k.key)

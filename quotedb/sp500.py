@@ -97,7 +97,7 @@ def random50(stocks=nasdaq100symbols, numstocks=50, exclude=[]):
         n = random.randint(0, len(stocks)-1)
         if not stocks[n] in exclude:
             results.add(stocks[n])
-    return results
+    return list(results)
 
 
 def getQ100_Sp500():

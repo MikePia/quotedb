@@ -225,8 +225,9 @@ class ManageCandles:
         :params end: int Unix time
         :params return: List<model>: list of candles as sa types
         """
-        s = self.session
-        q = s.query(self.model).filter_by(stock=stock).filter(self.model.timestamp >= start).filter(self.model.timestamp <= end).all()
+        s = getSession()
+        q = s.query(self.model).filter_by(stock=stock).filter(self.model.timestamp >= start).filter(self.model.timestamp <= end)
+        q = q.all()
         return q
 
     def getTimeRangeMultiple(self, symbols, start, end):

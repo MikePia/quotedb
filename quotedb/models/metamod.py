@@ -1,4 +1,6 @@
+import logging
 from sqlalchemy import create_engine
+
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 
@@ -21,6 +23,8 @@ def init():
         Base.metadata.create_all(ENGINE)
         Session = scoped_session(sessionmaker(bind=ENGINE))
         SESSION = Session()
+        db = "dev_stockdb" if DB_URL.find("dev_stockdb") > 0 else "stockddb"
+        logging.debug(f"initializing session for {db}")
     except Exception as ex:
         print('========================    RRRRRRRRR    =============================')
         print(ex, 'Exception in init')

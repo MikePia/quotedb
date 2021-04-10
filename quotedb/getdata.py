@@ -450,19 +450,23 @@ if __name__ == "__main__":
     # print('done')
     #########################################
     # from quotedb.utils.util import dt2unix_ny
+    # from quotedb.sp500 import random50
     # stocks = random50(numstocks=20)
-    # start = dt2unix_ny(dt.datetime(2021, 3, 30, 13, 45))
-    # fn = 'visualizenow.json'
+    # start = dt2unix_ny(dt.datetime(2021, 4, 9, 9, 30))
+    # fn = 'visualizetodqay.json'
     # numrec = 10
 
     # getCurrentDataFile(stocks, start, fn, (start, numrec), model=AllquotesModel, format='visualize', bringtodate=False)
     ##############################################
-    # from quotedb.utils.util import dt2unix_ny
+    from quotedb.utils.util import dt2unix_ny
+    from quotedb.sp500 import random50
     # stocks = ['CERN', 'CSCO', 'GILD', 'KDP', 'MAR', 'MU', 'AAPL']
+    stocks = random50(numstocks=15)
     # fn = f'{getCsvDirectory()}/ws_json.json'
-    # delt = dt.timedelta(seconds=0.25)
-    # fq = dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
-    # startTickWS_SampleFill(stocks, fn, fq, delt=delt)
+    fn = "sampleFill_w_15_stocks"
+    delt = dt.timedelta(seconds=0.25)
+    fq = dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
+    startTickWS_SampleFill(stocks, fn, fq, delt=delt)
     ##############################################
     # from quotedb.utils.util import dt2unix_ny
     # timestamp = dt2unix_ny(dt.datetime(2021, 4, 6, 18, 0, 0))

@@ -1,9 +1,11 @@
 import datetime as dt
 import pandas as pd
 from quotedb.dbconnection import getSaConn
+from quotedb.models.common import createFirstQuote
 from quotedb.models.metamod import getSession, init, cleanup
+from quotedb.models.allquotes_candlemodel import AllquotesModel
 from quotedb.models.topquotes_candlemodel import TopquotesModel
-from quotedb.utils.util import dt2unix
+from quotedb.utils.util import dt2unix, unix2date
 
 from sqlalchemy import func, distinct
 
@@ -12,22 +14,15 @@ class ManageTopQuote:
     """
     Explanation
     -----------
-    All of the methods in parent class ManageCandles should work for this table but
-    this table has a couple extra fields which will be handled by methods here. In some
-    cases, methods here will wrap methods in the parent class
+    ManageTopQuote and ManageCandles share an interface only.
 
-    Programming Notes
-    -----------------
-    Will try to make the necessary guarantees in the constructor. The min(timestamp) is
-    firstquote. Each member of self.stocks should have an entry. Every other record will
-    refer to firstquote.{stock=stock} to fill in the deltas. The only allowed stocks are
-    in self.stocks. These guarantees will not all be there for a bit.
+    Constructing ManageTopQuotes
+    ----------------------------
+    * User is responsible to create firstquote, know it exists, or indicate an empty table
+    * If topquotes has any data, firstquote exists.
+    * Create a firstquote by providing fq_time to this constructor/getManagedQuote
+    * Indicate empty table be fq_time = -1
     """
-    # Not sure how this is supposed to work. Conceptionally this is a table to keep track of a smaller
-    # set of stocks that updataes more frequently thatn allquotes And it adds a delta_t and delta_p
-    # Going to implement dynamic data in a RDB. (Nobody recommends this ever but, this should reamain
-    # a relatively small table, data will be periodically cleaned, and this should be fast)
-    # SOGOTP gonna implement it and take it from there.
     def __init__(self, stocks, db, model, create=False, fq_time=None):
         # ManageCandles.__init__(self, db, model, create=create)
         self.db = db
@@ -36,7 +31,11 @@ class ManageTopQuote:
         if create:
             self.createTables()
         self.stocks = stocks
+        if fq_time == -1:
+            return
         if fq_time:
+            # TODO: Not sure this is sequenced well but -- need to check existing fq against stocks
+            # Problem is I don't think we can guarantee every stock ... how to determine an update ?
             self.updateFirstQuote(fq_time)
         self.fq = None
         fq = self.getFirstquote()
@@ -65,7 +64,8 @@ class ManageTopQuote:
         :params fq_time: int: unixtime
         :params blitz: bool: If True, remove the current contents of the the table if a new firstquote is installed
         """
-        from quotedb.finnhub.finncandles import FinnCandles
+        # TODO: This is not currently changable from arguments. The Topquote-Firstquote derives from allquotes here
+        getFromModel = AllquotesModel
         s = self.session
         if fq is not None:
             if self.fq is not None or fq[1] > fq_time:
@@ -79,18 +79,17 @@ class ManageTopQuote:
         else:
 
             # TODO: Ensure the time corresponds with a minute marker
-            # This really needs to be tested  (this is not right, sort of OK for MVP but will need some careful fixing later)
-            d = fq_time
+            # Truncating datetime to minute. This really needs to be tested with against finnhub data
+            d = unix2date(fq_time)
             fqt = dt2unix(dt.datetime(d.year, d.month, d.day, d.hour, d.minute))
-            fc = FinnCandles([])
-            trades = createFirstquote(fqt, stocks=stocks, model=None,  local=True)
-            for trade in trades:
+            trades = createFirstQuote(fqt, stocks=stocks, model=getFromModel,  local=True)
+            for trade in trades.firstquote_trades:
                 t = TopquotesModel(stock=trade.stock,
                                    close=trade.close,
                                    high=trade.high,
                                    low=trade.low,
                                    open=trade.open,
-                                   timestamp=trade.timestamp,
+                                   timestamp=trades.timestamp,
                                    volume=trade.volume,
                                    delta_t=0,
                                    delta_p=0.0)
@@ -111,8 +110,6 @@ class ManageTopQuote:
         q = s.query(TopquotesModel).limit(10).all()
         if not q:
             self.installFirstQuote(self.stocks, fq_time=timestamp)
-        else:
-            raise NotImplementedError('Put off the implementation till this concept is proved workable')
 
     # @override
     def addCandles(self, stock, df, session):
@@ -202,7 +199,7 @@ class ManageTopQuote:
         ----------
         :return: tuple (dict, timestamp): A dict of {stock: [close, volume]}. A timestamp for all values in dict
         """
-        s = self.session
+        s = getSession()
         if self.fq:
             return self.fq
         mint = s.query(func.min(TopquotesModel.timestamp)).one_or_none()
@@ -217,7 +214,7 @@ class ManageTopQuote:
         return fq, mint
 
     # ###################################################
-    # Place these in a common db interface location
+    # Place these in a common db interface location (ABC?)
     def getMaxTimeForEachTicker(self, tickers=None):
         maxdict = dict()
         if tickers is None:
@@ -245,6 +242,19 @@ class ManageTopQuote:
         q = s.query(func.min(self.model.timestamp)).filter_by(stock=ticker).one_or_none()
         return q[0]
 
+    def getTimeRange(self, stock, start, end):
+        """
+        Paramaters
+        ----------
+        :params stock: list<str>:
+        :params start: int: Unix time
+        :params end: int Unix time
+        :params return: List<model>: list of candles as sa types
+        """
+        s = getSession()
+        q = s.query(self.model).filter_by(stock=stock).filter(self.model.timestamp >= start).filter(self.model.timestamp <= end).all()
+        return q
+
 
 if __name__ == '__main__':
     #########################################
@@ -258,7 +268,6 @@ if __name__ == '__main__':
     ###########################################
     from quotedb.sp500 import nasdaq100symbols
     from quotedb.utils.util import dt2unix_ny
-    from quotedb.models.allquotes_candlemodel import AllquotesModel
 
     stocks = nasdaq100symbols
     fq_time = dt2unix_ny(dt.datetime(2021, 3, 30, 12, 0, 0))

@@ -1,4 +1,5 @@
 import csv
+import json
 import logging
 import requests
 # import datetime as dt
@@ -37,7 +38,7 @@ class FinnCandles:
         '''
         return self.storeCandles(*args)
 
-    def storeCandles(self, ticker, end, start=None,  model=CandlesModel, key=None, store=['csv'], resolution=1):
+    def storeCandles(self, ticker, end, start=None,  model=CandlesModel, key=None, store=['csv'], fq_time=None, resolution=1):
         '''
         Explanataion
         ------------
@@ -70,6 +71,10 @@ class FinnCandles:
         fn = None
         if 'json' in store:
             print('json not implemented in FinnCandles.storeCandles')
+            fn = getCsvDirectory() + f'/{ticker}_{self.cycle[ticker]}_{end}_{resolution}.json'
+            jd = {ticker: [{'close': x[0], 'high': x[1], 'low': x[2], 'open': x[3], 'timestamp': x[4], 'volume': x[5]} for x in j]}
+            with open(fn, 'w', newline='') as f:
+                f.write(json.dumps(jd))
         if 'csv' in store:
             fn = getCsvDirectory() + f'/{ticker}_{self.cycle[ticker]}_{end}_{resolution}.csv'
             # If the exact fn exists, the data should be the same
@@ -85,8 +90,12 @@ class FinnCandles:
                     csv_writer.writerow(row)
                 print(f'Wrote {i} records to {fn}')
         if 'db' in store:
-
-            mc = self.getManageCandles(model)
+            if model.__tablename__ != "topquotes":
+                fq_time = None
+            else:
+                print()
+                # assert fq_time is not None
+            mc = self.getManageCandles(model, reinit=True, fq_time=fq_time)
             retries = 5
             while retries > 0:
                 try:
@@ -154,6 +163,13 @@ class FinnCandles:
         -----------
         Paginate end to retrieve all the available candles between start and end for one stock.
 
+        Paramaters
+        ----------
+        :params symbol: str
+        :params start: int: Unix time
+        :params end: int: Unix time
+        :params return: list<list>: [close, high, low, open, timestamp, volume]
+
         '''
         total = []
         while True:
@@ -170,6 +186,10 @@ class FinnCandles:
         return total
 
     def getManageCandles(self, model, reinit=False, fq_time=None):
+        """
+        When retrieveing a TopquotesModel, be sure either data already exists in topquotes or
+        you have provided a fq_time to create one.
+        """
         if self.manageCandles is None or reinit:
             if model.__tablename__ == "topquotes":
                 self.manageCandles = ManageTopQuote(self.tickers, getSaConn(), model, fq_time=fq_time, create=True)
@@ -193,7 +213,7 @@ class FinnCandles:
         :params numcycles: int
             Use this to truncate the loop.
         """
-        mc = self.getManageCandles(model, fq_time=start)
+        mc = self.getManageCandles(model, reinit=True, fq_time=start)
         # start = dt2unix(start, unit='s') if start else 0
         end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
         if latest:

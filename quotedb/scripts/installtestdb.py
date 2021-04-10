@@ -7,14 +7,14 @@ and the key values are in the local keys.sqlite database are correct.
 import argparse
 from quotedb.models.managekeys import ManageKeys, Keys
 from quotedb.dbconnection import sqlitedb
-# from quotedb.dbconnection import getSaConn
+from quotedb.dbconnection import getSaConn
 
 p = argparse.ArgumentParser(description=' '.join([
    "Set the quotedb library to use one the main database or the test database"]))
 g = p.add_mutually_exclusive_group(required=True)
 g.add_argument('-t',
                '--test',
-               action='store_false',
+               action='store_true',
                default=False,
                help="Use the test database")
 g.add_argument('-p',
@@ -22,33 +22,51 @@ g.add_argument('-p',
                action='store_true',
                default=False,
                help="Use the production database")
+g.add_argument('-s',
+               '--show',
+               action='store_true',
+               default=False,
+               help="Show which database is active")
 
 
-def installTestDb(install="production"):
+def installTestDb(install="production", show=False):
     """
     Explanation
     -----------
     Install the dev database or production database as defined in keys.sqlite
     The command line usage:
-        $ python installtestdb -t
-        $ python installtestdb -p
+        $ python installtestdb -t -- Use test database
+        $ python installtestdb -p -- Use production database
+        $ python installtestdb -c -- Show active database
 
     Paramaters
     -----------
     :params install: str: one of [production, dev]. Any other argument does nothing.
     """
+    if show:
+        db = getSaConn()
+        db = "dev_stockdb" if db.find("dev_stockdb") > 0 else 'stockdb'
+        print(f'\n{db} is the current database\n')
+        return
     mk = ManageKeys(sqlitedb)
     Keys.installDb(mk.session, install=install)
+    db = getSaConn()
+    db = "dev_stockdb" if db.find("dev_stockdb") > 0 else 'stockdb'
+    print(f'\n{db} is the current database\n')
 
 
 if __name__ == '__main__':
     ahgs = p.parse_args()
 
-    usedb = "production"
+    testdb = "production"
+    show = False
     if ahgs and ahgs.production:
         testdb = "production"
     elif ahgs.test:
         testdb = "dev"
-    installTestDb(install=testdb)
+    elif ahgs.show:
+        show = True
+
+    installTestDb(install=testdb, show=show)
 
     # print(getSaConn())
