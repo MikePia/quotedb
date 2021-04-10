@@ -5,7 +5,7 @@ from quotedb.models.managekeys import Keys, ManageKeys, Session
 from quotedb.dbconnection import getSaConn
 from quotedb.models.managekeys import constr
 
-# import unittest
+import unittest
 from unittest import TestCase
 
 sqlitedb = 'sqlite:///test_key_db.sqlite'
@@ -50,16 +50,16 @@ class TestManageKeys(TestCase):
 
     def test_installDb_uninstall(self):
         mk = ManageKeys(constr)
-        Keys.installDb(mk.session, install='prod')
+        Keys.installDb(mk.session, install='production')
         db = getSaConn(refresh=True)
         print(db)
         self.assertGreater(db.find("/stockdb"), 0)
 
 
 if __name__ == '__main__':
-    # unittest.main()
-    tm = TestManageKeys()
-    tm.test_AllKeys()
+    unittest.main()
+    # tm = TestManageKeys()
+    # tm.test_AllKeys()
     # tm.test_installDb()
     # tm.test_installDb_uninstall()
     # print(getSaConn())
