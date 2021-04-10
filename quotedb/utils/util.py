@@ -90,7 +90,7 @@ def formatData(df, store, fill=False):
                 cols.extend(['delta_p', 'delta_t', 'delta_v'])
 
             visualize.append({int(int(t) / 1000000): tick[cols].to_json(orient="records")})
-        return str(visualize)
+        return str(visualize).replace("'", '')
     elif 'json' in store:
         if df.empty:
             return ''

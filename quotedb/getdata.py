@@ -461,9 +461,10 @@ if __name__ == "__main__":
     from quotedb.utils.util import dt2unix_ny
     from quotedb.sp500 import random50
     # stocks = ['CERN', 'CSCO', 'GILD', 'KDP', 'MAR', 'MU', 'AAPL']
-    stocks = random50(numstocks=15)
+    stocks = random50(numstocks=5)
+    stocks.append('BINANCE:BTCUSDT')
     # fn = f'{getCsvDirectory()}/ws_json.json'
-    fn = "sampleFill_w_15_stocks"
+    fn = "sampleFill_w_15_stocks_quote_fix"
     delt = dt.timedelta(seconds=0.25)
     fq = dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
     startTickWS_SampleFill(stocks, fn, fq, delt=delt)
