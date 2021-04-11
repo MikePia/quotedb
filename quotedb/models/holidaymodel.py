@@ -1,14 +1,10 @@
 import csv
-import datetime as dt
 import pandas as pd
 
-from sqlalchemy import create_engine, Column, String
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, String
+from quotedb.models.metamod import Base, init, getSession
 from sqlalchemy.orm import sessionmaker
 
-from quotedb.dbconnection import getSaConn
-
-Base = declarative_base()
 Session = sessionmaker()
 
 
@@ -21,8 +17,8 @@ class HolidayModel(Base):
         return f'<holidays({self.name})>'
 
     @classmethod
-    def insertHoliday(cls, day, name, engine):
-        s = Session(bind=engine)
+    def insertHoliday(cls, day, name, session):
+        s = session
         q = s.query(HolidayModel).filter_by(day=day).one_or_none()
         if not q:
             h = HolidayModel(day=day, name=name)
@@ -30,8 +26,8 @@ class HolidayModel(Base):
             s.commit()
 
     @classmethod
-    def insertHolidays(cls, dayarray, engine):
-        s = Session(bind=engine)
+    def insertHolidays(cls, dayarray, session):
+        s = session
         for day in dayarray:
             dadate = pd.Timestamp(day[0]).strftime("%Y%m%d")
             q = s.query(HolidayModel).filter_by(day=dadate).one_or_none()
@@ -42,7 +38,6 @@ class HolidayModel(Base):
 
     @classmethod
     def isHoliday(self, d, s):
-        # s = Session(bind=engine)
         q = s.query(HolidayModel).filter_by(day=d.strftime("%Y%m%d")).one_or_none()
         return True if q else False
 
@@ -50,19 +45,16 @@ class HolidayModel(Base):
 class ManageHolidayModel:
     session = None
 
-    def __init__(self, db, create=False):
-        self.db = db
-        self.engine = create_engine(self.db)
+    def __init__(self, create=False):
         if create:
             self.createTables()
         self.newSession()
 
     def newSession(self):
-        self.session = Session(bind=self.engine)
+        self.session = getSession(refresh=True)
 
     def createTables(self):
-        # s = Session(bind=self.engine)
-        Base.metadata.create_all(self.engine)
+        init()
 
     def saveHolidays(self, fn):
         # This is an occasional thing during dev or setup
@@ -72,27 +64,8 @@ class ManageHolidayModel:
             reader = csv.reader(file, dialect="excel")
             for row in reader:
                 csvfile.append(row)
-        HolidayModel.insertHolidays(csvfile, self.engine)
-
-
-def test_isHoliday():
-    mh = ManageHolidayModel(getSaConn())
-    d = dt.date(2019, 1, 1)
-    delt = dt.timedelta(days=1)
-    s = Session(bind=mh.engine)
-    for i in range(365):
-        if HolidayModel.isHoliday(d, s):
-            print(d.strftime("\n%A %B %d is a holiday"), end='')
-        # time.sleep(0.2)
-        print('.', end='')
-        d += delt
+        HolidayModel.insertHolidays(csvfile, self.session)
 
 
 if __name__ == '__main__':
-    from quotedb.models.metamod import getSession
-
-    # mh = ManageHolidayModel(getSaConn(), create=True)
-    # mh.saveHolidays('quotedb/models/holidays.csv')
-    # test_isHoliday()
-    d = dt.date.today()
-    print(HolidayModel.isHoliday(d, getSession()))
+    pass
