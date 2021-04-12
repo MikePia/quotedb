@@ -16,6 +16,12 @@ from quotedb.scripts.installtestdb import installTestDb
 from quotedb.utils.util import getPrevTuesWed, dt2unix, dt2unix_ny
 
 
+def dblcheckDbMode(db=None):
+    """In case this is called without setUpClass(), and the db is not in test mode,fail with AssertionError """
+    db = db if db else getSaConn()
+    assert db.find("dev_stockdb") > 0
+
+
 class TestFinnCandles(TestCase):
     stocks = None
     start = None
@@ -26,7 +32,7 @@ class TestFinnCandles(TestCase):
         installTestDb(install="dev")
         init()
         db = getSaConn(refresh=True)
-        assert db.find("dev_stockdb") > 0
+        dblcheckDbMode(db)
         engine = getEngine()
         statements = ['delete from candles', 'delete from allquotes', 'delete from topquotes']
         for statement in statements:
@@ -45,7 +51,7 @@ class TestFinnCandles(TestCase):
         installTestDb(install="production")
         db = getSaConn(refresh=True)
         print('Resetting db to stockdb')
-        assert db.find("dev_stockdb") < 0
+        dblcheckDbMode(db)
 
     def test_getCandles_fh(self):
         print("test_getCandles_fh()")
@@ -63,6 +69,7 @@ class TestFinnCandles(TestCase):
         Test relies on getting and storing candles earlier than setUpClass did.
         """
         print("test_storeCandles_db_candles()")
+        dblcheckDbMode()
         model = CandlesModel
         fc = FinnCandles(tickers=self.stocks)
         stock = fc.tickers[random.randint(0, len(self.stocks)-1)]
@@ -81,6 +88,7 @@ class TestFinnCandles(TestCase):
         Test relies on getting and storing candles earlier than setUpClass did.
         """
         print("test_storeCandles_db_allquotes()")
+        dblcheckDbMode()
         model = AllquotesModel
         fc = FinnCandles(tickers=self.stocks)
         stock = fc.tickers[random.randint(0, len(self.stocks)-1)]
@@ -100,6 +108,7 @@ class TestFinnCandles(TestCase):
         Test the storage to the topquotes table.
         """
         print("test_storeCandles_db_topquotes()")
+        dblcheckDbMode()
         model = TopquotesModel
         fc = FinnCandles(tickers=self.stocks)
         stock = fc.tickers[random.randint(0, len(self.stocks)-1)]
@@ -118,6 +127,7 @@ class TestFinnCandles(TestCase):
         Test the storage to a csv file
         """
         print("test_storeCandles_csv()")
+        dblcheckDbMode()
         model = CandlesModel
         fc = FinnCandles(tickers=self.stocks)
         stock = fc.tickers[random.randint(0, len(self.stocks)-1)]
@@ -131,6 +141,7 @@ class TestFinnCandles(TestCase):
         Test the storage to a json file
         """
         print("test_storeCandles_json()")
+        dblcheckDbMode()
         model = CandlesModel
         fc = FinnCandles(tickers=self.stocks)
         stock = fc.tickers[random.randint(0, len(self.stocks)-1)]
@@ -141,6 +152,7 @@ class TestFinnCandles(TestCase):
 
     def test_cycleStockCandles_candles(self):
         print("test_cycleStockCandles_candles()")
+        dblcheckDbMode()
         init()
         model = CandlesModel
         statements = ['delete from candles']
@@ -167,6 +179,7 @@ class TestFinnCandles(TestCase):
 
     def test_cycleStockCandles_allquotes(self):
         print("test_cycleStockCandles_allquotes()")
+        dblcheckDbMode()
         init()
         model = AllquotesModel
         statements = ['delete from allquotes']
@@ -193,6 +206,7 @@ class TestFinnCandles(TestCase):
 
     def test_cycleStockCandles_topquotes(self):
         print("test_cycleStockCandles_topquotes()")
+        dblcheckDbMode()
         init()
         model = TopquotesModel
         # Empty all calndle tables, verify topquotes is empty

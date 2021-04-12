@@ -20,6 +20,12 @@ from unittest import TestCase
 import unittest
 
 
+def dblcheckDbMode(db=None):
+    """In case this is called without setUpClass(), and the db is not in test mode,fail with AssertionError """
+    db = db if db else getSaConn()
+    assert db.find("dev_stockdb") > 0
+
+
 class TestCommon(TestCase):
     stocks = None
     start = None
@@ -29,8 +35,7 @@ class TestCommon(TestCase):
         print("\nTestCommon.setUpClass()")
         installTestDb(install="dev")
         init()
-        db = getSaConn(refresh=True)
-        assert db.find("dev_stockdb") > 0
+        dblcheckDbMode()
         cls.stocks = ['AAPL', 'SQ', 'XPEV', 'TSLA']
         d = getPrevTuesWed(dt.datetime.now())
         cls.start = dt2unix_ny(dt.datetime(d.year, d.month, d.day, 10, 30))
@@ -63,7 +68,7 @@ class TestCommon(TestCase):
         installTestDb(install="production")
         db = getSaConn(refresh=True)
         print('Resetting db to stockdb')
-        assert db.find("dev_stockdb") < 0
+        dblcheckDbMode(db)
 
     def test_getFirstQuoteData_allquote(self):
         print("test_getFirstquote_allquotes()")
@@ -94,8 +99,11 @@ class TestCommon(TestCase):
         Provide a date to get the data for Firstquote.
         """
         print("test_createFirstquote_allquotes()")
+
         s = getSession(refresh=True)
         start = self.maxaapl_q - (60*60*2)
+
+        dblcheckDbMode()
 
         stocks = self.stocks
         while True:
