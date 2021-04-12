@@ -17,7 +17,7 @@ class PolygonApi:
     TRADES = BASEURL + "/v2/ticks/stocks/trades/{ticker}/{date}"
 
     mpt = ManagePolyTrade(getSaConn())
-    holman = ManageHolidayModel(getSaConn())
+    holman = ManageHolidayModel()
 
     def __init__(self, tickers, begdate, start=0,  resamprate=pd.Timedelta(seconds=0.25), filternull=False, timer=None):
         if timer:
@@ -177,7 +177,14 @@ class PolygonApi:
         df.time = df.time.apply(lambda ts: dt2unix(ts, unit='n'))
         return df
 
+
 def isMarketOpen():
+    """
+    Explanation
+    ___________
+    Uses a polygon endpoint to ask if the market is open right now. The answer returnd
+    from this function is specific to the US market stock market.
+    """
     url = f'https://api.polygon.io/v1/marketstatus/now?&apiKey={getPolygonToken()}'
     RETRIES = 5
     while RETRIES > 0:

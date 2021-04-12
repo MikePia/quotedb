@@ -5,8 +5,7 @@ and the key values are in the local keys.sqlite database are correct.
 """
 
 import argparse
-from quotedb.models.managekeys import ManageKeys, Keys
-from quotedb.dbconnection import sqlitedb
+from quotedb.models.managekeys import Keys
 from quotedb.dbconnection import getSaConn
 
 p = argparse.ArgumentParser(description=' '.join([
@@ -46,12 +45,12 @@ def installTestDb(install="production", show=False):
     if show:
         db = getSaConn()
         db = "dev_stockdb" if db.find("dev_stockdb") > 0 else 'stockdb'
-        print(f'\n{db} is the current database\n')
+        print(f'{db} is the current database')
         return
     Keys.installDb(install=install)
-    db = getSaConn()
+    db = getSaConn(refresh=True)
     db = "dev_stockdb" if db.find("dev_stockdb") > 0 else 'stockdb'
-    print(f'\n{db} is the current database\n')
+    print(f'{db} is the current database')
 
 
 if __name__ == '__main__':

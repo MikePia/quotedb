@@ -3,7 +3,10 @@ Use a sqlite db to store tokens and keys including password
 to the mysql db
 """
 import logging
+import pymysql
+import sys
 from sqlalchemy import create_engine, Column, String, Integer
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 from quotedb.scripts.env import sqlitedb
@@ -26,9 +29,15 @@ def init_sqlite():
         SESSION = Session()
         db = "dev_stockdb" if SQLITE_DB_URL.find("dev_stockdb") > 0 else "stockddb"
         logging.debug(f"initializing session for {db}")
+    except OperationalError as ex:
+        print('========================    Start the database please    =============================')
+        print(ex)
+        sys.exit()
+
     except Exception as ex:
         print('========================    RRRRRRRRR    =============================')
         print(ex, 'Exception in init of sqlite db')
+
 
 def cleanup_sqlite():
     try:
