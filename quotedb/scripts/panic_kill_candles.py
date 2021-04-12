@@ -1,5 +1,5 @@
-import psutil
 import logging
+import psutil
 
 
 def panicKillCandles(modulename, pname='python'):

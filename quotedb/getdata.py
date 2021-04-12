@@ -419,7 +419,6 @@ def getDeltaData(stocks, start, end, fq, model=AllquotesModel, format="df"):
 
 
 if __name__ == "__main__":
-    pass
     # from quotedb.sp500 import getSymbols
     # stocks = nasdaq100symbols
     # stocks = getSymbols()

@@ -478,7 +478,10 @@ if __name__ == '__main__':
     # mc = ManageCandles(getSaConn())
     # df = CandlesModel.getTimeRangeMultipleVpts(stocks, start, end, mc.session)
     #############################################
-    # mc = ManageCandles(getSaConn(), create=True)
+    from quotedb.models.candlesmodel import CandlesModel
+    from quotedb.models.allquotes_candlemodel import AllquotesModel
+    mc = ManageCandles(getSaConn(), model=AllquotesModel,  create=True)
+    mc = ManageCandles(getSaConn(), model=CandlesModel,  create=True)
     # start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     # end = dt2unix(pd.Timestamp.utcnow().replace(tzinfo=None))
     # x = mc.getFilledData('AAPL', start, end)
