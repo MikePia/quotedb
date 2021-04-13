@@ -1,5 +1,6 @@
 import csv
 import datetime as dt
+import json
 import os
 
 import pandas as pd
@@ -89,8 +90,9 @@ def formatData(df, store, fill=False):
             if fill:
                 cols.extend(['delta_p', 'delta_t', 'delta_v'])
 
-            visualize.append({int(int(t) / 1000000): tick[cols].to_json(orient="records")})
-        return str(visualize).replace("'", '')
+            visualize.append({json.dumps(int(int(t) / 1000000)): tick[cols].to_json(orient="records")})
+        return json.dumps(visualize, separators=(',', ':')).replace('"[', '[').replace(']"', ']').replace("\\", "")[1:-1]
+
     elif 'json' in store:
         if df.empty:
             return ''
@@ -101,11 +103,36 @@ def formatData(df, store, fill=False):
         return df.to_csv(header=True)
 
 
+def _bracketdata(fn, content):
+    with open(fn, 'w') as f:
+        f.write('[' + content + ']')
+
+
+def _replaceLastBracket(fn, newcontent):
+    '''
+    This relies on the file having no extra spaces at the end.
+    We rely on being the only editor of the file to sort of guarantee it.
+    '''
+    cursize = os.path.getsize(fn)
+    with open(fn, 'r+') as f:
+        begchar = f.readline().strip()[0]
+        f.seek(cursize-1)
+        lastchar = f.read().strip()[-1]
+        if begchar == '[' and lastchar == ']':
+            f.seek(cursize-1)
+            f.write(newcontent + ']')
+        else:
+            raise ValueError('File is in bad state, nothing appended')
+
+
 def writeFile(j, fn, store):
-    mode = 'a' if os.path.exists(fn) else 'w'
+    mode = 'a' if (os.path.exists(fn) and os.path.getsize(fn) > 0) else 'w'
     if 'visualize' in store or 'json' in store:
-        with open(fn, mode) as f:
-            f.write(j)
+
+        if mode == 'a':
+            _replaceLastBracket(fn, j)
+        else:
+            _bracketdata(fn, j)
     elif 'csv' in 'store':
         with open(fn, mode, newline='') as f:
             writer = csv.writer(f)
