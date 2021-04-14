@@ -6,6 +6,7 @@ that do the work. These functions will be the published API for the client to us
 import datetime as dt
 import json
 import logging
+import os
 import time
 
 import pandas as pd
@@ -204,6 +205,7 @@ def startCandles(stocks, start, model=CandlesModel, latest=False, numcycles=9999
         the start value, begin collection ther instead of start
     :params numcycles: int: Will stop execution upon completion of cycles.
     """
+    print("pid", os.getpid())
 
     if isinstance(start, dt.datetime):
         start = dt2unix(start)
@@ -361,7 +363,7 @@ def getGainersLosers(tickers, start, numstocks, model=CandlesModel):
     :return: (list<list>, list<list>): (gainers, losers): Each sub list is [stock, pricediff, percentagediff, firstprice, lastprice]
     """
     mc = ManageCandles(getSaConn(), model)
-    return mc.filterGanersLosers(tickers, start, numstocks)
+    return mc.filterGainersLosers(tickers, start, numstocks)
 
 
 def createFirstquote(timestamp, model=AllquotesModel, stocks='all'):
@@ -419,6 +421,7 @@ def getDeltaData(stocks, start, end, fq, model=AllquotesModel, format="df"):
 
 
 if __name__ == "__main__":
+    from quotedb.sp500 import nasdaq100symbols
     # from quotedb.sp500 import getSymbols
     # stocks = nasdaq100symbols
     # stocks = getSymbols()
@@ -427,9 +430,10 @@ if __name__ == "__main__":
     # # start = dt.datetime(2021, 3, 21)
     # end = dt.datetime.utcnow()
 
-    # # # stocks = nasdaq100symbols
-    # # # # stocks = ['AAPL', 'SQ']
-    # # startCandles(stocks, start, latest=True)
+    stocks = nasdaq100symbols
+    start = dt2unix(dt.datetime(2021, 3, 1))
+    # # stocks = ['AAPL', 'SQ']
+    startCandles(stocks, start, latest=True)
     # x = getCandles(stocks, start, end)
     # print(len(x))
     #########################################
@@ -457,16 +461,16 @@ if __name__ == "__main__":
 
     # getCurrentDataFile(stocks, start, fn, (start, numrec), model=AllquotesModel, format='visualize', bringtodate=False)
     ##############################################
-    from quotedb.utils.util import dt2unix_ny
-    from quotedb.sp500 import random50
+    # from quotedb.utils.util import dt2unix_ny
+    # from quotedb.sp500 import random50
     # stocks = ['CERN', 'CSCO', 'GILD', 'KDP', 'MAR', 'MU', 'AAPL']
-    stocks = random50(numstocks=5)
-    stocks.append('BINANCE:BTCUSDT')
+    # stocks = random50(numstocks=5)
+    # stocks.append('BINANCE:BTCUSDT')
     # fn = f'{getCsvDirectory()}/ws_json.json'
-    fn = "sampleFill_w_15_stocks_quote_fix"
-    delt = dt.timedelta(seconds=0.25)
-    fq = dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
-    startTickWS_SampleFill(stocks, fn, fq, delt=delt)
+    # fn = "sampleFill_w_15_stocks_quote_fix"
+    # delt = dt.timedelta(seconds=0.25)
+    # fq = dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
+    # startTickWS_SampleFill(stocks, fn, fq, delt=delt)
     ##############################################
     # from quotedb.utils.util import dt2unix_ny
     # timestamp = dt2unix_ny(dt.datetime(2021, 4, 6, 18, 0, 0))
