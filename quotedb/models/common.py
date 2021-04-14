@@ -59,14 +59,14 @@ def createFirstQuote(timestamp, model, stocks="all", local=False, usecache=False
 
     Parameters
     ----------
-    :params timestamp: int: unixtime
-    :params stocks: union[str, list]: "all" will get candles from evey available US exchange. Otherwise
+    :timestamp: int: unixtime
+    :stocks: union[str, list]: "all" will get candles from evey available US exchange. Otherwise
         send a list of the stockss to be included
-    :params model: SqlAlchemy model: Currently either CandlesModel or AllqutoesModel. Will determine which table to use.
-    :params local: bool: If false, save to the database
-    :params usecache: bool: If true, use stored firstquote with the given timestamp. The stocks included in firstquote
+    :model: SqlAlchemy model: Currently either CandlesModel or AllqutoesModel. Will determine which table to use.
+    :local: bool: If false, save to the database
+    :usecache: bool: If true, use stored firstquote with the given timestamp. The stocks included in firstquote
         are not guaranteed by this library or the database.
-    :params return: dict: {timestamp:timestamp, firstquotes_trades: list<Firstquote_trades>} The list is a local version
+    :return: dict: {timestamp:timestamp, firstquotes_trades: list<Firstquote_trades>} The list is a local version
         without the database relation.
     """
     # plus = 60*60*3    # The number of seconds to pad the start time.

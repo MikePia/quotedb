@@ -2,8 +2,6 @@
 Using the finnhub candles endpoint cycle through stocks. When the requirements become
 clearer, add commandline args with date shortcuts and possibility of reading a file for
 tickers
-
-
 """
 if __name__ == '__main__':
     import pandas as pd
