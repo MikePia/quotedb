@@ -60,6 +60,11 @@ class ManageCandles:
             return [x[0] for x in csvfile if int(x[3]) <= numRecords]
 
     def getLargestTimeGap(self, ticker):
+        """
+        Finds the first occurrence  of the largest timegap for ticker
+        returns tuple (int, int)
+        Note: good chance this will retrieve the first quote after a weekend
+        """
         s = getSession()
         q = s.query(self.model.timestamp).filter_by(stock=ticker).order_by(self.model.timestamp).all()
         maxsize = (0, 0)
@@ -69,22 +74,42 @@ class ManageCandles:
             if newtime-prevtime > maxsize[0]:
                 maxsize = (newtime-prevtime, newtime)
             prevtime = newtime
-        print('max timestamp is ', dt.timedelta(seconds=maxsize[0]))
-        print('Occurs at ', unix2date(maxsize[1]))
+        return maxsize
 
     def getFilledData(self, stock, begin, end, format='json'):
         '''
+        Explanation
+        -----------
         The atomic method to Query db for data between begin and end and return one record
         for each minute. Note that this is atomic because it is intended for data on a single day. Use
-        getFilledDataDays for multiday
+        getFilledDataDays for multiday.
+        The weirdness is using this for after hours that may have no data
+
+        Paramaters
+        ----------
+        :params stock: List<str>:
+        :params begin: int: Unix time
+        :params end: int: Unix time
+        :params format: str: one of [json, csv]
+        :params return: DataFrame: There is a column for every miunute
+             is filled.
+
+        Work Notes
+        ----------
+        This was the result of requested work, but there are no plans for using it.
+        <MP> The problem is this kind of filled data does not transfer well to after hours </MP>
+        The data here may not go to {end}. The wrapping function, getFilledDataDays, institutes a
+        policy of market hours, 7am-7pm or 24/5.
         '''
         data = self.getTimeRangePlus(stock, begin, end)
         if not data:
-            return None
+            data = self.getTimeRange(stock, begin, end)
+            if not data:
+                return None
         datadict = [x.__dict__ for x in data]
         cols = ['open', 'high', 'low', 'close', 'timestamp', 'volume']
         datadict = pd.DataFrame.from_dict(datadict)[cols]
-        data = resample(datadict, 'time', dt.timedelta(seconds=60))
+        data = resample(datadict, 'timestamp', dt.timedelta(seconds=60))
         data.close = data.close.fillna(method='ffill')
         data.open = data.open.fillna(data.close)
         data.high = data.high.fillna(data.close)
@@ -139,6 +164,11 @@ class ManageCandles:
         return df.to_json() if df is not None else df
 
     def getMaxTimeForEachTicker(self, tickers=None):
+        """
+        Explanation
+        -----------
+        Retrieve max(timestamp) for each ticker in the list
+        """
         maxdict = dict()
         if tickers is None:
             tickers = self.getTickers(self.session)
@@ -148,12 +178,17 @@ class ManageCandles:
                 maxdict[tick] = t
         return maxdict
 
-    def filterGanersLosers(self, tickers, start, numstocks):
+    def filterGainersLosers(self, tickers, start, numstocks):
         """
         Explanation
         -----------
         filter the stocks in tickers to include the numstocks fastest gainers and losers
         Will return two arrays, one for gainers, one for losers each of length numstocks
+
+        Paramaters
+        ----------
+        :params return: tuple(list<list>, list<list>): (gainers, losers). Each list begins
+            with a column list
         """
         # end is just some time in the future
         end = dt2unix(dt.datetime.utcnow() + dt.timedelta(hours=5))
@@ -233,7 +268,15 @@ class ManageCandles:
     def getTimeRangeMultiple(self, symbols, start, end):
         """
         Query candles for all stocks that have times between start and end
-        Programming note
+
+        Paramaters
+        ----------
+        :params symbols: list<str>
+        :params start: int: Unix time
+        :params end: int: Unix time
+        :params return: DataFrame: columns = [timestamp, stock, high, low, open, close, timestamp, volume]
+
+        Programming notes
         ----------------
         The query keeps giving me a memory error. The queries work from mysql cmd. Trying various
         combinations and letting pandas to some of the filtering/sortting
@@ -244,13 +287,6 @@ class ManageCandles:
         q = s.query(self.model).filter(
             self.model.timestamp >= start).filter(
             self.model.timestamp <= end)
-
-        # q = s.query(self.model).filter(
-        #     self.model.timestamp >= start).filter(
-        #     self.model.timestamp <= end).filter(
-        #     self.model.stock.in_(symbols)).order_by(
-        #     self.model.timestamp.asc())
-        # print(str(q))
         q = q.all()
         columns = ['stock', 'high', 'low', 'open', 'close', 'timestamp', 'volume']
         df = pd.DataFrame([(d.stock, d.high, d.low, d.open, d.close, d.timestamp, d.volume) for d in q], columns=columns)
@@ -270,6 +306,19 @@ class ManageCandles:
         return [r._asdict() for r in q]
 
     def getTimeRangeMultipleVpts(self, symbols, start, end):
+        """
+        Explanation
+        -----------
+        Query the database to get candles from {self.model} table from {stocks} between start and end.
+        The result data will be 'trade' data form. That is it will include the columns volume, price, timestamp and stock.
+
+        Paramaters
+        ----------
+        :partams symbols: list<str>
+        :params start: int: Unix time
+        :params end: int: Unix time
+        :params return: DataFrame, columns = [stock, pricd, timestamp, volume]
+        """
         print(f'Getting candles for {len(symbols)} stocks between {unix2date_ny(start)} and {unix2date_ny(end)} NY time')
         s = self.session
         q = s.query(self.model.stock, self.model.close, self.model.timestamp, self.model.volume).filter(
@@ -280,8 +329,19 @@ class ManageCandles:
 
     def getTimeRangePlus(self, stock, start, end, plus=(60*30)):
         '''
-        Retrieve the timestamp range but guarantee that the first timestamp has either a current value
-        or a previous value
+        Explanation
+        -----------
+        Retrieve the timestamp range for a stock but try to guarantee that the first timestamp has either a
+        current value or a previous value. Used for the creation of FirstQuote data at {start}
+
+        Paramaters
+        ----------
+        :params stock: str: the stock to get data for
+        :params start: int: The time for a guaranteed value
+        :params end: int: The end time
+        :params plus: The amount of padding before start.Using the padding speeds up the process by
+            making separate queries for earlier times unnecessary.
+        :params return: List<model>
         '''
         data = self.getTimeRange(stock, start-plus, end)
         if not data:
@@ -293,9 +353,7 @@ class ManageCandles:
         if q:
             data.insert(0, q)
         else:
-            # TODO
-            print('No current or earlier data for start')
-            raise ValueError('Programmers Exception, Here is the case to deal with')
+            return None
         return data
 
     def getMaxTime(self, ticker, session):
@@ -310,6 +368,12 @@ class ManageCandles:
         return q[0]
 
     def getTickers(self):
+        """
+        Explanation
+        -----------
+        Get a list of the stocks in the table self.model
+        Select distinct stocks from {table}. Return as a list
+        """
         s = self.session
 
         tickers = s.query(distinct(self.model.stock)).all()
@@ -366,7 +430,6 @@ class ManageCandles:
         return {}
 
     def printLatestTimes(self, stocks, session):
-        from quotedb.utils.util import unix2date
         for stock in stocks:
             t = self.getMaxTime(stock, session)
             print(unix2date(t, unit='s').strftime("%A %B, %d %H:%M%S"))
@@ -467,7 +530,7 @@ if __name__ == '__main__':
     # print(pd.Timestamp(start, unit='s'))
     # # stocks = ['AAPL', 'SQ']
     # stocks = getQ100_Sp500()
-    # gainers, losers = mc.filterGanersLosers(stocks, start, 10)
+    # gainers, losers = mc.filterGainersLosers(stocks, start, 10)
     #####################################
     # start = 1609463187
     # end = 1615943202
