@@ -46,18 +46,18 @@ def resample(df, col, rule, unit='s'):
     df = df.copy()
 
     # convert epoch times to datetime
-    df['time'] = df.time.apply(
+    df[col] = df[col].apply(
         lambda ts: dt.datetime.fromtimestamp(ts / div))
 
     # make the datetimes into an index
-    df.set_index('time', inplace=True)
+    df.set_index(col, inplace=True)
 
     # resample to desired period
     df = df.resample(rule).asfreq().reset_index()
 
     # convert datetimes back to epoch
     epoch = dt.datetime.fromtimestamp(0)
-    df.time = df.time.apply(
+    df[col] = df[col].apply(
         lambda ts: (ts - epoch).total_seconds())
     return df
 
@@ -149,8 +149,8 @@ def getPrevTuesWed(td):
     :params td: A Datetime object
     '''
     deltdays = 7
-    if td.weekday() == 0:
-        deltdays = 5
+    if td.weekday() < 2:
+        deltdays = 5 - td.weekday()
     elif td.weekday() < 3:
         deltdays = 0
     elif td.weekday() < 5:
