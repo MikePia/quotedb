@@ -421,7 +421,7 @@ def getDeltaData(stocks, start, end, fq, model=AllquotesModel, format="df"):
 
 
 if __name__ == "__main__":
-    from quotedb.sp500 import nasdaq100symbols
+    # from quotedb.sp500 import nasdaq100symbols
     # from quotedb.sp500 import getSymbols
     # stocks = nasdaq100symbols
     # stocks = getSymbols()
@@ -430,10 +430,10 @@ if __name__ == "__main__":
     # # start = dt.datetime(2021, 3, 21)
     # end = dt.datetime.utcnow()
 
-    stocks = nasdaq100symbols
-    start = dt2unix(dt.datetime(2021, 3, 1))
+    # stocks = nasdaq100symbols
+    # start = dt2unix(dt.datetime(2021, 3, 1))
     # # stocks = ['AAPL', 'SQ']
-    startCandles(stocks, start, latest=True)
+    # startCandles(stocks, start, latest=True)
     # x = getCandles(stocks, start, end)
     # print(len(x))
     #########################################
@@ -461,16 +461,15 @@ if __name__ == "__main__":
 
     # getCurrentDataFile(stocks, start, fn, (start, numrec), model=AllquotesModel, format='visualize', bringtodate=False)
     ##############################################
-    # from quotedb.utils.util import dt2unix_ny
-    # from quotedb.sp500 import random50
+    from quotedb.utils.util import dt2unix_ny
+    from quotedb.sp500 import random50
     # stocks = ['CERN', 'CSCO', 'GILD', 'KDP', 'MAR', 'MU', 'AAPL']
-    # stocks = random50(numstocks=5)
+    stocks = random50(numstocks=5)
     # stocks.append('BINANCE:BTCUSDT')
-    # fn = f'{getCsvDirectory()}/ws_json.json'
-    # fn = "sampleFill_w_15_stocks_quote_fix"
-    # delt = dt.timedelta(seconds=0.25)
-    # fq = dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
-    # startTickWS_SampleFill(stocks, fn, fq, delt=delt)
+    fn = "FixTheDamnComma.json"
+    delt = dt.timedelta(seconds=0.25)
+    fq = dt2unix_ny(dt.datetime(2021, 4, 14, 9, 30))
+    startTickWS_SampleFill(stocks, fn, fq, delt=delt)
     ##############################################
     # from quotedb.utils.util import dt2unix_ny
     # timestamp = dt2unix_ny(dt.datetime(2021, 4, 6, 18, 0, 0))

@@ -72,7 +72,7 @@ def formatFn(fn, format):
     return fn
 
 
-previousTimestamps = pd.DataFrame()
+previousTimestamps = []
 
 
 def formatData(df, store, fill=False):
@@ -88,16 +88,19 @@ def formatData(df, store, fill=False):
             return ''
         df.sort_values(['timestamp', 'stock'], inplace=True)
 
-        visualize = []
         for t in df.timestamp.unique():
             # Note that t is a numpy.datetime. int(t) converts to Epoch in ns.
             tick = df[df.timestamp == t]
             cols = ['stock', 'price', 'volume']
             if fill:
                 cols.extend(['delta_p', 'delta_t', 'delta_v'])
-
-            visualize.append({json.dumps(int(int(t) / 1000000)): tick[cols].to_json(orient="records")})
-        return json.dumps(visualize, separators=(',', ':')).replace('"[', '[').replace(']"', ']').replace("\\", "")[1:-1]
+            current = [{int(int(t) / 1000000): [dict(tick[cols].iloc[i]) for i in range(len(tick))]}]
+            if previousTimestamps:
+                previousTimestamps.extend(current)
+            else:
+                previousTimestamps = current
+        current = findDups2()
+        return current
 
     elif 'json' in store:
         if df.empty:
@@ -114,92 +117,47 @@ def _bracketdata(fn, content):
         f.write('[' + content + ']')
 
 
-def _replaceLastBracket(fn, newcontent):
-    '''
-    This relies on the file having no extra spaces at the end.
-    We rely on being the only editor of the file to sort of guarantee it.
-    '''
-    cursize = os.path.getsize(fn)
-    with open(fn, 'r+') as f:
-        begchar = f.readline().strip()[0]
-        f.seek(cursize-1)
-        lastchar = f.read().strip()[-1]
-        if begchar == '[' and lastchar == ']':
-            f.seek(cursize-1)
-            overwrite = findDups2(fn, newcontent)
-            if not overwrite:
-                newcontent = ',' + newcontent + ']'
-            else:
-                newcontent = overwrite
-            f.write(newcontent)
-        else:
-            raise ValueError('File is in bad state, nothing appended')
-
-
 def writeFile(j, fn, store):
-    global MODE
-    if MODE:
-        mode = MODE
-    else:
-        mode = 'a' if (os.path.exists(fn) and os.path.getsize(fn) > 0) else 'w'
+    # Completely rewriting the file with every addition -- for now it will reduce risk of error
+    mode = 'w'
     if 'visualize' in store or 'json' in store:
+        with open(fn, mode) as f:
+            f.write(j)
 
-        if mode == 'a':
-            _replaceLastBracket(fn, j)
-        else:
-            if MODE:
-                with open(fn, 'w') as f:
-                    f.write(j)
-            _bracketdata(fn, j)
     elif 'csv' in 'store':
-        with open(fn, mode, newline='') as f:
+        with open(fn, 'w', newline='') as f:
             writer = csv.writer(f)
             for row in j:
                 writer.writerow(row)
-    MODE = None
 
 
-def findDups2(fn,  j):
-    global MODE
-    MODE = None
-    with open(fn, 'r+') as f:
-        content = f.read()
-    try:
-        fjson = json.loads(content)
-        fjson2 = json.loads("[" + j + "]")
-    except Exception:
-        return
+def findDups2():
+    global previousTimestamps
+    j = previousTimestamps
     dups = {}
     fixthese = []
 
-    for x in fjson:
-        ts = list(x.keys())[0]
+    # dups values need to be [[dict...]] to enable appending a duplicate [dict...]
+    # After aggregating, dups needs to be transformed back into j
+    # for next time
+    # Making dups val a tuple to keep track of index (when dup found, delete one, aggregate the other)
+    for i, dj in enumerate(j):
+        ts = list(dj.keys())[0]
         if dups.get(ts):
-            dups[ts].append(x[ts])
+            dups[ts][0].append(dj[ts])
             print('duplicate', ts)
-            fixthese.append(ts)
+            fixthese.append((ts, (dups[ts][1], i)))
         else:
-            dups[ts] = [x[ts]]
-
-    for x in fjson2:
-        ts = list(x.keys())[0]
-        if dups.get(ts):
-            dups[ts].append(x[ts])
-            print('duplicate in new stuff', ts)
-            fixthese.append(ts)
-        else:
-            dups[ts] = [x[ts]]
-
+            dups[ts] = ([dj[ts]], i)
     d3final = {}
     if fixthese:
-        MODE = 'w'
-        for x in fixthese:
-            stocks = [z['stock'] for z in dups[x][0]]
-            d3final[x] = []
+        for ts, (i, _) in fixthese:
+            stocks = [z['stock'] for z in dups[ts][0][0]]
+            d3final[ts] = []
             for stock in stocks:
                 d3 = {}
-                d1 = [z for z in dups[x][0] if z['stock'] == stock][0]
-                d2 = [z for z in dups[x][1] if z['stock'] == stock][0]
+                d1 = [z for z in dups[ts][0][0] if z['stock'] == stock][0]
+                d2 = [z for z in dups[ts][0][1] if z['stock'] == stock][0]
                 d3['stock'] = stock
                 d3['price'] = (d1['price'] * (d1['volume'] + 1) + (d2['price'] * (d2['volume'] + 1))) / (d1['volume'] + d2['volume'] + 2)
                 d3['volume'] = d1['volume'] + d2['volume']
@@ -207,11 +165,20 @@ def findDups2(fn,  j):
 
                 #  TODO. Something not right -- with fq and this delta_v formula is not right- will be close enough for testing
                 d3['delta_v'] = (d1['delta_v'] + d2['delta_v']) / 2
-                d3['delta_t'] = x
-                d3final[x].append(d3)
-            dups[x] = d3final[x]
-        return json.dumps([dups])
-    return None
+                # Note that the delta_t values are pre-resample and my vary within the sample rate
+                d3['delta_t'] = (d1['delta_t'] + d2['delta_t']) / 2
+                d3final[ts].append(d3)
+
+            # Aggregate the dup into global list
+            j[i][ts] = d3final[ts]
+
+        # Delete the other dup (backwards to retain ix location)
+        for i in range(len(fixthese)-1, -1, -1):
+            j.pop(fixthese[i][1][1])
+            # dups[ts] = d3final[ts]
+        # global previousTimestamps
+        # previousTimestamps = [dups]
+    return json.dumps(j)
 
 
 def getPrevTuesWed(td):
