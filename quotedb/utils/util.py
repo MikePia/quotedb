@@ -7,6 +7,7 @@ import pandas as pd
 from quotedb.dbconnection import getCsvDirectory
 
 EPOC = dt.datetime(1970, 1, 1)
+MODE = None
 
 
 def dt2unix(adate, unit='s'):
@@ -71,6 +72,9 @@ def formatFn(fn, format):
     return fn
 
 
+previousTimestamps = pd.DataFrame()
+
+
 def formatData(df, store, fill=False):
     """
     Paramaters
@@ -78,10 +82,12 @@ def formatData(df, store, fill=False):
     :params df: DataFrame. If store includes visualize, must include the collumns ['timestamp', 'stock']
     :params store: list.
     """
+    global previousTimestamps
     if 'visualize' in store:
         if df.empty:
             return ''
         df.sort_values(['timestamp', 'stock'], inplace=True)
+
         visualize = []
         for t in df.timestamp.unique():
             # Note that t is a numpy.datetime. int(t) converts to Epoch in ns.
@@ -120,24 +126,92 @@ def _replaceLastBracket(fn, newcontent):
         lastchar = f.read().strip()[-1]
         if begchar == '[' and lastchar == ']':
             f.seek(cursize-1)
-            f.write(newcontent + ']')
+            overwrite = findDups2(fn, newcontent)
+            if not overwrite:
+                newcontent = ',' + newcontent + ']'
+            else:
+                newcontent = overwrite
+            f.write(newcontent)
         else:
             raise ValueError('File is in bad state, nothing appended')
 
 
 def writeFile(j, fn, store):
-    mode = 'a' if (os.path.exists(fn) and os.path.getsize(fn) > 0) else 'w'
+    global MODE
+    if MODE:
+        mode = MODE
+    else:
+        mode = 'a' if (os.path.exists(fn) and os.path.getsize(fn) > 0) else 'w'
     if 'visualize' in store or 'json' in store:
 
         if mode == 'a':
             _replaceLastBracket(fn, j)
         else:
+            if MODE:
+                with open(fn, 'w') as f:
+                    f.write(j)
             _bracketdata(fn, j)
     elif 'csv' in 'store':
         with open(fn, mode, newline='') as f:
             writer = csv.writer(f)
             for row in j:
                 writer.writerow(row)
+    MODE = None
+
+
+def findDups2(fn,  j):
+    global MODE
+    MODE = None
+    with open(fn, 'r+') as f:
+        content = f.read()
+    try:
+        fjson = json.loads(content)
+        fjson2 = json.loads("[" + j + "]")
+    except Exception:
+        return
+    dups = {}
+    fixthese = []
+
+    for x in fjson:
+        ts = list(x.keys())[0]
+        if dups.get(ts):
+            dups[ts].append(x[ts])
+            print('duplicate', ts)
+            fixthese.append(ts)
+        else:
+            dups[ts] = [x[ts]]
+
+    for x in fjson2:
+        ts = list(x.keys())[0]
+        if dups.get(ts):
+            dups[ts].append(x[ts])
+            print('duplicate in new stuff', ts)
+            fixthese.append(ts)
+        else:
+            dups[ts] = [x[ts]]
+
+    d3final = {}
+    if fixthese:
+        MODE = 'w'
+        for x in fixthese:
+            stocks = [z['stock'] for z in dups[x][0]]
+            d3final[x] = []
+            for stock in stocks:
+                d3 = {}
+                d1 = [z for z in dups[x][0] if z['stock'] == stock][0]
+                d2 = [z for z in dups[x][1] if z['stock'] == stock][0]
+                d3['stock'] = stock
+                d3['price'] = (d1['price'] * (d1['volume'] + 1) + (d2['price'] * (d2['volume'] + 1))) / (d1['volume'] + d2['volume'] + 2)
+                d3['volume'] = d1['volume'] + d2['volume']
+                d3['delta_p'] = (d1['delta_p'] + d2['delta_p']) / 2
+
+                #  TODO. Something not right -- with fq and this delta_v formula is not right- will be close enough for testing
+                d3['delta_v'] = (d1['delta_v'] + d2['delta_v']) / 2
+                d3['delta_t'] = x
+                d3final[x].append(d3)
+            dups[x] = d3final[x]
+        return json.dumps([dups])
+    return None
 
 
 def getPrevTuesWed(td):
