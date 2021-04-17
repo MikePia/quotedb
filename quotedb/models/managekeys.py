@@ -8,7 +8,7 @@ import sys
 from sqlalchemy import create_engine, Column, String, Integer
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import sessionmaker
 from quotedb.scripts.env import sqlitedb
 
 constr = sqlitedb
@@ -25,10 +25,9 @@ def init_sqlite():
     try:
         ENGINE = create_engine(SQLITE_DB_URL)
         Base.metadata.create_all(ENGINE)
-        Session = scoped_session(sessionmaker(bind=ENGINE))
+        Session = sessionmaker(bind=ENGINE)
         SESSION = Session()
-        db = "dev_stockdb" if SQLITE_DB_URL.find("dev_stockdb") > 0 else "stockddb"
-        logging.debug(f"initializing session for {db}")
+        print(f"initializing session for {SQLITE_DB_URL}")
     except OperationalError as ex:
         print('========================    Start the database please    =============================')
         print(ex)
@@ -39,8 +38,11 @@ def init_sqlite():
         print(ex, 'Exception in init of sqlite db')
 
 
-def cleanup_sqlite():
+def cleanup_sqlite(db=None):
     try:
+        global SQLITE_DB_URL
+        db = db if db else sqlitedb
+        SQLITE_DB_URL = db
         SESSION.close()
         ENGINE.dispose()
     except Exception as ex:
@@ -138,14 +140,18 @@ class ManageKeys:
         '''
         :params db: a SQLalchemy sqlite connection string
         '''
+        global SQLITE_DB_URL
         self.db = db
-        self.engine = create_engine(self.db)
-        self.session = Session(bind=self.engine)
+        SQLITE_DB_URL = db
+        cleanup_sqlite(db)
+        init_sqlite()
+        self.engine = getEngine()
+        self.session = getSession()
         if create:
             self.createTables()
 
     def createTables(self):
-        self.session = Session(bind=self.engine)
+        # self.session = getSession()
         Base.metadata.create_all(self.engine)
 
 

@@ -3,6 +3,8 @@ A collection of dtabase call functions that are common to one object or another
 """
 import logging
 import pandas as pd
+
+from quotedb.dbconnection import getSaConn
 from quotedb.models.metamod import getEngine, getSession
 from quotedb.models.firstquotemodel import Firstquote, Firstquote_trades
 from quotedb.sp500 import getSymbols
@@ -101,6 +103,15 @@ def createFirstQuote(timestamp, model, stocks="all", local=False, usecache=False
         Firstquote.addFirstquote(timestamp, fqs, s)
     fq = Firstquote(timestamp=timestamp, firstquote_trades=fqs)
     return fq
+
+
+def dblcheckDbMode(db=None, reverse=False):
+    """In case this is called without setUpClass(), and the db is not in test mode,fail with AssertionError """
+    db = db if db else getSaConn()
+    if reverse:
+        assert db.find("dev_stockdb") < 0
+    else:
+        assert db.find("dev_stockdb") > 0
 
 
 if __name__ == "__main__":

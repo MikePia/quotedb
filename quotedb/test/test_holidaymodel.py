@@ -10,10 +10,13 @@ from quotedb.models.metamod import init, getSession
 from quotedb.scripts.installtestdb import installTestDb
 
 
-def dblcheckDbMode(db=None):
+def dblcheckDbMode(db=None, reverse=False):
     """In case this is called without setUpClass(), and the db is not in test mode,fail with AssertionError """
     db = db if db else getSaConn()
-    assert db.find("dev_stockdb") > 0
+    if reverse:
+        assert db.find("dev_stockdb") < 0
+    else:
+        assert db.find("dev_stockdb") > 0
 
 
 class TestHolidayModel(TestCase):
@@ -47,7 +50,7 @@ class TestHolidayModel(TestCase):
         print("\nTestHolidayModel.tearDownClass()")
         installTestDb(install="production")
         db = getSaConn(refresh=True)
-        dblcheckDbMode(db)
+        dblcheckDbMode(db, reverse=True)
         print('Reset db to stockdb')
 
     def test_isHoliday(self):

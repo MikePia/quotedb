@@ -16,10 +16,13 @@ from quotedb.scripts.installtestdb import installTestDb
 from quotedb.utils.util import getPrevTuesWed, dt2unix, dt2unix_ny
 
 
-def dblcheckDbMode(db=None):
+def dblcheckDbMode(db=None, reverse=False):
     """In case this is called without setUpClass(), and the db is not in test mode,fail with AssertionError """
     db = db if db else getSaConn()
-    assert db.find("dev_stockdb") > 0
+    if reverse:
+        assert db.find("dev_stockdb") < 0
+    else:
+        assert db.find("dev_stockdb") > 0
 
 
 class TestFinnCandles(TestCase):
@@ -43,7 +46,7 @@ class TestFinnCandles(TestCase):
         cls.start = dt2unix_ny(dt.datetime(d.year, d.month, d.day, 10, 30))
 
         fc = FinnCandles(cls.stocks)
-        fc.cycleStockCandles(cls.start, numcycles=1)
+        fc.cycleStockCandles(cls.start, numcycles=0)
 
     @classmethod
     def tearDownClass(cls):
@@ -51,7 +54,7 @@ class TestFinnCandles(TestCase):
         installTestDb(install="production")
         db = getSaConn(refresh=True)
         print('Resetting db to stockdb')
-        dblcheckDbMode(db)
+        dblcheckDbMode(db, reverse=True)
 
     def test_getCandles_fh(self):
         print("test_getCandles_fh()")
@@ -169,7 +172,7 @@ class TestFinnCandles(TestCase):
         init()
 
         mc = fc.getManageCandles(model, reinit=True)
-        fc.cycleStockCandles(self.start, model=model, numcycles=1)
+        fc.cycleStockCandles(self.start, model=model, numcycles=0)
         candles = mc.getTimeRange(stock, self.start, end)
         self.assertIsInstance(candles, list)
         self.assertGreater(len(candles), 0)
@@ -196,7 +199,7 @@ class TestFinnCandles(TestCase):
         init()
 
         mc = fc.getManageCandles(model, reinit=True)
-        fc.cycleStockCandles(self.start, model=model, numcycles=1)
+        fc.cycleStockCandles(self.start, model=model, numcycles=0)
         candles = mc.getTimeRange(stock, self.start, end)
         self.assertIsInstance(candles, list)
         self.assertGreater(len(candles), 0)
@@ -224,11 +227,11 @@ class TestFinnCandles(TestCase):
         init()
 
         # Repopulate allquotes first
-        # fc.cycleStockCandles(self.start, model=AllquotesModel, numcycles=1)
+        # fc.cycleStockCandles(self.start, model=AllquotesModel, numcycles=0)
 
         # Establish fq in topqutes and Populate topquotes
         mc = fc.getManageCandles(model, reinit=True, fq_time=self.start)
-        fc.cycleStockCandles(self.start, model=model, numcycles=1)
+        fc.cycleStockCandles(self.start, model=model, numcycles=0)
         candles = mc.getTimeRange(stock, self.start, end)
         self.assertIsInstance(candles, list)
         self.assertGreater(len(candles), 0)
