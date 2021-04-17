@@ -348,7 +348,7 @@ class ManageCandles:
             return []
         if data[0].timestamp <= start:
             return data
-        s = self.session
+        s = getSession()
         q = s.query(self.model).filter(self.model.timestamp < start).order_by(desc(self.model.timestamp)).first()
         if q:
             data.insert(0, q)
@@ -382,7 +382,16 @@ class ManageCandles:
 
     def cleanDuplicatesFromResults(self, stock, arr, session):
         """
-        Remove results from arr that have a duplicate timestamp and stock in the db
+        Explanation
+        -----------
+        Search the table represented by self.model for duplicates of the stocks in arr and remove
+        them from the array
+
+        Parameters
+        ----------
+        :stock: str:
+        :arr: array [c, h, l, o, t, v]
+        :session: sqlalchemy session
         """
         s = session
         td = {t[4]: t for t in arr}
@@ -466,8 +475,8 @@ class ManageCandles:
         missingfrommain = []
         newdf = pd.DataFrame()
         for s in df.stock.unique():
-            s1 = df[df.stock == s]
-            s2 = df2[df2.stock == s]
+            s1 = df[df.stock == s].copy()
+            s2 = df2[df2.stock == s].copy()
             if s2.empty:
                 missingfrommain.append(s)
                 continue

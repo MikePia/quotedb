@@ -96,8 +96,14 @@ class TestManageCandles(TestCase):
         self.assertGreater(x[1], 0)
 
     def test_getFilledData(self):
+        """
+        Test that the results of getFilledData have the same interval between timestamps
+        beginning to end
+        """
         print('TestManageCandles.test_getFilledData')
         INTERVAL = 60
+        cleanup()
+        init()
         mc = ManageCandles(None, model=CandlesModel)
         stock = self.stocks[random.randint(0, len(self.stocks)-1)]
         begin = self.start + (60*60*3)
@@ -184,6 +190,8 @@ class TestManageCandles(TestCase):
     def test_getTimeRangePlus(self):
         print('TestManageCandles.test_getTimeRangePlus')
         mc = ManageCandles(None, model=CandlesModel)
+        cleanup()
+        init()
 
         stock = self.stocks[random.randint(0, len(self.stocks)-1)]
         start = self.start + (60*60)
@@ -222,15 +230,24 @@ class TestManageCandles(TestCase):
         print()
 
     def test_cleanDuplicatesFromResults(self):
+        """
+        Get stocks from the db and test tha cleanDuplicates finds each one
+        returning an empty array
+        """
+
         print('TestManageCandles.test_cleanDuplicatesFromResults')
         stock = self.stocks[random.randint(0, len(self.stocks)-1)]
 
-        fc = FinnCandles(self.stocks)
+        # fc = FinnCandles(self.stocks)
         end = self.start + (60*60*4)
-        arr = fc.getDateRange(stock, self.start, end)
+        # arr = fc.getDateRange(stock, self.start, end)
 
         mc = ManageCandles(None, CandlesModel)
+        arr = mc.getTimeRange(stock, self.start, end)
+        arr = [[x.close, x.high, x.low, x.open, x.timestamp, x.volume] for x in arr]
         arr = mc.cleanDuplicatesFromResults(stock, arr, mc.session)
+        # [c, h, l, o, t, v]
+
         self.assertEqual(arr, [])
         print()
 
@@ -244,16 +261,24 @@ class TestManageCandles(TestCase):
         end = self.start + (60*60*7)
         start = self.start + (60*60*2)
         fq_date = self.start + (60*60)
-        fq = createFirstQuote(fq_date, CandlesModel, stocks=self.stocks, usecache=True)
+        cleanup()
+        init()
+        fq = createFirstQuote(fq_date, CandlesModel, stocks=self.stocks, usecache=False)
         data = mc.getDeltaData(self.stocks, start, end, fq)
         self.assertIsInstance(data, pd.DataFrame)
         # data = mc.getDeltaData(self.stocks, self.start, end, fq)
         print()
 
-    @classmethod
-    def test_getFirstQuoteData(cls):
-        print('TestManageCandles.test_getFirstQuoteData')
+
+
 
 
 if __name__ == '__main__':
     unittest.main()
+    # TestManageCandles.setUpClass()
+    # tmc = TestManageCandles()
+    # tmc.test_getDeltaData()
+    # tmc.test_getTimeRangePlus()
+    # tmc.test_cleanDuplicatesFromResults()
+    # tmc.test_getTimeRangeMultiple()
+    # tmc.test_getFilledData()
