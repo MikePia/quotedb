@@ -38,7 +38,7 @@ class FinnCandles:
         '''
         return self.storeCandles(*args)
 
-    def storeCandles(self, ticker, end, start=None,  model=CandlesModel, key=None, store=['csv'], fq_time=None, resolution=1):
+    def storeCandles(self, ticker, end, start=None,  model=CandlesModel, key=None, store=['csv'], fq_time=None, manager=None, resolution=1):
         '''
         Explanataion
         ------------
@@ -92,10 +92,11 @@ class FinnCandles:
         if 'db' in store:
             if model.__tablename__ != "topquotes":
                 fq_time = None
+
+            if manager:
+                mc = manager
             else:
-                print()
-                # assert fq_time is not None
-            mc = self.getManageCandles(model, reinit=True, fq_time=fq_time)
+                mc = self.getManageCandles(model, reinit=True, fq_time=-1)
             retries = 5
             while retries > 0:
                 try:
@@ -192,28 +193,35 @@ class FinnCandles:
         """
         if self.manageCandles is None or reinit:
             if model.__tablename__ == "topquotes":
-                self.manageCandles = ManageTopQuote(self.tickers, getSaConn(), model, fq_time=fq_time, create=True)
+                self.manageCandles = ManageTopQuote(self.tickers, model, fq_time=fq_time, create=True)
             else:
                 self.manageCandles = ManageCandles(getSaConn(), model, create=True)
         return self.manageCandles
 
-    def cycleStockCandles(self, start, model=CandlesModel, latest=False, numcycles=999999999):
+    def cycleStockCandles(self, start, model=CandlesModel, latest=False, numcycles=999999999, fq_time=None):
         """
         Explanation
-        ___________
+        -----------
         Retrieve candles for self.tickers repeatedly. The result will be to bring the database up to date
-        then continue to keep it current. Set numcycles to 0 or 1 to just bring it up to date and quit
+        then continue to keep it current. Set numcycles to 0 or 1 to just bring it up to date and quit.
+        Without a low numcycles, runs continuously till stopped externally.
 
         Parameters
-        _________
-        :params start: int: unix time.
+        ----------
+        :start: int: unix time.
+        ------
             The time to get data from, overridden if latest is True and the max time is greater than start
-        :params latest: bool:
+        :latest: bool:
+        -------
             True, get the max time from the db for  initial start time
-        :params numcycles: int
-            Use this to truncate the loop.
+        :numcycles: int
+        -----------
+            The number of times to repeat the complete cycle
+        :fq_time: int or None: Unix time
+        --------
+            This argument will be used to install a Firstquote if the model is Topquotes
         """
-        mc = self.getManageCandles(model, reinit=True, fq_time=start)
+        mc = self.getManageCandles(model, reinit=True, fq_time=fq_time)
         # start = dt2unix(start, unit='s') if start else 0
         end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
         if latest:
@@ -224,7 +232,7 @@ class FinnCandles:
         while True:
             for i, ticker in enumerate(self.tickers):
                 print(f'\n{i+1}/{len(self.tickers)}: ', end='')
-                self.storeCandles(ticker, end, model=model, store=["db"])
+                self.storeCandles(ticker, end, model=model, store=["db"], manager=mc)
             print(f"===================== Cycled through {len(self.tickers)} stocks")
             if numcycles == 0:
                 break
