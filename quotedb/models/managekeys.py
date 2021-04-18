@@ -3,7 +3,6 @@ Use a sqlite db to store tokens and keys including password
 to the mysql db
 """
 import logging
-import pymysql
 import sys
 from sqlalchemy import create_engine, Column, String, Integer
 from sqlalchemy.exc import OperationalError
@@ -48,6 +47,7 @@ def cleanup_sqlite(db=None):
     except Exception as ex:
         print(ex, 'Exception in cleanup')
 
+
 def getEngine():
     global ENGINE
     if not ENGINE:
@@ -60,7 +60,6 @@ def getSession(refresh=False):
     if not SESSION or refresh:
         init_sqlite()
     return SESSION
-
 
 
 class Keys(Base):
@@ -143,7 +142,8 @@ class ManageKeys:
         global SQLITE_DB_URL
         self.db = db
         SQLITE_DB_URL = db
-        cleanup_sqlite(db)
+        if SESSION:
+            cleanup_sqlite(db)
         init_sqlite()
         self.engine = getEngine()
         self.session = getSession()

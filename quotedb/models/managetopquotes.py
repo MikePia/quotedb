@@ -1,7 +1,12 @@
+"""Database methods for the TopquotesModel class
+
+ManageTopquotes implements a selection of methods from ManageCandles. It is an interface
+pattern without external enforcement.
+"""
 import datetime as dt
 import pandas as pd
-from quotedb.dbconnection import getSaConn
 from quotedb.models.common import createFirstQuote
+from quotedb.models.firstquotemodel import Firstquote, Firstquote_trades
 from quotedb.models.metamod import getSession, init, cleanup
 from quotedb.models.allquotes_candlemodel import AllquotesModel
 from quotedb.models.topquotes_candlemodel import TopquotesModel
@@ -23,15 +28,21 @@ class ManageTopQuote:
     * Create a firstquote by providing fq_time to this constructor/getManagedQuote
     * Indicate empty table be fq_time = -1
     """
-    def __init__(self, stocks, db, model, create=False, fq_time=None):
+    def __init__(self, stocks, model, create=False, fq_time=None):
+        """
+        Paramaters
+        ----------
+        :stocks: list[str]:
+        """
+
         # ManageCandles.__init__(self, db, model, create=create)
-        self.db = db
         self.session = getSession()
         self.model = model
         if create:
             self.createTables()
         self.stocks = stocks
         if fq_time == -1:
+            self.fq = None
             return
         if fq_time:
             # TODO: Not sure this is sequenced well but -- need to check existing fq against stocks
@@ -68,14 +79,20 @@ class ManageTopQuote:
         getFromModel = AllquotesModel
         s = self.session
         if fq is not None:
-            if self.fq is not None or fq[1] > fq_time:
-                if blitz:
-                    self.fq = None
-                    s.query(TopquotesModel).delete()
-                    s.commit()
-                else:
-                    raise NotImplementedError
-                    # s.query(TopquotesModel).filter(TopquotesModel.timestamp <= fq[1])
+            assert isinstance(fq, Firstquote)
+            # if fq is the same timestamp as current fq, update the stocks if necessary
+            mint = s.query(func.min(TopquotesModel.timestamp)).one_or_none()
+            if fq and fq.timestamp == mint[0]:
+                curfq = self.getFirstquote()
+                fqstocks = [x.stock for x in fq.firstquote_trades]
+                curstocks = [x.stock for x in curfq.firstquote_trades]
+                missing = set(fqstocks) - set(curstocks)
+                if not missing:
+                    self.fq = fq
+            elif fq:
+                # Requesting an update of the installed Firstquote
+                raise NotImplementedError("Should we completely blitz topquotes table here?")
+
         else:
 
             # TODO: Ensure the time corresponds with a minute marker
@@ -83,7 +100,9 @@ class ManageTopQuote:
             d = unix2date(fq_time)
             fqt = dt2unix(dt.datetime(d.year, d.month, d.day, d.hour, d.minute))
             trades = createFirstQuote(fqt, stocks=stocks, model=getFromModel,  local=True)
+            installedfq = False
             for trade in trades.firstquote_trades:
+                installedfq = True
                 t = TopquotesModel(stock=trade.stock,
                                    close=trade.close,
                                    high=trade.high,
@@ -94,7 +113,10 @@ class ManageTopQuote:
                                    delta_t=0,
                                    delta_p=0.0)
                 s.add(t)
-            s.commit()
+            if installedfq:
+                s.commit()
+                cleanup()
+                init()
 
     def updateFirstQuote(self, timestamp):
         """
@@ -119,6 +141,11 @@ class ManageTopQuote:
         Search for duplicates in the database. An entry with the same timestamp and stock is a duplicate,
         Add the rest to the database
 
+        Paramaters
+        ----------
+        :stocks: list:
+        :df: DataFrame or list[c, h, l, o, t, v]
+
         '''
         if len(df) == 0:
             return
@@ -127,7 +154,7 @@ class ManageTopQuote:
         assert self.fq is not None
         if isinstance(df, list) and isinstance(stock, str):
             df = pd.DataFrame(df, columns=['close', 'high', 'low', 'open', 'timestamp', 'volume'])
-            df['stock'] = stock
+        df['stock'] = stock
 
         retries = 5
 
@@ -148,6 +175,7 @@ class ManageTopQuote:
                         if not dupcount % 1000:
                             print(f'Found {dupcount} duplicates')
                         continue
+                    this_fq = [x for x in self.fq.firstquote_trades if x.stock == stock]
 
                     s.add(self.model(
                         stock=df.iloc[i].stock,
@@ -157,9 +185,9 @@ class ManageTopQuote:
                         open=df.iloc[i].open,
                         timestamp=df.iloc[i].timestamp,
                         volume=df.iloc[i].volume,
-                        delta_p=(df.iloc[i]['close'] - self.fq[0][df.iloc[i].stock][0]) / self.fq[0][df.iloc[i].stock][0],
-                        delta_t=df.iloc[i]['timestamp'] - self.fq[1],
-                        # delta_v=df.iloc[i]['volume'] - self.fq[0][df.iloc[i].stock][1],
+                        delta_p=(df.iloc[i]['close'] - this_fq[0].close) / this_fq[0].close,
+                        delta_t=df.iloc[i]['timestamp'] - self.fq.timestamp,
+                        # delta_v=df.iloc[i]['volume'] - this_fq[0].volume
                         ))
                     counter += 1
                     if not counter % 1000:
@@ -181,8 +209,10 @@ class ManageTopQuote:
         """
         Explanation
         -----------
+        Retrieve records for stocks that have the min(timestamp) in the table.
         The earliest timestamp in this table is firstquote. It is guaranteed(?) to have an entry for
-        every each stock in self.stocks. Retrieve all first quote data as dict, with {stock} as key and
+        each stock in self.stocks (at least at creation, update is lacking here.). Retrieve all
+        firstquote data as dict, with {stock} as key and
         [price, volume] as value
 
         Programming Note
@@ -197,7 +227,7 @@ class ManageTopQuote:
 
         Return
         ----------
-        :return: tuple (dict, timestamp): A dict of {stock: [close, volume]}. A timestamp for all values in dict
+        :return: Firstquote
         """
         s = getSession()
         if self.fq:
@@ -207,11 +237,18 @@ class ManageTopQuote:
         mint = mint[0] if mint else None
         if not mint:
             return None
-        fq = s.query(TopquotesModel).filter_by(timestamp=mint).all()
-        fq = {d.stock: [d.close, d.volume] for d in fq}
+            # {d.stock: [d.close, d.volume] for d in fq}
+        fqdata = s.query(TopquotesModel).filter_by(timestamp=mint).all()
+        fqtrades = [Firstquote_trades(stock=x.stock,
+                                      open=x.open,
+                                      high=x.high,
+                                      low=x.low,
+                                      close=x.close,
+                                      volume=x.volume) for x in fqdata]
 
-        print(len(fq))
-        return fq, mint
+        fq = Firstquote(timestamp=mint, firstquote_trades=fqtrades)
+
+        return fq
 
     # ###################################################
     # Place these in a common db interface location (ABC?)
@@ -271,9 +308,9 @@ if __name__ == '__main__':
 
     stocks = nasdaq100symbols
     fq_time = dt2unix_ny(dt.datetime(2021, 3, 30, 12, 0, 0))
-    mtq = ManageTopQuote(stocks, getSaConn(), TopquotesModel)
+    mtq = ManageTopQuote(stocks, AllquotesModel, fq_time=-1)
     end = dt2unix_ny(dt.datetime.utcnow())
-    # mtq = ManageTopQuote(stocks, getSaConn(), TopquotesModel, fq_time=fq_time)
+    # mtq = ManageTopQuote(stocks, TopquotesModel, fq_time=fq_time)
 
     df = mtq.getTimeRangeMultiple(mtq.stocks, fq_time, end, model=AllquotesModel)
     mtq.addCandles(None, df, None)

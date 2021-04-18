@@ -9,6 +9,7 @@ from quotedb.finnhub.finncandles import FinnCandles
 
 from quotedb.models.allquotes_candlemodel import AllquotesModel
 from quotedb.models.candlesmodel import CandlesModel
+from quotedb.models.firstquotemodel import Firstquote, Firstquote_trades
 from quotedb.models.topquotes_candlemodel import TopquotesModel
 from quotedb.models.metamod import getEngine, init, cleanup
 
@@ -269,9 +270,10 @@ class TestFinnCandles(TestCase):
         mc = fc.getManageCandles(TopquotesModel, reinit=True, fq_time=self.start)
         self.assertIsInstance(fc.manageCandles, ManageTopQuote)
         self.assertEqual(mc.model.__tablename__, "topquotes")
-        self.assertIsInstance(mc.fq, tuple)
-        self.assertIsInstance(mc.fq[1], int)
-        self.assertIsInstance(mc.fq[0], dict)
+        self.assertIsInstance(mc.fq, Firstquote)
+        self.assertIsInstance(mc.fq.firstquote_trades, list)
+        self.assertGreater(len(mc.fq.firstquote_trades), 0)
+        self.assertIsInstance(mc.fq.firstquote_trades[0], Firstquote_trades)
 
     def test_getSymbols(self):
         print("test_getSymbols()")
