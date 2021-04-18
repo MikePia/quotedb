@@ -64,12 +64,11 @@ def createFirstQuote(timestamp, model, stocks="all", local=False, usecache=False
     :timestamp: int: unixtime
     :stocks: union[str, list]: "all" will get candles from evey available US exchange. Otherwise
         send a list of the stockss to be included
-    :model: SqlAlchemy model: Currently either CandlesModel or AllqutoesModel. Will determine which table to use.
+    :model: SqlAlchemy model: The model to derive the firstquote from
     :local: bool: If false, save to the database
     :usecache: bool: If true, use stored firstquote with the given timestamp. The stocks included in firstquote
         are not guaranteed by this library or the database.
-    :return: dict: {timestamp:timestamp, firstquotes_trades: list<Firstquote_trades>} The list is a local version
-        without the database relation.
+    :return: Firstquote:
     """
     # plus = 60*60*3    # The number of seconds to pad the start time.
     stocks = stocks if isinstance(stocks, list) else getSymbols() if stocks == "all" else None
@@ -106,12 +105,18 @@ def createFirstQuote(timestamp, model, stocks="all", local=False, usecache=False
 
 
 def dblcheckDbMode(db=None, reverse=False):
-    """In case this is called without setUpClass(), and the db is not in test mode,fail with AssertionError """
+    """
+    Explanation
+    -----------
+    A utility for testing. Check the connection string returned from getSaConn() and test it
+    against either dev_stockdb. Raise an assertion if it is not the test db, or reverse the test
+     using revers, raise error if it is the test database
+    """
     db = db if db else getSaConn()
     if reverse:
-        assert db.find("dev_stockdb") < 0
+        assert db.find("dev_stockdb") < 0, "======= Test db was not expected. The trest db was installed ======"
     else:
-        assert db.find("dev_stockdb") > 0
+        assert db.find("dev_stockdb") > 0, "======= Test db was expected. It was not installed  ======"
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ from quotedb.finnhub.finncandles import FinnCandles
 from quotedb.models.allquotes_candlemodel import AllquotesModel
 from quotedb.models.candlesmodel import CandlesModel
 
-from quotedb.models.common import createFirstQuote, getFirstQuoteData
+from quotedb.models.common import createFirstQuote, getFirstQuoteData, dblcheckDbMode
 from quotedb.models.firstquotemodel import Firstquote
 from quotedb.models.managecandles import ManageCandles
 from quotedb.models.metamod import getSession, cleanup, init
@@ -18,15 +18,6 @@ from quotedb.utils.util import getPrevTuesWed, dt2unix_ny
 # import unittest
 from unittest import TestCase
 import unittest
-
-
-def dblcheckDbMode(db=None, reverse=False):
-    """In case this is called without setUpClass(), and the db is not in test mode,fail with AssertionError """
-    db = db if db else getSaConn()
-    if reverse:
-        assert db.find("dev_stockdb") < 0
-    else:
-        assert db.find("dev_stockdb") > 0
 
 
 class TestCommon(TestCase):
