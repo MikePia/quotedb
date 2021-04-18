@@ -408,8 +408,6 @@ def getFirstQuote(timestamp, wiggle=0, model=AllquotesModel):
     if fqs:
         return fqs[-1]
     return createFirstquote(timestamp, model=model)
-    # init()
-    # return Firstquote.getFirstquote(timestamp, getSession())
 
 
 def getDeltaData(stocks, start, end, fq, model=AllquotesModel, format="df"):

@@ -227,7 +227,6 @@ class TestManageCandles(TestCase):
         if len(stickers) > len(self.stocks):
             sstocks.append(self.extrastock)
         self.assertEqual(set(sstocks), set(stickers))
-        print()
 
     def test_cleanDuplicatesFromResults(self):
         """
@@ -268,9 +267,6 @@ class TestManageCandles(TestCase):
         self.assertIsInstance(data, pd.DataFrame)
         # data = mc.getDeltaData(self.stocks, self.start, end, fq)
         print()
-
-
-
 
 
 if __name__ == '__main__':

@@ -16,6 +16,7 @@ from sqlalchemy.sql import text
 
 
 class Firstquote(Base):
+    """Firstquote model with related firstquote_trades"""
     __tablename__ = 'firstquote'
     id = Column(Integer, primary_key=True)
     timestamp = Column(Integer, nullable=False, unique=True)
@@ -98,6 +99,7 @@ class Firstquote(Base):
 
 
 class Firstquote_trades(Base):
+    """Sqlalchemy model for the data (timestamp belongs to Firstquote) of a firstquote."""
     __tablename__ = "firstquote_trades"
     id = Column(Integer, primary_key=True)
     stock = Column(String(8), nullable=False)

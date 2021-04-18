@@ -58,6 +58,7 @@ def getCsvDirectory():
 def getSaConn(refresh=False):
     '''
     Get the Sqlalchemy Mysql connection string using the pymysql module
+    :refresh: bool: If True refresh the connection with the Sqlite db that holds the data
     '''
     global MYSQL_CON
     if MYSQL_CON is None or refresh:

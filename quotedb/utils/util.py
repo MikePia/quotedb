@@ -187,7 +187,8 @@ def getPrevTuesWed(td):
     -----------
     Utility method to get a probable market open day prior to td. Created for
     unittest.
-    :params td: A Datetime object
+    :td: datetime object
+    :return: datetime object
     '''
     deltdays = 7
     if td.weekday() < 2:

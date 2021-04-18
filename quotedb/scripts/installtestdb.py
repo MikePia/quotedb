@@ -40,7 +40,9 @@ def installTestDb(install="production", show=False):
 
     Paramaters
     -----------
-    :params install: str: one of [production, dev]. Any other argument does nothing.
+    :install: str: one of [production, dev]. Any other argument does nothing.
+    :show: bool: If True, print current db string and exit
+
     """
     if show:
         db = getSaConn()
