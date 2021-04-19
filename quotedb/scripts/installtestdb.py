@@ -47,26 +47,28 @@ def installTestDb(install="production", show=False):
     if show:
         db = getSaConn()
         db = "dev_stockdb" if db.find("dev_stockdb") > 0 else 'stockdb'
-        print(f'{db} is the current database')
-        return
+        msg = f'{db} is the current database'
+        print(msg)
+        return msg
     Keys.installDb(install=install)
     db = getSaConn(refresh=True)
     db = "dev_stockdb" if db.find("dev_stockdb") > 0 else 'stockdb'
     print(f'{db} is the current database')
 
 
-if __name__ == '__main__':
-    ahgs = p.parse_args()
-
+def main(ahgs):
     testdb = "production"
     show = False
     if ahgs and ahgs.production:
         testdb = "production"
     elif ahgs.test:
         testdb = "dev"
-    elif ahgs.show:
+    if ahgs.show:
         show = True
 
-    installTestDb(install=testdb, show=show)
+    return installTestDb(install=testdb, show=show)
 
-    # print(getSaConn())
+
+if __name__ == '__main__':
+    ahgs = p.parse_args()
+    main(ahgs)
