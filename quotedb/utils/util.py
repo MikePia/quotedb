@@ -30,6 +30,8 @@ def dt2unix_ny(x, unit='s'):
 
 def unix2date(u, unit='s'):
     '''s for seconds, m for microseconds, n for nanoseconds'''
+    if isinstance(u, dt.datetime):
+        return u
     if unit == 'n':
         u = u/1000000000
     elif unit == 'm':
