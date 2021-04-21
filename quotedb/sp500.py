@@ -69,25 +69,39 @@ def getSymbols():
                 symbols.add(tick)
     return sorted(symbols)
 
+
 try:
     tables = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    if not tables or len(tables) == 0:
+        raise ValueError
 except Exception:
-    import sys
-    print('++++++++++++++++  wiki pedia thing failed ++++++++++')
-    sys.exit()
-    
+    from quotedb.models import stocklists as sl
+    print('wiki pedia thing failed, falling back to stored data')
+    sp500symbols = sl.Sp500.getSp500()
+    tables = None
+
+
 sp500 = None
 if tables:
     sp500 = tables[0]
 if sp500 is not None:
     sp500symbols = list(sp500['Symbol'])
 
-tables = pd.read_html('https://en.wikipedia.org/wiki/NASDAQ-100')
-nasdaq = None
-for table in tables:
-    if 'Company' in table.keys() and 'Ticker' in table.keys():
-        nasdaq = table
-        break
+try:
+    tables = pd.read_html('https://en.wikipedia.org/wiki/NASDAQ-100')
+    nasdaq = None
+    if not tables or len(tables) == 0:
+        raise ValueError
+    for table in tables:
+        if 'Company' in table.keys() and 'Ticker' in table.keys():
+            nasdaq = table
+            break
+except Exception:
+    from quotedb.models import stocklists as sl
+    print('wiki pedia thing failed, falling back to stored data')
+    nasdaq100symbols = sl.Nasdaq100.getNasdaq100()
+    tables, nasdaq = None, None
+
 
 if nasdaq is not None:
     nasdaq100symbols = list(nasdaq['Ticker'])
@@ -120,3 +134,4 @@ if __name__ == '__main__':
     print(len(x))
     x = getSymbols()
     print(len(x))
+    # https://ns31235677.ip-151-106-32.eu:8443/login_up.php?success_redirect_url=%2F
