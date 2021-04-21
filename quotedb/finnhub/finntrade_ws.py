@@ -3,17 +3,17 @@ import csv
 import datetime as dt
 import json
 import logging
-import os
 import pandas as pd
 import threading
+import time
 import websocket
 from quotedb.dbconnection import getFhToken, getSaConn
-from quotedb.dbconnection import getCsvDirectory
 from quotedb.models.allquotes_candlemodel import AllquotesModel
 from quotedb.models.common import createFirstQuote
+from quotedb.utils.util import formatFn
 
 from quotedb.models.trademodel import ManageTrade, TradeModel
-from quotedb.utils.util import formatData, writeFile, dt2unix_ny
+from quotedb.utils import util
 
 
 class MyWebSocket(threading.Thread):
@@ -54,6 +54,8 @@ class MyWebSocket(threading.Thread):
         self.store = store
         self.daemon = True
         self.aggregate = pd.DataFrame()
+        self.proc = ProcessData()
+
 
         # These three are active if fq has a value. The currentquote (cq) will be used to track
         # prices when no trades are happening for a stock. The missing stocks will be replaced with
@@ -114,9 +116,12 @@ class MyWebSocket(threading.Thread):
                     return
             if 'json' in self.store or 'visualize' in self.store or 'csv' in self.store:
                 print('.', end='')
-                writeFile(formatData(df, self.store, self.ffill), self.fn, self.store)
+
+                self.proc.writeFile(self.proc.formatData(df, self.store, self.ffill), self.fn, self.store)
             if 'db' in self.store:
                 TradeModel.addTrades(df, self.mt.engine)
+            if self.store == []:
+                print()
 
         else:
             print(message)
@@ -267,10 +272,109 @@ class MyWebSocket(threading.Thread):
         return fdf
 
 
+class ProcessData:
+    previousTimestamps = []
+    testData = []
+
+    def formatData(self, df, store, fill=False):
+        """
+        Paramaters
+        ----------
+        :params df: DataFrame. If store includes visualize, must include the collumns ['timestamp', 'stock']
+        :params store: list.
+        """
+        if 'visualize' in store:
+            if df.empty:
+                return ''
+            df.sort_values(['timestamp', 'stock'], inplace=True)
+
+            for t in df.timestamp.unique():
+                # Note that t is a numpy.datetime. int(t) converts to Epoch in ns.
+                tick = df[df.timestamp == t]
+                cols = ['stock', 'price', 'volume']
+                if fill:
+                    cols.extend(['delta_p', 'delta_t', 'delta_v'])
+                current = [{int(int(t) / 1000000): [dict(tick[cols].iloc[i]) for i in range(len(tick))]}]
+                if self.previousTimestamps:
+                    self.previousTimestamps.extend(current)
+                else:
+                    self.previousTimestamps = current
+            current = self.findDups2()
+            return current
+
+        elif 'json' in store:
+            if df.empty:
+                return ''
+            return df.to_json()
+        elif 'csv' in store:
+            if df.empty:
+                return [[]]
+            return df.to_csv(header=True)
+
+    def findDups2(self):
+        j = self.previousTimestamps
+        dups = {}
+        fixthese = []
+
+        # dups values need to be [[dict...]] to enable appending a duplicate [dict...]
+        # After aggregating, dups needs to be transformed back into j
+        # for next time
+        # Making dups val a tuple to keep track of index (when dup found, delete one, aggregate the other)
+        for i, dj in enumerate(j):
+            ts = list(dj.keys())[0]
+            if dups.get(ts):
+                dups[ts][0].append(dj[ts])
+                print('duplicate', ts)
+                fixthese.append((ts, (dups[ts][1], i)))
+            else:
+                dups[ts] = ([dj[ts]], i)
+        d3final = {}
+        if fixthese:
+            for ts, (i, _) in fixthese:
+                stocks = [z['stock'] for z in dups[ts][0][0]]
+                d3final[ts] = []
+                for stock in stocks:
+                    d3 = {}
+                    d1 = [z for z in dups[ts][0][0] if z['stock'] == stock][0]
+                    d2 = [z for z in dups[ts][0][1] if z['stock'] == stock][0]
+                    d3['stock'] = stock
+                    d3['price'] = (d1['price'] * (d1['volume'] + 1) + (d2['price'] * (d2['volume'] + 1))) / (d1['volume'] + d2['volume'] + 2)
+                    d3['volume'] = d1['volume'] + d2['volume']
+                    d3['delta_p'] = (d1['delta_p'] + d2['delta_p']) / 2
+
+                    #  TODO. Something not right -- with fq and this delta_v formula is not right- will be close enough for testing
+                    d3['delta_v'] = (d1['delta_v'] + d2['delta_v']) / 2
+                    # Note that the delta_t values are pre-resample and my vary within the sample rate
+                    d3['delta_t'] = (d1['delta_t'] + d2['delta_t']) / 2
+                    d3final[ts].append(d3)
+
+                # Aggregate the dup into global list
+                j[i][ts] = d3final[ts]
+
+            # Delete the other dup (backwards to retain ix location)
+            for i in range(len(fixthese)-1, -1, -1):
+                j.pop(fixthese[i][1][1])
+                # dups[ts] = d3final[ts]
+            # self.previousTimestamps = [dups]
+        return json.dumps(j)
+
+    def writeFile(self, j, fn, store):
+        # Completely rewriting the file with every addition -- for now it will reduce risk of error
+        mode = 'w'
+        if 'visualize' in store or 'json' in store:
+            with open(fn, mode) as f:
+                f.write(j)
+
+        elif 'csv' in 'store':
+            with open(fn, 'w', newline='') as f:
+                writer = csv.writer(f)
+                for row in j:
+                    writer.writerow(row)
+
+
 if __name__ == "__main__":
     ###########################################
-    import time
-    from quotedb.utils.util import formatFn
+
     fn = formatFn("/testfile_csvasdf.csv", format='json')
     # # resample_td = dt.timedelta(seconds=0.25)
     resample_td = dt.timedelta(seconds=0.25)
@@ -278,7 +382,7 @@ if __name__ == "__main__":
     stocks = ['AAPL', 'ROKU', 'TSLA', 'INTC', 'CCL', 'VIAC', 'ZKIN', 'AMD']
     stocks.append("BINANCE:BTCUSDT")
 
-    d = dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
+    d = util.dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
     fq = createFirstQuote(d, AllquotesModel, stocks=stocks, usecache=True)
     mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
     mws.start()
@@ -291,7 +395,7 @@ if __name__ == "__main__":
         time.sleep(20)
         print(' ** ')
     ######################################################
-    # d = dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
+    # d = util.dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
     # stocks = ['AAPL', 'ROKU', 'TSLA', 'INTC', 'CCL', 'VIAC', 'ZKIN', 'AMD']
     # stocks.append("BINANCE:BTCUSDT")
     # fn = 'bubblething.json'

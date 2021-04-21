@@ -231,18 +231,18 @@ def getTicks(stocks, start, end, api='fh', format='json'):
 
 
 def startTickWS(stocks, fn='datafile', store=['csv'], delt=None):
-    mws = MyWebSocket(stocks, fn, store=store, delt=delt)
+    mws = MyWebSocket(stocks, fn, store=store, resample_td=delt,)
     mws.start()
     return mws
 
 
 def startTickWSKeepAlive(stocks, fn, store, delt=None, polltime=5):
 
-    ws_thread = startTickWS(stocks, fn,  store, delt=delt)
+    ws_thread = startTickWS(stocks, fn=fn, store=store, delt=delt)
 
     while True:
         cur = time.time()
-        nexttime = cur + 240
+        nexttime = cur + 5
 
         while time.time() < nexttime:
             if not ws_thread.is_alive():
@@ -283,8 +283,8 @@ def startTickWS_SampleFill(stocks, fn, fq, delt=dt.timedelta(seconds=0.25), poll
         print()
     mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
     mws.start()
-    while True:
-        if not mws.is_alive():
+    while mws.keepgoing:
+        if not mws.is_alive() and mws.keepgoing:
             print('Websocket was stopped: restarting...')
             mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
             mws.start()
@@ -461,13 +461,22 @@ if __name__ == "__main__":
     ##############################################
     from quotedb.utils.util import dt2unix_ny
     from quotedb.sp500 import random50
+    # import time
     # stocks = ['CERN', 'CSCO', 'GILD', 'KDP', 'MAR', 'MU', 'AAPL']
-    stocks = random50(numstocks=5)
-    # stocks.append('BINANCE:BTCUSDT')
-    fn = "FixTheDamnComma.json"
+    stocks = random50(numstocks=15)
+    stocks.append('BINANCE:BTCUSDT')
     delt = dt.timedelta(seconds=0.25)
-    fq = dt2unix_ny(dt.datetime(2021, 4, 14, 9, 30))
+    fn = f"_4_report_{len(stocks)}_fill_{delt.microseconds}.json"
+    fq = dt2unix_ny(dt.datetime(2021, 4, 19, 9, 30))
     startTickWS_SampleFill(stocks, fn, fq, delt=delt)
+    # try:
+    #     begin = time.perf_counter()
+    #     startTickWSKeepAlive(stocks, fn, store=['json'], delt=None, polltime=5)
+    # except Exception as ex:
+    #     endtime = time.perf_counter()
+    #     print(ex)
+    #     print('Done')
+
     ##############################################
     # from quotedb.utils.util import dt2unix_ny
     # timestamp = dt2unix_ny(dt.datetime(2021, 4, 6, 18, 0, 0))
