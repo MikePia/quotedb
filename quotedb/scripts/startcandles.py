@@ -10,11 +10,11 @@ if __name__ == '__main__':
     # from quotedb.models.candlesmodel import CandlesModel
     from quotedb.models.allquotes_candlemodel import AllquotesModel
     # from quotedb.models.topquotes_candlemodel import TopquotesModel
-    from quotedb.sp500 import nasdaq100symbols
+    from quotedb.sp500 import getQ100_Sp500
     # from quotedb.sp500 import getSymbols
     from quotedb.utils.util import dt2unix
 
-    stocks = sorted(nasdaq100symbols)
+    stocks = sorted(getQ100_Sp500())
     # stocks = getSymbols()
     # stocks = ['AAPL', 'TSLA', 'ROKU']
 

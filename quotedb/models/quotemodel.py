@@ -42,7 +42,7 @@ class QuotesModel(Base):
         tickers = s.query(distinct(QuotesModel.symbol)).all()
         tickers = [x[0] for x in tickers]
         return tickers
-        
+
     @classmethod
     def getMaxTime(cls, ticker, session):
         s = session
