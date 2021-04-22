@@ -187,7 +187,6 @@ class ManageTopQuote:
                         volume=df.iloc[i].volume,
                         delta_p=(df.iloc[i]['close'] - this_fq[0].close) / this_fq[0].close,
                         delta_t=df.iloc[i]['timestamp'] - self.fq.timestamp,
-                        # delta_v=df.iloc[i]['volume'] - this_fq[0].volume
                         ))
                     counter += 1
                     if not counter % 1000:
