@@ -234,7 +234,6 @@ class MyWebSocket(threading.Thread):
                 row['stock'] = stock
                 row['volume'] = sum(tick_df.volume)
                 row['delta_p'] = (row['price'] - fqt[stock][0]) / fqt[stock][0]
-                row['delta_v'] = row['volume'] - fqt[stock][1]
                 row['delta_t'] = (row['timestamp'] - (self.fq['timestamp'] * div)) / div
                 newdf = newdf.append(row, ignore_index=True)
                 self.cq['firstquote_trades'][stock] = [row['price'], row['volume']]
@@ -247,7 +246,6 @@ class MyWebSocket(threading.Thread):
                 row['timestamp'] = tm
                 row['volume'] = 0
                 row['delta_p'] = row['price'] - fqt[addme][0]
-                row['delta_v'] = -fqt[addme][1]
                 row['delta_t'] = (tm - (self.fq['timestamp'] * div)) / div
                 newdf = newdf.append(row, ignore_index=True)
 
@@ -266,7 +264,6 @@ class MyWebSocket(threading.Thread):
             newerdf['timestamp'] = newerdf.index
             newerdf['stock'] = stock
             newerdf['delta_p'] = tick_df[['delta_p']].resample(self.delt).mean().ffill()
-            newerdf['delta_v'] = tick_df[['delta_v']].resample(self.delt).mean().ffill()
             newerdf['delta_t'] = tick_df[['delta_t']].resample(self.delt).mean().ffill()
             fdf = fdf.append(newerdf)
         return fdf
@@ -287,13 +284,14 @@ class ProcessData:
             if df.empty:
                 return ''
             df.sort_values(['timestamp', 'stock'], inplace=True)
-
+            
             for t in df.timestamp.unique():
+                
                 # Note that t is a numpy.datetime. int(t) converts to Epoch in ns.
                 tick = df[df.timestamp == t]
                 cols = ['stock', 'price', 'volume']
                 if fill:
-                    cols.extend(['delta_p', 'delta_t', 'delta_v'])
+                    cols.extend(['delta_p', 'delta_t'])
                 current = [{int(int(t) / 1000000): [dict(tick[cols].iloc[i]) for i in range(len(tick))]}]
                 if self.previousTimestamps:
                     self.previousTimestamps.extend(current)
@@ -312,15 +310,19 @@ class ProcessData:
             return df.to_csv(header=True)
 
     def findDups2(self):
-        j = self.previousTimestamps
+        """
+        Aggregate duplicate time stamps. The data is not duplicated, just out of order
+        timestamps in the websocket stream.
+        """
+        pts = self.previousTimestamps
         dups = {}
         fixthese = []
 
         # dups values need to be [[dict...]] to enable appending a duplicate [dict...]
-        # After aggregating, dups needs to be transformed back into j
+        # After aggregating, dups needs to be transformed back into pts
         # for next time
         # Making dups val a tuple to keep track of index (when dup found, delete one, aggregate the other)
-        for i, dj in enumerate(j):
+        for i, dj in enumerate(pts):
             ts = list(dj.keys())[0]
             if dups.get(ts):
                 dups[ts][0].append(dj[ts])
@@ -342,21 +344,28 @@ class ProcessData:
                     d3['volume'] = d1['volume'] + d2['volume']
                     d3['delta_p'] = (d1['delta_p'] + d2['delta_p']) / 2
 
-                    #  TODO. Something not right -- with fq and this delta_v formula is not right- will be close enough for testing
-                    d3['delta_v'] = (d1['delta_v'] + d2['delta_v']) / 2
+                    #  delta_v is actually an accumulating sum, not a delta. Can't be figured till 'dups' are aggregated
                     # Note that the delta_t values are pre-resample and my vary within the sample rate
                     d3['delta_t'] = (d1['delta_t'] + d2['delta_t']) / 2
                     d3final[ts].append(d3)
 
                 # Aggregate the dup into global list
-                j[i][ts] = d3final[ts]
+                pts[i][ts] = d3final[ts]
 
             # Delete the other dup (backwards to retain ix location)
             for i in range(len(fixthese)-1, -1, -1):
-                j.pop(fixthese[i][1][1])
+                pts.pop(fixthese[i][1][1])
                 # dups[ts] = d3final[ts]
             # self.previousTimestamps = [dups]
-        return json.dumps(j)
+        prevv = [[x['stock'], 0] for x in list(pts[0].items())[0][1]]
+
+        for i, x in enumerate(pts):
+            for j, trade in enumerate(list(x.items())[0][1]):
+                trade['delta_v'] = trade['volume'] + prevv[j][1]
+                prevv[j][1] = trade['delta_v']
+                assert prevv[j][0] == trade['stock']
+
+        return json.dumps(pts)
 
     def writeFile(self, j, fn, store):
         # Completely rewriting the file with every addition -- for now it will reduce risk of error

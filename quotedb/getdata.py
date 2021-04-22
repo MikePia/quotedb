@@ -283,8 +283,8 @@ def startTickWS_SampleFill(stocks, fn, fq, delt=dt.timedelta(seconds=0.25), poll
         print()
     mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
     mws.start()
-    while mws.keepgoing:
-        if not mws.is_alive() and mws.keepgoing:
+    while True:
+        if not mws.is_alive():
             print('Websocket was stopped: restarting...')
             mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
             mws.start()
@@ -466,7 +466,8 @@ if __name__ == "__main__":
     stocks = random50(numstocks=15)
     stocks.append('BINANCE:BTCUSDT')
     delt = dt.timedelta(seconds=0.25)
-    fn = f"_4_report_{len(stocks)}_fill_{delt.microseconds}.json"
+    # fn = f"_4_report_{len(stocks)}_fill_{delt.microseconds}.json"
+    fn = 'accumulate.json'
     fq = dt2unix_ny(dt.datetime(2021, 4, 19, 9, 30))
     startTickWS_SampleFill(stocks, fn, fq, delt=delt)
     # try:
