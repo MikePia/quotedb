@@ -240,12 +240,12 @@ def startTickWSKeepAlive(stocks, fn, store, delt=None, polltime=5):
 
     ws_thread = startTickWS(stocks, fn=fn, store=store, delt=delt)
 
-    while True:
+    while ws_thread.keepgoing:
         cur = time.time()
         nexttime = cur + 5
 
-        while time.time() < nexttime:
-            if not ws_thread.is_alive():
+        while time.time() < nexttime and ws_thread.keepgoing:
+            if not ws_thread.is_alive() and ws_thread.keepgoing:
                 print('Websocket was stopped: restarting...')
 
                 ws_thread = startTickWS(stocks, store=[format], fn=fn)
@@ -283,8 +283,8 @@ def startTickWS_SampleFill(stocks, fn, fq, delt=dt.timedelta(seconds=0.25), poll
         print()
     mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
     mws.start()
-    while True:
-        if not mws.is_alive():
+    while mws.keepgoing:
+        if not mws.is_alive() and mws.keepgoing:
             print('Websocket was stopped: restarting...')
             mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
             mws.start()

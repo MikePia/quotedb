@@ -55,6 +55,8 @@ class MyWebSocket(threading.Thread):
         self.daemon = True
         self.aggregate = pd.DataFrame()
         self.proc = ProcessData()
+        # self.proc.initializeReport(self.__dict__)
+        self.keepgoing = True
 
 
         # These three are active if fq has a value. The currentquote (cq) will be used to track
@@ -105,7 +107,7 @@ class MyWebSocket(threading.Thread):
                 # Gathere togethere at least 5 seconds of data to aggregate
                 self.aggregate = self.aggregate.append(df)
                 times = list(self.aggregate.timestamp)
-                if (max(times) - min(times)) >= 5000:
+                if (max(times) - min(times)) >= 15000:
                     if self.ffill:
                         df = self.resampleit_fill()
                     else:
@@ -118,6 +120,9 @@ class MyWebSocket(threading.Thread):
                 print('.', end='')
 
                 self.proc.writeFile(self.proc.formatData(df, self.store, self.ffill), self.fn, self.store)
+                # if not self.proc.addToReport(df):
+                #     self.keepgoing = False
+                #     self.ws.close()
             if 'db' in self.store:
                 TradeModel.addTrades(df, self.mt.engine)
             if self.store == []:
@@ -272,6 +277,34 @@ class MyWebSocket(threading.Thread):
 class ProcessData:
     previousTimestamps = []
     testData = []
+
+    def initializeReport(self, argdict):
+        fn = f'_report_{len(argdict["tickers"])}_{argdict["store"][0]}.json'
+        fn = formatFn(fn, 'json')
+        self.report = fn
+        self.begin = time.perf_counter()
+
+        ddelt = 0 if not argdict['delt'] else argdict['delt'].microseconds
+        fdata = {"numstocks": len(argdict['tickers']),
+                 'delta': ddelt,
+                 'store': argdict['store'],
+                 'fill': argdict['ffill'],
+                 'begin': 0}
+        with open(fn, 'w') as f:
+            f.write(json.dumps(fdata))
+
+    def addToReport(self, df):
+        tbegin = util.unix2date(df.iloc[0]['timestamp'], unit='m')
+        tend = util.unix2date(df.iloc[-1]['timestamp'], unit='m')
+        elapsed = time.perf_counter() - self.begin
+        fdata = '\n' + json.dumps({"tbegin": tbegin.strftime("%y/%m/%d %H:%M:%S"),
+                                   "tend": tend.strftime("%y/%m/%d %H:%M:%S"),
+                                   "elapsed": elapsed})
+
+        with open(self.report, 'a') as f:
+            f.write(fdata)
+
+        return elapsed < 500
 
     def formatData(self, df, store, fill=False):
         """
