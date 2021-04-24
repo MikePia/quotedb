@@ -35,7 +35,8 @@ def testfile(dirnm, filenmpat, ms):
                     dups[ts] = [x]
                 interval = int(ts) - int(old)
                 if i > 0:
-                    assert interval == ms
+                    if interval != ms:
+                        print("skipped between", old, ts)
                 old = ts
 
             d2 = int(list(fjson[-1].keys())[0])
@@ -72,10 +73,10 @@ def analyzeResults(dirnm, filenmpat):
 
 
 if __name__ == '__main__':
-    dirnm = 'data/visualize2'
+    dirnm = 'data'
     assert os.path.exists(dirnm)
-    filenmpattern = "^_10sec_"
-    ms = 10000
+    filenmpattern = "^notsaved_20210423_120858.json"
+    ms = 250
     testfile(dirnm, filenmpattern, ms)
-    filenmpat = "^_report_"
-    analyzeResults('.',  filenmpat)
+    # filenmpat = "^_report_"
+    # analyzeResults('.',  filenmpat)

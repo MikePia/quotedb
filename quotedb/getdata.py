@@ -461,22 +461,15 @@ if __name__ == "__main__":
     ##############################################
     from quotedb.utils.util import dt2unix_ny
     from quotedb.sp500 import random50
-    # import time
-    # stocks = ['CERN', 'CSCO', 'GILD', 'KDP', 'MAR', 'MU', 'AAPL']
-    stocks = random50(numstocks=15)
+    stocks = random50(numstocks=4)
     stocks.append('BINANCE:BTCUSDT')
     delt = dt.timedelta(seconds=0.25)
     # fn = f"_4_report_{len(stocks)}_fill_{delt.microseconds}.json"
-    fn = 'accumulate.json'
-    fq = dt2unix_ny(dt.datetime(2021, 4, 19, 9, 30))
+    # fn = 'accumulate_{len(stocks)}_.json'
+    fn = 'notsaved.json'
+    fq = dt2unix_ny(dt.datetime(2021, 4, 22, 9, 30))
     startTickWS_SampleFill(stocks, fn, fq, delt=delt)
-    # try:
-    #     begin = time.perf_counter()
-    #     startTickWSKeepAlive(stocks, fn, store=['json'], delt=None, polltime=5)
-    # except Exception as ex:
-    #     endtime = time.perf_counter()
-    #     print(ex)
-    #     print('Done')
+    # startTickWSKeepAlive(stocks, fn, store=['json'], delt=None, polltime=5)
 
     ##############################################
     # from quotedb.utils.util import dt2unix_ny
