@@ -3,11 +3,12 @@ import csv
 import datetime as dt
 import json
 import logging
+import os
 import pandas as pd
 import threading
 import time
 import websocket
-from quotedb.dbconnection import getFhToken, getSaConn
+from quotedb.dbconnection import getFhToken, getSaConn, getCsvDirectory
 from quotedb.models.allquotes_candlemodel import AllquotesModel
 from quotedb.models.common import createFirstQuote
 from quotedb.utils.util import formatFn
@@ -54,35 +55,34 @@ class MyWebSocket(threading.Thread):
         self.store = store
         self.daemon = True
         self.aggregate = pd.DataFrame()
-        self.proc = ProcessData()
-        # self.proc.initializeReport(self.__dict__)
-        self.keepgoing = True
-
 
         # These three are active if fq has a value. The currentquote (cq) will be used to track
         # prices when no trades are happening for a stock. The missing stocks will be replaced with
         # the first data from a trade for a stock.
         self.missing = []
-        self.fq = None
-        self.cq = None
-        if fq:
-            # We need to be able to select these by stock. Dataframe or dict? go dict
-            # Have to also change the type of the enclosing fq, it has a relationship with firstquote_trades
-            # Also changing to 'trade' format (matches ws data)  no high, low or open and price = close
-            # result is {'timestamp': <int>, 'firstquote_trades': <DataFrame>}
-            firstquote_trades = {x.stock: [x.close, x.volume] for x in fq.firstquote_trades}
-            # firstquote_trades = pd.DataFrame([(x.stock, x.close, x.volume) for x in fq.firstquote_trades], columns=cols)
-            if set(self.tickers) != set(firstquote_trades.keys()):
-                x = set(self.tickers) - set(firstquote_trades.keys())
-                if x:
-                    self.missing = list(x)
-                    logging.warning(f'WARNING: Missing information for requested stock(s): {x}')
-                    logging.warning(f'WARNING: Using a firstquote of 0.0 for: {x}. The first returned data will replace the 0.0')
-                for missing in x:
-                    firstquote_trades[missing] = [0.0, 0]
-            self.fq = {'timestamp': fq.timestamp, 'firstquote_trades': firstquote_trades}
+        # self.fq = None
+        # self.cq = None
+        # if fq:
+        #     # We need to be able to select these by stock. Dataframe or dict? go dict
+        #     # Have to also change the type of the enclosing fq, it has a relationship with firstquote_trades
+        #     # Also changing to 'trade' format (matches ws data)  no high, low or open and price = close
+        #     # result is {'timestamp': <int>, 'firstquote_trades': <DataFrame>}
+        #     firstquote_trades = {x.stock: [x.close, x.volume] for x in fq.firstquote_trades}
+        #     # firstquote_trades = pd.DataFrame([(x.stock, x.close, x.volume) for x in fq.firstquote_trades], columns=cols)
+        #     if set(self.tickers) != set(firstquote_trades.keys()):
+        #         x = set(self.tickers) - set(firstquote_trades.keys())
+        #         if x:
+        #             self.missing = list(x)
+        #             logging.warning(f'WARNING: Missing information for requested stock(s): {x}')
+        #             logging.warning(f'WARNING: Using a firstquote of 0.0 for: {x}. The first returned data will replace the 0.0')
+        #         for missing in x:
+        #             firstquote_trades[missing] = [0.0, 0]
+        #     self.fq = {'timestamp': fq.timestamp, 'firstquote_trades': firstquote_trades}
 
-            self.cq = copy.deepcopy(self.fq)
+        #     self.cq = copy.deepcopy(self.fq)
+        self.proc = ProcessData(self.tickers, fq, self.delt)
+        # self.proc.initializeReport(self.__dict__)
+        self.keepgoing = True
 
     def run(self):
         websocket.enableTrace(True)
@@ -109,7 +109,7 @@ class MyWebSocket(threading.Thread):
                 times = list(self.aggregate.timestamp)
                 if (max(times) - min(times)) >= 15000:
                     if self.ffill:
-                        df = self.resampleit_fill()
+                        df = self.proc.resampleit_fill(self.aggregate)
                     else:
                         df = self.resampleit()
                     self.aggregate = pd.DataFrame()
@@ -207,8 +207,95 @@ class MyWebSocket(threading.Thread):
             fdf = fdf.append(newerdf)
         return fdf
 
-    def resampleit_fill(self):
-        df = self.aggregate
+
+class ProcessData:
+    """
+    Process data from the websocket and get it ready to write to file or db.
+    Process the files saved from websocket and deliver in requested form.
+    """
+    previousTimestamps = []
+    testData = []
+    cq = None
+    tickers = []
+    missing = []
+
+    def __init__(self, tickers, fq=None, delt=None):
+        self.tickers = tickers
+        if fq:
+            self.setFirstquote(fq)
+            # self.cq = copy.deepcopy(fq)
+            # self.fq = fq
+            # self.missing.extend(set(self.tickers) - set(self.cq['firstquote_trades'].keys()))
+        self.delt = delt
+
+    def initializeReport(self, argdict):
+        fn = f'_report_{len(argdict["tickers"])}_{argdict["store"][0]}.json'
+        fn = formatFn(fn, 'json')
+        self.report = fn
+        self.begin = time.perf_counter()
+
+        ddelt = 0 if not argdict['delt'] else argdict['delt'].microseconds
+        fdata = {"numstocks": len(argdict['tickers']),
+                 'delta': ddelt,
+                 'store': argdict['store'],
+                 'fill': argdict['ffill'],
+                 'begin': 0}
+        with open(fn, 'w') as f:
+            f.write(json.dumps(fdata))
+
+    def addToReport(self, df):
+        tbegin = util.unix2date(df.iloc[0]['timestamp'], unit='m')
+        tend = util.unix2date(df.iloc[-1]['timestamp'], unit='m')
+        elapsed = time.perf_counter() - self.begin
+        fdata = '\n' + json.dumps({"tbegin": tbegin.strftime("%y/%m/%d %H:%M:%S"),
+                                   "tend": tend.strftime("%y/%m/%d %H:%M:%S"),
+                                   "elapsed": elapsed})
+
+        with open(self.report, 'a') as f:
+            f.write(fdata)
+
+        return elapsed < 250
+
+    def setFirstquote(self, fq):
+
+        assert len(self.tickers)
+        if isinstance(fq, int):
+            fq = createFirstQuote(fq, AllquotesModel, stocks=self.tickers)
+        firstquote_trades = {x.stock: [x.close, x.volume] for x in fq.firstquote_trades}
+        if set(self.tickers) != set(firstquote_trades.keys()):
+            x = set(self.tickers) - set(firstquote_trades.keys())
+            if x:
+                self.missing = list(x)
+                logging.warning(f'WARNING: Missing information for requested stock(s): {x}')
+                logging.warning(f'WARNING: Using a firstquote of 0.0 for: {x}. The first returned data will replace the 0.0')
+            for missing in x:
+                firstquote_trades[missing] = [0.0, 0]
+        self.fq = {'timestamp': fq.timestamp, 'firstquote_trades': firstquote_trades}
+        self.cq = copy.deepcopy(self.fq)
+
+    def visualizeData(self, fn, fq):
+        df = pd.DataFrame()
+        if fn.endswith('json'):
+            line = ' '
+            with open(fn, 'r') as f:
+                while line:
+                    line = f.readline()
+                    if line:
+                        df = df.append(pd.DataFrame(json.loads(line)))
+
+        if fn.endswith('csv'):
+            raise NotImplementedError
+        self.tickers = list(df.stock.unique())
+        self.setFirstquote(fq)
+
+        self.cq = copy.deepcopy(self.fq)
+        df = self.resampleit_fill(df)
+        self.writeFile(self.formatData(df, ['visualize'], fill=True),
+                       os.path.join(getCsvDirectory(), 'tmp.json'), ['visualize'])
+        return df
+
+    def resampleit_fill(self, df):
+        # df = self.aggregate
         fqt = self.fq['firstquote_trades']
 
         # Convert epoch to datetime and set it as index
@@ -273,39 +360,6 @@ class MyWebSocket(threading.Thread):
             fdf = fdf.append(newerdf)
         return fdf
 
-
-class ProcessData:
-    previousTimestamps = []
-    testData = []
-
-    def initializeReport(self, argdict):
-        fn = f'_report_{len(argdict["tickers"])}_{argdict["store"][0]}.json'
-        fn = formatFn(fn, 'json')
-        self.report = fn
-        self.begin = time.perf_counter()
-
-        ddelt = 0 if not argdict['delt'] else argdict['delt'].microseconds
-        fdata = {"numstocks": len(argdict['tickers']),
-                 'delta': ddelt,
-                 'store': argdict['store'],
-                 'fill': argdict['ffill'],
-                 'begin': 0}
-        with open(fn, 'w') as f:
-            f.write(json.dumps(fdata))
-
-    def addToReport(self, df):
-        tbegin = util.unix2date(df.iloc[0]['timestamp'], unit='m')
-        tend = util.unix2date(df.iloc[-1]['timestamp'], unit='m')
-        elapsed = time.perf_counter() - self.begin
-        fdata = '\n' + json.dumps({"tbegin": tbegin.strftime("%y/%m/%d %H:%M:%S"),
-                                   "tend": tend.strftime("%y/%m/%d %H:%M:%S"),
-                                   "elapsed": elapsed})
-
-        with open(self.report, 'a') as f:
-            f.write(fdata)
-
-        return elapsed < 500
-
     def formatData(self, df, store, fill=False):
         """
         Paramaters
@@ -317,9 +371,9 @@ class ProcessData:
             if df.empty:
                 return ''
             df.sort_values(['timestamp', 'stock'], inplace=True)
-            
+
             for t in df.timestamp.unique():
-                
+
                 # Note that t is a numpy.datetime. int(t) converts to Epoch in ns.
                 tick = df[df.timestamp == t]
                 cols = ['stock', 'price', 'volume']
@@ -336,7 +390,8 @@ class ProcessData:
         elif 'json' in store:
             if df.empty:
                 return ''
-            return df.to_json()
+            df = df[['price', 'stock', 'timestamp', 'volume']]
+            return df.to_json() + '\n'
         elif 'csv' in store:
             if df.empty:
                 return [[]]
@@ -402,7 +457,11 @@ class ProcessData:
 
     def writeFile(self, j, fn, store):
         # Completely rewriting the file with every addition -- for now it will reduce risk of error
-        mode = 'w'
+        if 'visualize' in store:
+            mode = 'w'
+        else:
+            mode = 'w' if not os.path.exists(fn) else 'a'
+
         if 'visualize' in store or 'json' in store:
             with open(fn, mode) as f:
                 f.write(j)
@@ -416,26 +475,36 @@ class ProcessData:
 
 if __name__ == "__main__":
     ###########################################
+    procd = ProcessData([], None, dt.timedelta(seconds=10))
+    fn = "x_10_report_json_20210422_145444.json"
+    dirnm = getCsvDirectory()
+    fn = os.path.join(dirnm, fn)
+    fn = os.path.normpath(fn)
+    # assert os.path.exists(fn)
+    print(fn)
+    fq = util.dt2unix_ny(dt.datetime(2021, 4, 22, 9, 30))
+    procd.visualizeData(fn, fq)
 
-    fn = formatFn("/testfile_csvasdf.csv", format='json')
+    ###########################################
+    # fn = formatFn("/testfile_csvasdf.csv", format='json')
     # # resample_td = dt.timedelta(seconds=0.25)
-    resample_td = dt.timedelta(seconds=0.25)
-    store = ['visualize']
-    stocks = ['AAPL', 'ROKU', 'TSLA', 'INTC', 'CCL', 'VIAC', 'ZKIN', 'AMD']
-    stocks.append("BINANCE:BTCUSDT")
+    # resample_td = dt.timedelta(seconds=0.25)
+    # store = ['visualize']
+    # stocks = ['AAPL', 'ROKU', 'TSLA', 'INTC', 'CCL', 'VIAC', 'ZKIN', 'AMD']
+    # stocks.append("BINANCE:BTCUSDT")
 
-    d = util.dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
-    fq = createFirstQuote(d, AllquotesModel, stocks=stocks, usecache=True)
-    mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
-    mws.start()
-    while True:
-        if not mws.is_alive():
-            print('Websocket was stopped: restarting...')
-            mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
+    # d = util.dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
+    # fq = createFirstQuote(d, AllquotesModel, stocks=stocks, usecache=True)
+    # mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
+    # mws.start()
+    # while True:
+    #     if not mws.is_alive():
+    #         print('Websocket was stopped: restarting...')
+    #         mws = MyWebSocket(stocks, fn, store=store, resample_td=resample_td, fq=fq, ffill=True)
 
-            mws.start()
-        time.sleep(20)
-        print(' ** ')
+    #         mws.start()
+    #     time.sleep(20)
+    #     print(' ** ')
     ######################################################
     # d = util.dt2unix_ny(dt.datetime(2021, 4, 1, 15, 30))
     # stocks = ['AAPL', 'ROKU', 'TSLA', 'INTC', 'CCL', 'VIAC', 'ZKIN', 'AMD']
