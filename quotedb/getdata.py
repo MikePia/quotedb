@@ -13,7 +13,7 @@ import pandas as pd
 
 from quotedb.dbconnection import getSaConn
 from quotedb.finnhub.finncandles import FinnCandles
-from quotedb.finnhub.finntrade_ws import MyWebSocket
+from quotedb.finnhub.finntrade_ws import MyWebSocket, ProcessData
 from quotedb.finnhub.stockquote import StockQuote
 from quotedb.models.allquotes_candlemodel import AllquotesModel
 from quotedb.models.common import createFirstQuote
@@ -25,9 +25,8 @@ from quotedb.models.managecandles import ManageCandles
 from quotedb.models.polytrademodel import ManagePolyTrade, PolyTradeModel
 from quotedb.models.trademodel import ManageTrade, TradeModel
 from quotedb.polygon.polytrade import PolygonApi
-from quotedb.utils.util import dt2unix, formatData, formatFn, writeFile
-
-# from quotedb.sp500 import getQ100_Sp500
+from quotedb.utils import util
+from quotedb import sp500
 
 
 def getCurrentDataFile(stocks, startdelt, fn, start_gl, model=CandlesModel, format='json', bringtodate=False):
@@ -53,9 +52,9 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, model=CandlesModel, form
     # Allow startdelt to be timedelta, datetime or unix time (int)
     start = None
     if isinstance(startdelt, dt.timedelta):
-        start = dt2unix(dt.datetime.utcnow() - startdelt, unit='s')
+        start = util.dt2unix(dt.datetime.utcnow() - startdelt, unit='s')
     elif isinstance(startdelt, dt.datetime):
-        start = dt2unix(startdelt, unit='s')
+        start = util.dt2unix(startdelt, unit='s')
     elif isinstance(startdelt, int):
         start = startdelt
 
@@ -64,10 +63,10 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, model=CandlesModel, form
         # this continuously
         startCandles(stocks, start, model, latest=True, numcycles=0)
 
-    end = dt2unix(dt.datetime.utcnow(), unit='s')
+    end = util.dt2unix(dt.datetime.utcnow(), unit='s')
     df = getCandles(stocks, start, end, model=model)
-    ffn = formatFn(fn, format)
-    writeFile(formatData(df, format), ffn, format)
+    ffn = util.formatFn(fn, format)
+    util.writeFile(util.formatData(df, format), ffn, format)
 
     gainers, losers = localFilterStocks(df, stocks, start_gl)
     # gainers, losers = filterStocks(stocks, {'pricediff': start_gl}, model)  # TODO figure how to speed this call up. Thread? Stored procedure?
@@ -89,8 +88,8 @@ def getCurrentDataFile(stocks, startdelt, fn, start_gl, model=CandlesModel, form
             time.sleep(5)
         start_gl = (start_gl[0] + (10 * 60), start_gl[1]+1)
         df = getCandles(stocks, start, end)
-        ffn = formatFn(fn, format)
-        writeFile(formatData(df, format), ffn, format)
+        ffn = util.formatFn(fn, format)
+        util.writeFile(util.formatData(df, format), ffn, format)
 
         gainers, losers = localFilterStocks(df, stocks, start_gl)
         # gainers, losers = filterStocks(stocks, {'pricediff': start_gl})  # TODO figure how to speed this call up. Thread? Stored procedure?
@@ -144,6 +143,37 @@ def localFilterStocks(df, stocks, gl):
     return gainers, losers
 
 
+def getJustGainersLosers(start, end,  stocks, numrec, model=AllquotesModel, local=True):
+    """
+    Explanation
+    -----------
+    Simplified to return just a list of gainers/losers. If the percantages are needed, 
+    use the the underlying calls.
+
+    Paramaters
+    ----------
+    :params start: int: unix time
+    :params end: int: unix time
+    :params stocks: list
+    :params numrec: int
+    :params model: [AllquotesModel, CandlesModel]
+    :params local: bool: The local version gets the candles and analyzes in python
+        The non-local version uses a SQL select. The faster version will depend on 
+        how the database is tuned and other factors.
+    :params return: list<str>: A list of tickers. 
+    """
+
+    if local:
+        df = getCandles(stocks, start, end, model=model)
+        gainers, losers = localFilterStocks(df, stocks, (start, numrec))
+    else:
+        gainers, losers = getGainersLosers(stocks, start, numrec, model=model)
+
+    gainers.extend(losers[1:])
+    gainers = [x[0] for x in gainers][1:]
+    return gainers
+
+
 def filterStocks(stocks, filter, model=CandlesModel):
     '''
     Explanation
@@ -176,8 +206,8 @@ def getCandles(stocks, start, end, model=AllquotesModel):
     :params end: int (unix date in seconds) or datetime type
     '''
 
-    start = start if isinstance(start, int) else dt2unix(start)
-    end = end if isinstance(end, int) else dt2unix(end)
+    start = start if isinstance(start, int) else util.dt2unix(start)
+    end = end if isinstance(end, int) else util.dt2unix(end)
     mk = ManageCandles(getSaConn, model, True)
     df = mk.getTimeRangeMultipleVpts(stocks, start, end)
     if df.empty:
@@ -208,7 +238,7 @@ def startCandles(stocks, start, model=CandlesModel, latest=False, numcycles=9999
     print("pid", os.getpid())
 
     if isinstance(start, dt.datetime):
-        start = dt2unix(start)
+        start = util.dt2unix(start)
     fc = FinnCandles(stocks)
     fc.cycleStockCandles(start, model, latest, numcycles)
 
@@ -216,8 +246,8 @@ def startCandles(stocks, start, model=CandlesModel, latest=False, numcycles=9999
 def getTicks(stocks, start, end, api='fh', format='json'):
     mt = ManageTrade(getSaConn(), create=True)
 
-    start = dt2unix(start, unit='m')
-    end = dt2unix(end, unit='m')
+    start = util.dt2unix(start, unit='m')
+    end = util.dt2unix(end, unit='m')
     x = TradeModel.getTimeRangeMultiple(stocks, start, end, mt.session)
     if not x:
         return {}
@@ -271,7 +301,7 @@ def startTickWS_SampleFill(stocks, fn, fq, delt=dt.timedelta(seconds=0.25), poll
     :params delt: timedelta: This is used for the resampling value. 1/4 second by default
     :params polltime: int: Seconds between a keepalive call for the websocket.  If the connection fails, it will be restarted
     """
-    fn = formatFn(fn, format='json')
+    fn = util.formatFn(fn, format='json')
     resample_td = delt
     store = ['visualize']
 
@@ -294,8 +324,8 @@ def startTickWS_SampleFill(stocks, fn, fq, delt=dt.timedelta(seconds=0.25), poll
 
 def getTicksREST(stocks, start, end):
     mft = ManageFinnTick(getSaConn())
-    start = dt2unix(start, unit='m')
-    end = dt2unix(end, unit='m')
+    start = util.dt2unix(start, unit='m')
+    end = util.dt2unix(end, unit='m')
     x = FinnTickModel.getTimeRangeMultiple(stocks, start, end, mft.session)
     if not x:
         return {}
@@ -418,40 +448,38 @@ def getDeltaData(stocks, start, end, fq, model=AllquotesModel, format="df"):
     return x
 
 
-if __name__ == "__main__":
-    # from quotedb.sp500 import nasdaq100symbols
-    # from quotedb.sp500 import getSymbols
-    # stocks = nasdaq100symbols
-    # stocks = getSymbols()
-    # start = dt.datetime.utcnow()
-    # start = dt.datetime.utcnow() - dt.timedelta(days=7)
-    # # start = dt.datetime(2021, 3, 21)
-    # end = dt.datetime.utcnow()
+def visualizeData(fn, fq, delt=dt.timedelta(seconds=10)):
+    if isinstance(delt, int):
+        delt = dt.timedtlta(seconds=delt)
+    proc = ProcessData(None, None, dt.timedelta(seconds=10))
+    fn = proc.latestfile(fn)
+    if not fn:
+        raise ValueError("Not file found")
+    return proc.visualizeData(fn, fq)
 
-    # stocks = nasdaq100symbols
-    # start = dt2unix(dt.datetime(2021, 3, 1))
-    # # stocks = ['AAPL', 'SQ']
-    # startCandles(stocks, start, latest=True)
-    # x = getCandles(stocks, start, end)
-    # print(len(x))
+
+if __name__ == "__main__":
+    #########################################
+    stocks = sp500.getSymbols()
+    start = util.dt2unix_ny(dt.datetime(2021, 4, 26, 9, 30))
+    end = util.dt2unix(dt.datetime.utcnow())
+    model = AllquotesModel
+    numrec = 50
+
+    # df = getCandles(stocks, starddt, end)
+    # gl = localFilterStocks(df, stocks, (start, numrec))
+    # print(len(gl[0]), len(gl[1]))
+    gainers, losers = getGainersLosers(stocks, start, 50, AllquotesModel)
+    print(len(gainers), len(losers))
     #########################################
 
-    # stocks = getQ100_Sp500()
-    # start = dt.datetime.utcnow()
-    # stop = dt.datetime.utcnow() + dt.timedelta(seconds=180)
-    # freq = 20
-    # startGetQuotes(stocks, start, stop, freq)
+    # fq = util.dt2unix_ny(dt.datetime(2021, 4, 23, 15, 30))
+    # fn = r'^x_\d\d?_report_json'
+    # fn = "x_15_report_json_20210422_145929.json"
 
-    #######################################
-    # stocks = nasdaq100symbols
-    # start = dt2unix(dt.datetime.utcnow() - dt.timedelta(hours=3), 'n')
-    # tdate = dt.date(2021, 3, 12)
-    # startPolyTrade(stocks, tdate, start)
-
-    # print('done')
+    # jdat = visualizeData(fn, fq)
     #########################################
     # from quotedb.utils.util import dt2unix_ny
-    # from quotedb.sp500 import random50
     # stocks = random50(numstocks=20)
     # start = dt2unix_ny(dt.datetime(2021, 4, 9, 9, 30))
     # fn = 'visualizetodqay.json'
@@ -459,24 +487,20 @@ if __name__ == "__main__":
 
     # getCurrentDataFile(stocks, start, fn, (start, numrec), model=AllquotesModel, format='visualize', bringtodate=False)
     ##############################################
-    from quotedb.utils.util import dt2unix_ny
-    from quotedb.sp500 import random50
-    stocks = random50(numstocks=4)
-    stocks.append('BINANCE:BTCUSDT')
-    delt = dt.timedelta(seconds=0.25)
-    # fn = f"_4_report_{len(stocks)}_fill_{delt.microseconds}.json"
+    # from quotedb.utils.util import dt2unix_ny
+    # from quotedb.sp500 import random50
+    # stocks = random50(numstocks=4)
+    # stocks.append('BINANCE:BTCUSDT')
+    # # delt = dt.timedelta(seconds=0.25)
+    # # # fn = f"_4_report_{len(stocks)}_fill_{delt.microseconds}.json"
     # fn = 'accumulate_{len(stocks)}_.json'
-    fn = 'notsaved.json'
-    fq = dt2unix_ny(dt.datetime(2021, 4, 22, 9, 30))
-    startTickWS_SampleFill(stocks, fn, fq, delt=delt)
+    # # fn = 'notsaved.json'
+    # # fq = dt2unix_ny(dt.datetime(2021, 4, 22, 9, 30))
+    # # startTickWS_SampleFill(stocks, fn, fq, delt=delt)
     # startTickWSKeepAlive(stocks, fn, store=['json'], delt=None, polltime=5)
 
     ##############################################
-    # from quotedb.utils.util import dt2unix_ny
-    # timestamp = dt2unix_ny(dt.datetime(2021, 4, 6, 18, 0, 0))
-    # fqs = getFirstQuote(timestamp)
-    # print(len(fqs.firstquote_trades))
-    # ##########################################################
+
     # from quotedb.getdata import getFirstQuote
     # from quotedb.models.allquotes_candlemodel import AllquotesModel
     # from quotedb.sp500 import getSymbols
@@ -484,8 +508,8 @@ if __name__ == "__main__":
     # timestamp = dt2unix_ny(dt.datetime(2021, 3, 25, 3, 5, 0))
     # fq = getFirstQuote(timestamp)
     # fq = None
-    # start = dt2unix(pd.Timestamp(2021,  3, 29, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    # end = dt2unix(dt.datetime.utcnow())
+    # start = util.dt2unix(pd.Timestamp(2021,  3, 29, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    # end = util.dt2unix(dt.datetime.utcnow())
     # stocks = getQ100_Sp500()
     # stocks = getSymbols()
 

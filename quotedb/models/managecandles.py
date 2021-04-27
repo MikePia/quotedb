@@ -210,8 +210,8 @@ class ManageCandles:
 
         gainers.sort(key=lambda x: x[2], reverse=True)
         losers.sort(key=lambda x: x[2], reverse=True)
-        gainers = gainers[:10]
-        losers = losers[:10]
+        gainers = gainers[:numstocks]
+        losers = losers[:numstocks]
         gainers.insert(0, ['stock', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
         losers.insert(0, ['stock', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
         return gainers, losers

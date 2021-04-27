@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import pandas as pd
+import re
 import threading
 import time
 import websocket
@@ -44,6 +45,7 @@ class MyWebSocket(threading.Thread):
     retool csv, json, and visualize to use the resampled result if it is there. I think
     we need disable db storage for filled data, or create a temporary table on request.
     """
+    doreport = False
 
     def __init__(self, tickers, fn, store=['csv'], resample_td=None, ffill=False, fq=None):
         threading.Thread.__init__(MyWebSocket)
@@ -81,7 +83,8 @@ class MyWebSocket(threading.Thread):
 
         #     self.cq = copy.deepcopy(self.fq)
         self.proc = ProcessData(self.tickers, fq, self.delt)
-        # self.proc.initializeReport(self.__dict__)
+        if self.doreport:
+            self.proc.initializeReport(self.__dict__)
         self.keepgoing = True
 
     def run(self):
@@ -120,9 +123,9 @@ class MyWebSocket(threading.Thread):
                 print('.', end='')
 
                 self.proc.writeFile(self.proc.formatData(df, self.store, self.ffill), self.fn, self.store)
-                # if not self.proc.addToReport(df):
-                #     self.keepgoing = False
-                #     self.ws.close()
+                if self.doreport and not self.proc.addToReport(df):
+                    self.keepgoing = False
+                    self.ws.close()
             if 'db' in self.store:
                 TradeModel.addTrades(df, self.mt.engine)
             if self.store == []:
@@ -229,9 +232,8 @@ class ProcessData:
         self.delt = delt
 
     def initializeReport(self, argdict):
-        fn = f'_report_{len(argdict["tickers"])}_{argdict["store"][0]}.json'
-        fn = formatFn(fn, 'json')
-        self.report = fn
+        self.report = "report.json"
+        self.report = formatFn(self.report, "json")
         self.begin = time.perf_counter()
 
         ddelt = 0 if not argdict['delt'] else argdict['delt'].microseconds
@@ -240,21 +242,21 @@ class ProcessData:
                  'store': argdict['store'],
                  'fill': argdict['ffill'],
                  'begin': 0}
-        with open(fn, 'w') as f:
+        with open(self.report, 'w') as f:
             f.write(json.dumps(fdata))
 
     def addToReport(self, df):
         tbegin = util.unix2date(df.iloc[0]['timestamp'], unit='m')
         tend = util.unix2date(df.iloc[-1]['timestamp'], unit='m')
         elapsed = time.perf_counter() - self.begin
-        fdata = '\n' + json.dumps({"tbegin": tbegin.strftime("%y/%m/%d %H:%M:%S"),
-                                   "tend": tend.strftime("%y/%m/%d %H:%M:%S"),
+        fdata = '\n' + json.dumps({"tbegin": tbegin.strftime("%y/%m/%d %H:%M:%S.%f"),
+                                   "tend": tend.strftime("%y/%m/%d %H:%M:%S.%f"),
                                    "elapsed": elapsed})
 
         with open(self.report, 'a') as f:
             f.write(fdata)
 
-        return elapsed < 250
+        return elapsed < 180
 
     def setFirstquote(self, fq):
 
@@ -273,26 +275,114 @@ class ProcessData:
         self.fq = {'timestamp': fq.timestamp, 'firstquote_trades': firstquote_trades}
         self.cq = copy.deepcopy(self.fq)
 
-    def visualizeData(self, fn, fq):
+    def getKeepAlives(self, dirname=None):
+        """
+        Retrieve the valid files created from the web socket as json files. This is based
+        on reading the first line and haveing the rightr keys 
+        """ 
+        if dirname is None:
+            dirname = getCsvDirectory()
+        validfiles = []
+        for x in os.listdir(dirname):
+            x = os.path.join(dirname, x)
+            if not os.path.isfile(x):
+                continue
+            with open(x, 'r') as f:
+                line = f.readline()
+                f.close()
+                try:
+                    line = json.loads(line)
+                    if not {'price', 'stock', 'timestamp', 'volume'}.issubset(set(line.keys())):
+                        continue
+                except Exception:
+                    continue
+                validfiles.append(x)
+        return validfiles
+
+    def latestfile(self, fnpattern, dirname=None):
+        """
+        Retrive the 'greatest' alphanumeric file from {dirname} that matches the regex
+        fnpattern and is a legit json from the WebSocket
+        """
+        if dirname is None:
+            dirname = getCsvDirectory()
+        latest = ''
+        for x in os.listdir(dirname):
+            if re.match(fnpattern, x):
+                x = os.path.join(dirname, x)
+                if not os.path.isfile(x):
+                    continue
+                with open(x, 'r') as f:
+                    line = f.readline()
+                    f.close()
+                    try:
+                        line = json.loads(line)
+                        if not {'price', 'stock', 'timestamp', 'volume'}.issubset(set(line.keys())):
+                            continue
+                    except Exception:
+                        continue
+                if x > latest:
+                    latest = x
+        latest = os.path.normpath(latest) if latest else ''
+        return latest
+
+    def visualizeData(self, infile, fq, outfile='visualize_out.json'):
+        """
+        Explanation
+        -----------
+        Open the file created by the websocket and turn it into the visualize format
+
+        Paramaters
+        ----------
+        :infile: str: The file written with thge websocket data
+        :fq: [int, Firstquote]: The data to  use for delta info in the visualize data
+            int is Unix timestamp -- Retrieve Firstquote from allquotes table
+        :outfile: str: A file name to save this data. Supply only name not path. The path
+            is determined by program and a curren timestamp will be added to the name
+        :return: The file name 
+
+        Object Parameters
+        -----------------
+        :self.tickers: If self.tickers is None or 0, The first quote is created (or assumed to be
+            correct if provided) for the stocks in the file
+        :self.delt: A timedelta for interval of aggregation.
+
+        """
+        tc1 = time.perf_counter()
+        print("1", tc1)
         df = pd.DataFrame()
-        if fn.endswith('json'):
+        if infile.endswith('json'):
             line = ' '
-            with open(fn, 'r') as f:
+            ix = 0
+            with open(infile, 'r') as f:
                 while line:
                     line = f.readline()
                     if line:
-                        df = df.append(pd.DataFrame(json.loads(line)))
-
-        if fn.endswith('csv'):
+                        ldf = pd.DataFrame(json.loads(line))
+                        df = df.append(ldf)
+                        ix += 1
+        tc2 = time.perf_counter()
+        print("2", tc2, tc2 - tc1)
+        if not self.tickers:
+            self.tickers = list(df.stock.unique())
+        if infile.endswith('csv'):
             raise NotImplementedError
         self.tickers = list(df.stock.unique())
         self.setFirstquote(fq)
 
         self.cq = copy.deepcopy(self.fq)
+        tc3 = time.perf_counter()
+        print("3", tc3, tc3 - tc2)
         df = self.resampleit_fill(df)
-        self.writeFile(self.formatData(df, ['visualize'], fill=True),
-                       os.path.join(getCsvDirectory(), 'tmp.json'), ['visualize'])
-        return df
+        outfile = formatFn(outfile, 'json')
+        tc4 = time.perf_counter()
+        print("4", tc4, tc4 - tc3)
+        vdata = self.formatData(df, ['visualize'], fill=True)
+        outfile = os.path.join(getCsvDirectory(), outfile)
+        self.writeFile(vdata, outfile, ['visualize'])
+        tc5 = time.perf_counter()
+        print("5", tc5, tc5 - tc4)
+        return outfile
 
     def resampleit_fill(self, df):
         # df = self.aggregate
