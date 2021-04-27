@@ -1,19 +1,22 @@
 import datetime as dt
+import os
 import time
 from quotedb.utils import util
 
+from quotedb.dbconnection import getCsvDirectory
 from quotedb import sp500
 from quotedb import getdata as gd
 from quotedb.models import metamod as mm
 
 
+
 # stocks = ['CERN', 'CSCO', 'GILD', 'KDP', 'MAR', 'MU', 'AAPL']
 def runit():
-    for i in range(5, 31, 5):
+    for i in range(4, 76, 5):
         stocks = sp500.random50(numstocks=i)
         # stocks.append('BINANCE:BTCUSDT')
         # delt = dt.timedelta(seconds=10)
-        fn = f"x_{len(stocks)}_report_json.json"
+        fn = f"accumulate_{len(stocks)}_json.json"
         fn = util.formatFn(fn, 'json')
 
         # fq = util.dt2unix_ny(dt.datetime(2021, 4, 22, 9, 30))
