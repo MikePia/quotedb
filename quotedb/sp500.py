@@ -16,6 +16,8 @@ def getSymbolsFromQFile():
         if file.startswith("nasdaq_screener") and file > fn:
             fn = file
     if fn:
+        fn = os.path.join(thisdir, fn)
+        assert os.path.exists(fn), f"File not found {fn}"
         stocks = pd.read_csv(os.path.join(thisdir, fn))
         return list(stocks.Symbol)
 
