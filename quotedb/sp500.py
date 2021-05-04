@@ -1,3 +1,25 @@
+"""
+This first url is used to manually go to the site and click on download csz
+   url = 'https://www.nasdaq.com/market-activity/stocks/screener'
+
+This is the url that is triggered when you do the above
+    https://api.nasdaq.com/api/screener/stocks?tableonly=true&limit=25&offset=0&download=true
+    From postman, running this returns a json file with (I think) all the data in the first link
+    While this seems like the best option, I can't find any docs that say this is an official offering
+    of nasdaq. With no published API, they could change this when they want. But  I kind of dobut they
+    do that very often.
+    The Plan
+    Use these two as update paths to a database table. Prefer update from this REST call, followed by
+    update from the downloaded file.
+    Clean the data before placing in db to use the finnhub style for secondary offerings etc
+    General access to the stocks will then be from the database. Updates will be an admin daily thing
+    Tests of the class should blow up when access fails.
+
+This is an ftp link
+    ftp://ftp.nasdaqtrader.com/Symboldirectory/nasdaqtraded.txt
+    The result has 10k stocks with different headers (market cap not included)
+    Have to test it to see if what is exclusive in the above files
+"""
 import os
 import random
 
@@ -7,7 +29,6 @@ import pandas as pd
 def getSymbolsFromQFile():
 
     # The file was downlaoded from here. It is probably possible to to automated acces to an ftp file that is updated nightly
-    # url = 'https://www.nasdaq.com/market-activity/stocks/screener'
 
     fn = ''
     thisdir = os.path.split(__file__)[0]

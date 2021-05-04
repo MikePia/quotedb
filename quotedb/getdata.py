@@ -26,7 +26,6 @@ from quotedb.models.polytrademodel import ManagePolyTrade, PolyTradeModel
 from quotedb.models.trademodel import ManageTrade, TradeModel
 from quotedb.polygon.polytrade import PolygonApi
 from quotedb.utils import util
-from quotedb import sp500
 
 
 def getCurrentDataFile(stocks, startdelt, fn, start_gl, model=CandlesModel, format='json', bringtodate=False):
@@ -147,7 +146,7 @@ def getJustGainersLosers(start, end,  stocks, numrec, model=AllquotesModel, loca
     """
     Explanation
     -----------
-    Simplified to return just a list of gainers/losers. If the percantages are needed, 
+    Simplified to return just a list of gainers/losers. If the percantages are needed,
     use the the underlying calls.
 
     Paramaters
@@ -158,9 +157,9 @@ def getJustGainersLosers(start, end,  stocks, numrec, model=AllquotesModel, loca
     :params numrec: int
     :params model: [AllquotesModel, CandlesModel]
     :params local: bool: The local version gets the candles and analyzes in python
-        The non-local version uses a SQL select. The faster version will depend on 
+        The non-local version uses a SQL select. The faster version will depend on
         how the database is tuned and other factors.
-    :params return: list<str>: A list of tickers. 
+    :params return: list<str>: A list of tickers.
     """
 
     if local:
@@ -460,24 +459,25 @@ def visualizeData(fn, fq, delt=dt.timedelta(seconds=10)):
 
 if __name__ == "__main__":
     #########################################
-    stocks = sp500.getSymbols()
-    start = util.dt2unix_ny(dt.datetime(2021, 4, 26, 9, 30))
-    end = util.dt2unix(dt.datetime.utcnow())
-    model = AllquotesModel
-    numrec = 50
+    # stocks = sp500.getSymbols()
+    # start = util.dt2unix_ny(dt.datetime(2021, 4, 26, 9, 30))
+    # end = util.dt2unix(dt.datetime.utcnow())
+    # model = AllquotesModel
+    # numrec = 50
 
-    # df = getCandles(stocks, starddt, end)
-    # gl = localFilterStocks(df, stocks, (start, numrec))
-    # print(len(gl[0]), len(gl[1]))
-    gainers, losers = getGainersLosers(stocks, start, 50, AllquotesModel)
-    print(len(gainers), len(losers))
+    # # df = getCandles(stocks, starddt, end)
+    # # gl = localFilterStocks(df, stocks, (start, numrec))
+    # # print(len(gl[0]), len(gl[1]))
+    # gainers, losers = getGainersLosers(stocks, start, 50, AllquotesModel)
+    # print(len(gainers), len(losers))
     #########################################
 
-    # fq = util.dt2unix_ny(dt.datetime(2021, 4, 23, 15, 30))
+    fq = util.dt2unix_ny(dt.datetime(2021, 4, 29, 8, 30))
     # fn = r'^x_\d\d?_report_json'
     # fn = "x_15_report_json_20210422_145929.json"
+    fn = "mockbiz_20210429_165437.json"
 
-    # jdat = visualizeData(fn, fq)
+    jdat = visualizeData(fn, fq)
     #########################################
     # from quotedb.utils.util import dt2unix_ny
     # stocks = random50(numstocks=20)
