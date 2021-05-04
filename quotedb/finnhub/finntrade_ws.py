@@ -223,6 +223,13 @@ class ProcessData:
     missing = []
 
     def __init__(self, tickers, fq=None, delt=None):
+        """
+        Paramaters
+        ----------
+        :params tickers: list<str> List of stocks
+        :params fq: Firstquote, int. If int, represents unixtime to create Firstquote object
+        :delt: timedelta: This is the sample rate for visualize data aggregation
+        """
         self.tickers = tickers
         if fq:
             self.setFirstquote(fq)
@@ -379,33 +386,36 @@ class ProcessData:
             stocklist.append(unduped)
         return stocklist
 
-    def resample(self, s1, fqt):
+    def resample(self, stocklist, fqt):
         """
         Explanation
         -----------
-        Given a DataFrame of the trades of a single ticker, resample the time frequence as self.delt
+        Given a list of DataFrames, each represent the trades of 1 ticker, resample the time frequence as self.delt
         """
+        for i in range(len(stocklist)):
+            s1 = stocklist[i]
+            rate = self.delt
+            ndf = s1.resample(self.delt).asfreq()
+            ndf = s1[['price']].resample(rate).mean().ffill()
+            ndf['volume'] = s1[['volume']].resample(rate).sum()
+            ndf['timestamp'] = ndf.index
+            stock = s1.stock.unique()[0]
+            ndf['stock'] = stock
+            ndf['delta_p'] = (ndf['price'] - fqt[stock][0]) / fqt[stock][0]
+            ndf['delta_t'] = (ndf['timestamp'] - pd.Timestamp(self.fq['timestamp'])).dt.total_seconds()
 
-        rate = dt.timedelta(seconds=0.25)
-        ndf = s1.resample(self.delt).asfreq()
-        ndf = s1[['price']].resample(rate).mean().ffill()
-        ndf['volume'] = s1[['volume']].resample(rate).sum()
-        ndf['timestamp'] = ndf.index
-        stock = s1.stock.unique()[0]
-        ndf['stock'] = stock
-        ndf['delta_p'] = (ndf['price'] - fqt[stock][0]) / fqt[stock][0]
-        ndf['delta_t'] = ndf['timestamp'] - pd.Timestamp(self.fq['timestamp'])
-
-        ndf.index.name = None
-        self.testme(ndf)
-        return ndf
+            ndf.index.name = None
+            self.testme(ndf)
+            ndf.reset_index(inplace=True)
+            stocklist[i] = ndf
+        return stocklist
 
     def testme(self, ndf):
         assert ndf.index.is_unique
         assert set([len(ndf[ndf.timestamp == ts]) for ts in ndf.timestamp.unique()]) == {1}
         assert len(ndf.stock.unique()) == 1
 
-    def fillData(self, df, fq):
+    def fillData(self, stocklist, fq):
         """
         This requires iterating every timestamp and checking every record -- very time consuming.
         Because of that it makes sense to add the deltas here -- double duty -- to avoid iterating
@@ -413,37 +423,42 @@ class ProcessData:
         """
 
         fqt = self.fq['firstquote_trades']
-        assert set(fqt.keys()) == set(df.stock.unique())
+        # assert set(fqt.keys()) == set(df.stock.unique())
         cq = copy.deepcopy(fqt)
         # for stock in cq
-        df.sort_values(['timestamp', 'stock'])
-        t1 = time.perf_counter()
-        newdf = copy.deepcopy(df)
-        fullset = set(df.stock.unique())
-        for i in range(len(df)):
+        mintime = pd.Timestamp(2030, 1, 1, 0, 0)
+        maxtime = pd.Timestamp(1970, 1, 1, 0, 0)
 
-            missing = fullset - set(df[df.timestamp == df.iloc[i]['timestamp']]['stock'])
-            for stock in missing:
-                nrow = {}
-                nrow['price'] = cq[stock][0]
-                nrow['timestamp'] = df.iloc[i]['timestamp']
-                nrow['stock'] = stock
-                nrow['volume'] = 0
-                nrow['delta_p'] = (nrow['price'] - fqt[stock][0]) / fqt[stock][0]
-                nrow['delta_t'] = nrow['timestamp'] - pd.Timestamp(self.fq['timestamp'], unit='s')
+        for tdf in stocklist:
+            tdf.sort_values(['timestamp'])
+            mintime = min(tdf.iloc[0].timestamp, mintime)
+            maxtime = max(tdf.iloc[-1].timestamp, maxtime)
+            pass
+        ret_df = pd.DataFrame()
+        for df in stocklist:
+            stock = df.stock.unique()[0]
+            t1 = time.perf_counter()
+            newdf = copy.deepcopy(df)
+            currtime = mintime
+            for i in range(int((maxtime-mintime)/self.delt)+1):
+                if df[df.timestamp == currtime].empty:
+                    nrow = {}
+                    nrow['price'] = cq[stock][0]
+                    nrow['timestamp'] = currtime
+                    nrow['stock'] = stock
+                    nrow['volume'] = 0
+                    nrow['delta_p'] = (nrow['price'] - fqt[stock][0]) / fqt[stock][0]
+                    nrow['delta_t'] = (nrow['timestamp'] - pd.Timestamp(self.fq['timestamp'], unit='s')).total_seconds()
 
-                newdf = newdf.append(nrow, ignore_index=True)
+                    newdf = newdf.append(nrow, ignore_index=True)
+                currtime += self.delt
+            ret_df = ret_df.append(newdf)
 
-        print(f'{len(df)} / {len(newdf)}')
-        print('fill execution time:', time.perf_counter() - t1)
-        print('done')
-        return newdf
+        return ret_df
 
     def visualizeData2(self, infile, fq, oputfile='visualize_out.json'):
 
         # Verify that it seems to be the right kind of data
-        tc1 = time.perf_counter()
-        print("1", tc1)
         df = pd.DataFrame()
         if infile.endswith('json'):
             line = ' '
@@ -459,8 +474,6 @@ class ProcessData:
 
                         df = df.append(ldf)
                         ix += 1
-        tc2 = time.perf_counter()
-        print("2", tc2, tc2 - tc1)
         if not self.tickers:
             self.tickers = list(df.stock.unique())
         if infile.endswith('csv'):
@@ -469,40 +482,57 @@ class ProcessData:
         self.setFirstquote(fq)
 
         self.cq = copy.deepcopy(self.fq)
-        tc3 = time.perf_counter()
-        print("3", tc3, tc3 - tc2)
 
     def visualizeDataNew(self, infile, fq, outfile='visualize_out.json'):
-        t1 = time.perf_counter()
+        outfile = formatFn(outfile, 'json')
+        tc1 = time.perf_counter()
         df = self.readRawData(infile)
-        t2 = time.perf_counter()
-        print('reading:', t2-t1)
+        tc2 = time.perf_counter()
+        print('reading:', tc2-tc1)
 
         df = self.setIndextoTimestamp(df)
-        t3 = time.perf_counter()
-        print('indexing:', t3-t2)
+        tc3 = time.perf_counter()
+        print('indexing:', tc3-tc2)
 
         stocklist = self.getUndupedList(df)
-        t4 = time.perf_counter()
-        print('unduped', t4-t3)
+        tc4 = time.perf_counter()
+        print('unduped', tc4-tc3)
 
         df_wdups = pd.DataFrame()
 
         self.tickers = list(df.stock.unique())
         self.setFirstquote(fq)
         fqt = self.fq['firstquote_trades']
+        tc5 = time.perf_counter()
+        print('Firstquote create:', tc5-tc4)
 
-        for slist in stocklist:
-            df_wdups = df_wdups.append(self.resample(slist, fqt))
-        df_wdups.reset_index(inplace=True)
-        df_wdups = self.fillData(df_wdups, fq)
+        stocklist = self.resample(stocklist, fqt)
+        tc6 = time.perf_counter()
+        print('Resample:', tc6-tc5)
 
+        df_wdups = self.fillData(stocklist, fq)
+        tc7 = time.perf_counter()
+        print('filldata:', tc7-tc6)
+
+        # self.testme2(df_wdups)
         vdata = self.formatData(df_wdups, ['visualize'], fill=True)
+        tc8 = time.perf_counter()
+        print('Format data:', tc8-tc7)
+
         outfile = os.path.join(getCsvDirectory(), outfile)
         self.writeFile(vdata, outfile, ['visualize'])
-        # tc5 = time.perf_counter()
-        # print("5", tc5, tc5 - tc4)
+        tc9 = time.perf_counter()
+        print("Write file:", tc9 - tc8)
         return outfile
+
+    def testme2(self, df):
+        assert len(set([len(z.timestamp) for z in [df[df.stock == x] for x in df.stock.unique()]])) == 1
+        slen = set([len(z) for z in [df[df.timestamp == x] for x in df.timestamp.unique()]])
+        assert len(slen) == 1
+        assert list(slen)[0] == len(df.stock.unique())
+        daset = set([set(z.stock) == set(df.stock.unique()) for z in [df[df.timestamp == x] for x in df.timestamp.unique()]])
+        assert len(daset) == 1
+        assert list(daset)[0] is True
 
     def visualizeData(self, infile, fq, outfile='visualize_out.json'):
         """
@@ -526,8 +556,6 @@ class ProcessData:
         :self.delt: A timedelta for interval of aggregation.
 
         """
-        tc1 = time.perf_counter()
-        print("1", tc1)
         df = pd.DataFrame()
         if infile.endswith('json'):
             line = ' '
@@ -539,8 +567,6 @@ class ProcessData:
                         ldf = pd.DataFrame(json.loads(line))
                         df = df.append(ldf)
                         ix += 1
-        tc2 = time.perf_counter()
-        print("2", tc2, tc2 - tc1)
         return
         if not self.tickers:
             self.tickers = list(df.stock.unique())
@@ -550,19 +576,13 @@ class ProcessData:
         self.setFirstquote(fq)
 
         self.cq = copy.deepcopy(self.fq)
-        tc3 = time.perf_counter()
-        print("3", tc3, tc3 - tc2)
 
         df = self.resampleit_fill(df)
         outfile = formatFn(outfile, 'json')
-        tc4 = time.perf_counter()
-        print("4", tc4, tc4 - tc3)
 
         vdata = self.formatData(df, ['visualize'], fill=True)
         outfile = os.path.join(getCsvDirectory(), outfile)
         self.writeFile(vdata, outfile, ['visualize'])
-        tc5 = time.perf_counter()
-        print("5", tc5, tc5 - tc4)
         return outfile
 
     def resampleit(self, df):
@@ -711,6 +731,7 @@ class ProcessData:
             if df.empty:
                 return ''
             df.sort_values(['timestamp', 'stock'], inplace=True)
+            df.reset_index(inplace=True)
 
             for t in df.timestamp.unique():
 
@@ -724,8 +745,15 @@ class ProcessData:
                     self.previousTimestamps.extend(current)
                 else:
                     self.previousTimestamps = current
-            current = self.findDups2()
-            return current
+            # current = self.findDups2()
+            prevv = [[x['stock'], 0] for x in list(self.previousTimestamps[0].items())[0][1]]
+            for i, x in enumerate(self.previousTimestamps):
+                for j, trade in enumerate(list(x.items())[0][1]):
+                    trade['delta_v'] = trade['volume'] + prevv[j][1]
+                    prevv[j][1] = trade['delta_v']
+                    assert prevv[j][0] == trade['stock']
+
+            return json.dumps(self.previousTimestamps)
 
         elif 'json' in store:
             if df.empty:
@@ -739,6 +767,7 @@ class ProcessData:
 
     def findDups2(self):
         """
+        Deprecated-- for near immediate removal after current goals for visualizeData
         Aggregate duplicate time stamps. The data is not duplicated, just out of order
         timestamps in the websocket stream.
         """
@@ -815,8 +844,10 @@ class ProcessData:
 
 if __name__ == "__main__":
     ###########################################
-    procd = ProcessData([], None, dt.timedelta(seconds=10))
-    fn = os.path.normpath(r"C:\python\E\uw\quotedb\data\accumulate_4_json_20210426_102216.json")
+    procd = ProcessData([], None, dt.timedelta(seconds=0.25))
+    # fn = os.path.normpath(r"C:\python\E\uw\quotedb\data\accumulate_4_json_20210426_102216.json")
+    # fn = os.path.normpath(r"C:\python\E\uw\quotedb\data\accumulate_49_json_20210426_105434.json")
+    fn = os.path.normpath(r"C:\python\E\uw\quotedb\data\prod\mockbiz_20210429_165437.json")
     # fn = os.path.normpath(r"C:\python\E\uw\quotedb\data\json2\accumulate_75_json_20210425_174058.json")
     # dirnm = getCsvDirectory()
     # fn = os.path.join(dirnm, fn)
