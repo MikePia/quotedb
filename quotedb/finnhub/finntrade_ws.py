@@ -425,6 +425,7 @@ class ProcessData:
         fqt = self.fq['firstquote_trades']
         # assert set(fqt.keys()) == set(df.stock.unique())
         cq = copy.deepcopy(fqt)
+        self.missing = [x[0] for x in cq.items() if x[1][0] == 0]
         # for stock in cq
         mintime = pd.Timestamp(2030, 1, 1, 0, 0)
         maxtime = pd.Timestamp(1970, 1, 1, 0, 0)
@@ -433,24 +434,33 @@ class ProcessData:
             tdf.sort_values(['timestamp'])
             mintime = min(tdf.iloc[0].timestamp, mintime)
             maxtime = max(tdf.iloc[-1].timestamp, maxtime)
-            pass
         ret_df = pd.DataFrame()
         for df in stocklist:
             stock = df.stock.unique()[0]
-            t1 = time.perf_counter()
             newdf = copy.deepcopy(df)
             currtime = mintime
             for i in range(int((maxtime-mintime)/self.delt)+1):
-                if df[df.timestamp == currtime].empty:
+                df_s = df[df.timestamp == currtime]
+
+                if df_s.empty:
                     nrow = {}
                     nrow['price'] = cq[stock][0]
                     nrow['timestamp'] = currtime
                     nrow['stock'] = stock
                     nrow['volume'] = 0
-                    nrow['delta_p'] = (nrow['price'] - fqt[stock][0]) / fqt[stock][0]
+
+                    nrow['delta_p'] = 0 if float(fqt[stock][0]) == 0 else (float(nrow['price']) - float(fqt[stock][0])) / float(fqt[stock][0])
+
                     nrow['delta_t'] = (nrow['timestamp'] - pd.Timestamp(self.fq['timestamp'], unit='s')).total_seconds()
 
                     newdf = newdf.append(nrow, ignore_index=True)
+                else:
+                    if len(df_s) > 1:
+                        logging.error("ERROR: duplicate record found which should have been aggregated." )
+                    if stock in self.missing:
+                        fqt[stock][0] = df_s['price']
+                        self.missing.remove(stock)
+                    cq[stock][0] = df_s['price'].unique()[0]
                 currtime += self.delt
             ret_df = ret_df.append(newdf)
 
