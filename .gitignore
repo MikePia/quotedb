@@ -7,4 +7,6 @@ data*
 dist/*
 build/*
 quotedb.egg*
+.env
+NotesNo_git.md
 

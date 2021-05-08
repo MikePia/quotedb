@@ -2,36 +2,32 @@
 Get the db connection string. Depends on the localconfig to get the keys
 """
 from quotedb.models.managekeys import ManageKeys, Keys
-from quotedb.scripts.env import sqlitedb
-
-sdb = sqlitedb
-#  Make these sqlite accessors singletons
-MYSQL_CON = None
-FH_TOKEN = None
-PG_TOKEN = None
-CSV_DIRECTORY = None
 
 
 class Mysqlconn:
-    mk = ManageKeys(sdb)
+    mk = ManageKeys()
+
+    def getConnectionStr(self):
+        return Keys.getKey('db_connect')
 
     def getHost(self):
-        return Keys.getKey('mysql_ip', self.mk.session)
+        return Keys.getKey('mysql_ip')
 
     def getPort(self):
-        return Keys.getKey('mysql_port', self.mk.session)
+        return Keys.getKey('mysql_port')
 
     def getUser(self):
-        return Keys.getKey('mysql_user', self.mk.session)
+        return Keys.getKey('mysql_user')
 
     def getPw(self):
-        return Keys.getKey('mysql_pw', self.mk.session)
+        return Keys.getKey('mysql_pw')
 
     def getDb(self):
-        return Keys.getKey('mysql_db', self.mk.session)
+        return Keys.getKey('mysql_db')
 
     def getSaMysqlConn(self):
-        return f'mysql+pymysql://{self.getUser()}:{self.getPw()}@{self.getHost()}/{self.getDb()}'
+        # return f'mysql+pymysql://{self.getUser()}:{self.getPw()}@{self.getHost()}/{self.getDb()}'
+        return f'{self.getConnectionStr()}://{self.getUser()}:{self.getPw()}@{self.getHost()}/{self.getDb()}'
 
     # Couple of non mysql items
     def getCsvDirectory(self):
@@ -46,50 +42,37 @@ class Mysqlconn:
         return Keys.getKey('poly_token', self.mk.session)
 
 
-# ====================== singleton accessors =========================
 def getCsvDirectory():
-    global CSV_DIRECTORY
-    if CSV_DIRECTORY is None:
-        msc = Mysqlconn()
-        CSV_DIRECTORY = msc.getCsvDirectory()
-    return CSV_DIRECTORY
+    msc = Mysqlconn()
+    return msc.getCsvDirectory()
 
 
-def getSaConn(refresh=False):
+def getSaConn(refresh=None):
     '''
     Get the Sqlalchemy Mysql connection string using the pymysql module
-    :refresh: bool: If True refresh the connection with the Sqlite db that holds the data
     '''
-    global MYSQL_CON
-    if MYSQL_CON is None or refresh:
-        msc = Mysqlconn()
-        MYSQL_CON = msc.getSaMysqlConn()
-    return MYSQL_CON
+    msc = Mysqlconn()
+    return msc.getSaMysqlConn()
 
 
 def getFhToken():
     '''
     Get the finnhub token
     '''
-    global FH_TOKEN
-    if FH_TOKEN is None:
-        msc = Mysqlconn()
-        FH_TOKEN = msc.getFhToken()
-    return FH_TOKEN
+    msc = Mysqlconn()
+    return msc.getFhToken()
 
 
 def getPolygonToken():
-    global PG_TOKEN
-    if PG_TOKEN is None:
-        msc = Mysqlconn()
-        PG_TOKEN = msc.getPolygonToken()
-    return PG_TOKEN
+    msc = Mysqlconn()
+    return msc.getPolygonToken()
 
 
 __all__ = [getCsvDirectory, getSaConn, getFhToken, getPolygonToken]
 
 
 if __name__ == '__main__':
+    print(getCsvDirectory())
     print(getSaConn())
     print(getPolygonToken())
     print(getPolygonToken())
