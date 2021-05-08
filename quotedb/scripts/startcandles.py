@@ -4,7 +4,7 @@ clearer, add commandline args with date shortcuts and possibility of reading a f
 tickers
 """
 from quotedb import sp500
-from quotedb.utils import util
+# from quotedb.utils import util
 import pandas as pd
 from quotedb.getdata import startCandles
 # from quotedb.models.candlesmodel import CandlesModel

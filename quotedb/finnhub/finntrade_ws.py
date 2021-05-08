@@ -456,7 +456,7 @@ class ProcessData:
                     newdf = newdf.append(nrow, ignore_index=True)
                 else:
                     if len(df_s) > 1:
-                        logging.error("ERROR: duplicate record found which should have been aggregated." )
+                        logging.error("ERROR: duplicate record found which should have been aggregated.")
                     if stock in self.missing:
                         fqt[stock][0] = df_s['price']
                         self.missing.remove(stock)
@@ -854,18 +854,12 @@ class ProcessData:
 
 if __name__ == "__main__":
     ###########################################
-    procd = ProcessData([], None, dt.timedelta(seconds=0.25))
-    # fn = os.path.normpath(r"C:\python\E\uw\quotedb\data\accumulate_4_json_20210426_102216.json")
-    # fn = os.path.normpath(r"C:\python\E\uw\quotedb\data\accumulate_49_json_20210426_105434.json")
-    fn = os.path.normpath(r"C:\python\E\uw\quotedb\data\prod\mockbiz_20210429_165437.json")
-    # fn = os.path.normpath(r"C:\python\E\uw\quotedb\data\json2\accumulate_75_json_20210425_174058.json")
-    # dirnm = getCsvDirectory()
-    # fn = os.path.join(dirnm, fn)
-    # fn = os.path.normpath(fn)
-    # assert os.path.exists(fn)
-    # print(fn)
+    # [0.25, 1, 3, 7, 10]
+    delt = dt.timedelta(seconds=10)
+    procd = ProcessData([], None, delt)
+    fn = os.path.normpath(r"C:\python\E\uw\quotedb\data\prod\accumulate_40__20210506_123254.json")
     fq = util.dt2unix_ny(dt.datetime(2021, 4, 22, 9, 30))
-    # procd.visualizeData2(fn, fq)
+    outfile = "zavizuel_.json"
     procd.visualizeDataNew(fn, fq)
 
     ###########################################

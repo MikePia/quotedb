@@ -472,12 +472,12 @@ if __name__ == "__main__":
     # print(len(gainers), len(losers))
     #########################################
 
-    fq = util.dt2unix_ny(dt.datetime(2021, 4, 29, 8, 30))
+    # fq = util.dt2unix_ny(dt.datetime(2021, 4, 29, 8, 30))
     # fn = r'^x_\d\d?_report_json'
     # fn = "x_15_report_json_20210422_145929.json"
-    fn = "mockbiz_20210429_165437.json"
+    # fn = "mockbiz_20210429_165437.json"
 
-    jdat = visualizeData(fn, fq)
+    # jdat = visualizeData(fn, fq)
     #########################################
     # from quotedb.utils.util import dt2unix_ny
     # stocks = random50(numstocks=20)
@@ -489,11 +489,12 @@ if __name__ == "__main__":
     ##############################################
     # from quotedb.utils.util import dt2unix_ny
     from quotedb import sp500
-    stocks = sp500.random50(numstocks=4)
+    stocks = sp500.random50(numstocks=0)
     # stocks.append('BINANCE:BTCUSDT')
     # # delt = dt.timedelta(seconds=0.25)
     # # # fn = f"_4_report_{len(stocks)}_fill_{delt.microseconds}.json"
-    fn = 'accumulate_{len(stocks)}_.json'
+    fn = f'accumulate_{len(stocks)}_.json'
+    fn = util.formatFn(fn, 'json')
     # # fn = 'notsaved.json'
     # # fq = dt2unix_ny(dt.datetime(2021, 4, 22, 9, 30))
     # # startTickWS_SampleFill(stocks, fn, fq, delt=delt)
