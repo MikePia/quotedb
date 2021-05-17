@@ -240,6 +240,7 @@ def startCandles(stocks, start, model=CandlesModel, latest=False, numcycles=9999
         start = util.dt2unix(start)
     fc = FinnCandles(stocks)
     fc.cycleStockCandles(start, model, latest, numcycles)
+    return fc
 
 
 def getTicks(stocks, start, end, api='fh', format='json'):
@@ -459,13 +460,14 @@ def visualizeData(fn, fq, delt=dt.timedelta(seconds=10)):
 
 if __name__ == "__main__":
     #########################################
+    from quotedb import sp500
     # stocks = sp500.getSymbols()
-    # start = util.dt2unix_ny(dt.datetime(2021, 4, 26, 9, 30))
+    # start = util.dt2unix_ny(dt.datetime(2021, 5, 11, 9, 30))
     # end = util.dt2unix(dt.datetime.utcnow())
     # model = AllquotesModel
     # numrec = 50
 
-    # # df = getCandles(stocks, starddt, end)
+    # df = getCandles(stocks, start, end)
     # # gl = localFilterStocks(df, stocks, (start, numrec))
     # # print(len(gl[0]), len(gl[1]))
     # gainers, losers = getGainersLosers(stocks, start, 50, AllquotesModel)
@@ -488,17 +490,17 @@ if __name__ == "__main__":
     # getCurrentDataFile(stocks, start, fn, (start, numrec), model=AllquotesModel, format='visualize', bringtodate=False)
     ##############################################
     # from quotedb.utils.util import dt2unix_ny
-    from quotedb import sp500
-    stocks = sp500.random50(numstocks=0)
-    # stocks.append('BINANCE:BTCUSDT')
-    # # delt = dt.timedelta(seconds=0.25)
-    # # # fn = f"_4_report_{len(stocks)}_fill_{delt.microseconds}.json"
-    fn = f'accumulate_{len(stocks)}_.json'
-    fn = util.formatFn(fn, 'json')
-    # # fn = 'notsaved.json'
-    # # fq = dt2unix_ny(dt.datetime(2021, 4, 22, 9, 30))
-    # # startTickWS_SampleFill(stocks, fn, fq, delt=delt)
-    startTickWSKeepAlive(stocks, fn, store=['json'], delt=None, polltime=5)
+    # from quotedb import sp500
+    # stocks = sp500.random50(numstocks=0)
+    # # stocks.append('BINANCE:BTCUSDT')
+    # # # delt = dt.timedelta(seconds=0.25)
+    # # # # fn = f"_4_report_{len(stocks)}_fill_{delt.microseconds}.json"
+    # fn = f'accumulate_{len(stocks)}_.json'
+    # fn = util.formatFn(fn, 'json')
+    # # # fn = 'notsaved.json'
+    # # # fq = dt2unix_ny(dt.datetime(2021, 4, 22, 9, 30))
+    # # # startTickWS_SampleFill(stocks, fn, fq, delt=delt)
+    # startTickWSKeepAlive(stocks, fn, store=['json'], delt=None, polltime=5)
 
     ##############################################
 
@@ -507,14 +509,16 @@ if __name__ == "__main__":
     # from quotedb.sp500 import getSymbols
 
     # timestamp = dt2unix_ny(dt.datetime(2021, 3, 25, 3, 5, 0))
+    start = util.dt2unix(pd.Timestamp(2021,  5, 11, 9, 30, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    # start = util.dt2unix(pd.Timestamp(2021,  5, 11, 9, 30, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     # fq = getFirstQuote(timestamp)
-    # fq = None
-    # start = util.dt2unix(pd.Timestamp(2021,  3, 29, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    # end = util.dt2unix(dt.datetime.utcnow())
-    # stocks = getQ100_Sp500()
-    # stocks = getSymbols()
+    fq = None
+    end = util.dt2unix(dt.datetime.utcnow())
+    # stocks = sp500.getQ100_Sp500()
+    stocks = sp500.getSymbols()
 
     # mc = ManageCandles(getSaConn(), AllquotesModel)
     # mc.getDeltaData(stocks, start, end, fq)
 
     # x = getDeltaData(stocks, start, end, fq)
+    startCandles(stocks, start, model=AllquotesModel, latest=True, numcycles=1)

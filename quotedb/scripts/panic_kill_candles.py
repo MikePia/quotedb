@@ -40,4 +40,4 @@ def panicKillCandles(modulename, pname='python'):
 
 if __name__ == '__main__':
     # Kill the process started by the module 'startcandles.py'
-    panicKillCandles('startcandles.py')
+    panicKillCandles('getdata.py')
