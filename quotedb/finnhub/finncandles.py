@@ -199,7 +199,7 @@ class FinnCandles:
                 self.manageCandles = ManageCandles(getSaConn(), model, create=True)
         return self.manageCandles
 
-    def cycleStockCandles(self, start, model=CandlesModel, latest=False, numcycles=999999999, fq_time=None):
+    def cycleStockCandles(self, start=0, model=CandlesModel, latest=False, numcycles=999999999, fq_time=None):
         """
         Explanation
         -----------
@@ -226,6 +226,8 @@ class FinnCandles:
         mc = self.getManageCandles(model, reinit=True, fq_time=fq_time)
         # start = dt2unix(start, unit='s') if start else 0
         end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
+        if start == 0:
+            start = end - pd.Timedelta(hours=1)
         if latest:
             print(f"Getting starttimes for {len(self.tickers)}...", end='')
             startTimes = mc.getMaxTimeForEachTickerSql(self.tickers)
