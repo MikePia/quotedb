@@ -4,7 +4,7 @@ export PROJECTDIR=/usr/local/quotedb2
 if test -z "$PYTHONPATH"
 then
 
-	export PYTHONPATH=/usr/local/quotedb2
+	export PYTHONPATH=/home/ubuntu/quotedb2
 else
-	export PYTHONPATH=/usr/local/quotedb:$PYTHONPATH
+	export PYTHONPATH=/home/ubuntu/quotedb:$PYTHONPATH
 fi

@@ -15,6 +15,6 @@ from quotedb.utils.util import dt2unix
 if __name__ == '__main__':
     stocks = sorted(sp500.getSymbols())
 
-    start = dt2unix(pd.Timestamp(2021, 4, 13, 12, 36).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
+    start = dt2unix(pd.Timestamp(2021, 5, 13, 12, 36).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     model = AllquotesModel
     startCandles(stocks, start, model, latest=True)
