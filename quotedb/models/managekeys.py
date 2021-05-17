@@ -54,7 +54,7 @@ class Keys():
         """Writing this to match the sa interface return value-sortof"""
         keys = []
         for v in cls.envmap.values():
-            keys.append(KeyItem(v, os.environ.get(v)))
+            keys.append(KeyItem(v, os.environ.get(v).strip()))
         return keys
 
     @classmethod

@@ -163,6 +163,22 @@ class ManageCandles:
             return df
         return df.to_json() if df is not None else df
 
+    def getMaxTimeForEachTickerSql(self, tickers):
+        with getEngine().connect() as con:
+            statement =  text('''
+            SELECT s1.* 
+                FROM allquotes s1
+                inner join (
+                    SELECT stock, max(timestamp) as mts
+                    FROM allquotes
+                    GROUP BY stock 
+                ) s2 on s2.stock = s1.stock and s1.timestamp = s2.mts ''')
+            q = con.execute(statement).fetchall()
+        ret = {x.stock: x.timestamp for x in q if x.stock in tickers}
+        ret.update({x:0 for x in set(tickers) - set(ret.keys())})
+
+        return ret
+
     def getMaxTimeForEachTicker(self, tickers=None):
         """
         Explanation
@@ -355,6 +371,9 @@ class ManageCandles:
         else:
             return None
         return data
+
+    
+        
 
     def getMaxTime(self, ticker, session):
         s = session

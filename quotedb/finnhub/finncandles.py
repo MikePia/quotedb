@@ -31,6 +31,7 @@ class FinnCandles:
         self.tickers = tickers
         self.limit = limit
         self.cycle = {k: 0 for k in tickers}
+        self.keepGoing = False
 
     def wrapStoreCandles(self, args):
         '''
@@ -221,16 +222,21 @@ class FinnCandles:
         --------
             This argument will be used to install a Firstquote if the model is Topquotes
         """
+        self.keepGoing = True
         mc = self.getManageCandles(model, reinit=True, fq_time=fq_time)
         # start = dt2unix(start, unit='s') if start else 0
         end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
         if latest:
-            startTimes = mc.getMaxTimeForEachTicker(self.tickers)
+            print(f"Getting starttimes for {len(self.tickers)}...", end='')
+            startTimes = mc.getMaxTimeForEachTickerSql(self.tickers)
+            print('... got them')
         for t in self.cycle:
             self.cycle[t] = start if not latest else max(startTimes.get(t, 0), start)
         print(f'Going to retrieve data from finnhub for {len(self.tickers)} stocks, and place them in {model.__tablename__}')
-        while True:
+        while True and self.keepGoing:
             for i, ticker in enumerate(self.tickers):
+                if not self.keepGoing:
+                    return
                 print(f'\n{i+1}/{len(self.tickers)}: ', end='')
                 self.storeCandles(ticker, end, model=model, store=["db"], manager=mc)
             print(f"===================== Cycled through {len(self.tickers)} stocks")
@@ -302,8 +308,10 @@ class FinnCandles:
 
             if response.status_code != 200:
                 retries -= 1
+                
                 logging.error(f"ERROR while processing symbols request: {response.status_code}: {response.reason}: {retries}")
                 logging.error(response.url)
+                logging.error(self.HEADERS)
                 continue
 
             j = response.json()
