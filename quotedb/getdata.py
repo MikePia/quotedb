@@ -142,7 +142,7 @@ def localFilterStocks(df, stocks, gl):
     return gainers, losers
 
 
-def getJustGainersLosers(start, end,  stocks, numrec, model=AllquotesModel, local=True):
+def getJustGainersLosers(start, end,  stocks, numrec, model=AllquotesModel, local=True, fulldata=False):
     """
     Explanation
     -----------
@@ -159,7 +159,7 @@ def getJustGainersLosers(start, end,  stocks, numrec, model=AllquotesModel, loca
     :params local: bool: The local version gets the candles and analyzes in python
         The non-local version uses a SQL select. The faster version will depend on
         how the database is tuned and other factors.
-    :params return: list<str>: A list of tickers.
+    :params return: list<str>: A list of tickers or list of [stock, diff, pct, last, first]
     """
 
     if local:
@@ -169,8 +169,10 @@ def getJustGainersLosers(start, end,  stocks, numrec, model=AllquotesModel, loca
         gainers, losers = getGainersLosers(stocks, start, numrec, model=model)
 
     gainers.extend(losers[1:])
-    gainers = [x[0] for x in gainers][1:]
-    return gainers
+    if fulldata:
+        return gainers [1:]
+    
+    return [x[0] for x in gainers][1:]
 
 
 def filterStocks(stocks, filter, model=CandlesModel):
@@ -387,7 +389,7 @@ def getGainersLosers(tickers, start, numstocks, model=CandlesModel):
     Filter the stocks in {tickers} for the largest price difference since the time {start}
     Parameters
     __________
-    :params tickers: List<str>
+    :params tickers: List<str>. Filter result by tickers, If empty [], don't filter
     :params start: int: Unix time in seconds
     :params numstocks: The number of stocks to include in gainers and losers
     :return: (list<list>, list<list>): (gainers, losers): Each sub list is [stock, pricediff, percentagediff, firstprice, lastprice]
@@ -461,16 +463,20 @@ def visualizeData(fn, fq, delt=dt.timedelta(seconds=10)):
 if __name__ == "__main__":
     #########################################
     from quotedb import sp500
-    # stocks = sp500.getSymbols()
-    # start = util.dt2unix_ny(dt.datetime(2021, 5, 11, 9, 30))
-    # end = util.dt2unix(dt.datetime.utcnow())
-    # model = AllquotesModel
-    # numrec = 50
+    stocks = sp500.getSymbols()
+    start = util.dt2unix_ny(dt.datetime(2021, 5, 17, 9, 30))
+    end = util.dt2unix(dt.datetime.utcnow())
+    model = CandlesModel
+    numrec = 50
 
     # df = getCandles(stocks, start, end)
     # # gl = localFilterStocks(df, stocks, (start, numrec))
     # # print(len(gl[0]), len(gl[1]))
-    # gainers, losers = getGainersLosers(stocks, start, 50, AllquotesModel)
+    # gainers, losers = getGainersLosers(stocks, start, 50, AllquotesModel)\
+    stocks = getJustGainersLosers(start, end, [], numrec, model, local=False)
+    print(stocks)
+    fn = 'thatlldopig'
+    startTickWSKeepAlive(stocks, fn, store=['json'], delt=None, polltime=5)
     # print(len(gainers), len(losers))
     #########################################
 
@@ -488,37 +494,3 @@ if __name__ == "__main__":
     # numrec = 10
 
     # getCurrentDataFile(stocks, start, fn, (start, numrec), model=AllquotesModel, format='visualize', bringtodate=False)
-    ##############################################
-    # from quotedb.utils.util import dt2unix_ny
-    # from quotedb import sp500
-    # stocks = sp500.random50(numstocks=0)
-    # # stocks.append('BINANCE:BTCUSDT')
-    # # # delt = dt.timedelta(seconds=0.25)
-    # # # # fn = f"_4_report_{len(stocks)}_fill_{delt.microseconds}.json"
-    # fn = f'accumulate_{len(stocks)}_.json'
-    # fn = util.formatFn(fn, 'json')
-    # # # fn = 'notsaved.json'
-    # # # fq = dt2unix_ny(dt.datetime(2021, 4, 22, 9, 30))
-    # # # startTickWS_SampleFill(stocks, fn, fq, delt=delt)
-    # startTickWSKeepAlive(stocks, fn, store=['json'], delt=None, polltime=5)
-
-    ##############################################
-
-    # from quotedb.getdata import getFirstQuote
-    # from quotedb.models.allquotes_candlemodel import AllquotesModel
-    # from quotedb.sp500 import getSymbols
-
-    # timestamp = dt2unix_ny(dt.datetime(2021, 3, 25, 3, 5, 0))
-    start = util.dt2unix(pd.Timestamp(2021,  5, 11, 9, 30, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    # start = util.dt2unix(pd.Timestamp(2021,  5, 11, 9, 30, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
-    # fq = getFirstQuote(timestamp)
-    fq = None
-    end = util.dt2unix(dt.datetime.utcnow())
-    # stocks = sp500.getQ100_Sp500()
-    stocks = sp500.getSymbols()
-
-    # mc = ManageCandles(getSaConn(), AllquotesModel)
-    # mc.getDeltaData(stocks, start, end, fq)
-
-    # x = getDeltaData(stocks, start, end, fq)
-    startCandles(stocks, start, model=AllquotesModel, latest=True, numcycles=1)

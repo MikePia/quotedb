@@ -330,17 +330,18 @@ class ManageCandles:
 
         Paramaters
         ----------
-        :partams symbols: list<str>
+        :params symbols: list<str>: If symbols are empty, return all results, otherwise filter results to 
+            be a subset of symbols
         :params start: int: Unix time
         :params end: int: Unix time
         :params return: DataFrame, columns = [stock, pricd, timestamp, volume]
         """
-        print(f'Getting candles for {len(symbols)} stocks between {unix2date_ny(start)} and {unix2date_ny(end)} NY time')
         s = self.session
         q = s.query(self.model.stock, self.model.close, self.model.timestamp, self.model.volume).filter(
             self.model.timestamp >= start).filter(self.model.timestamp <= end).all()
         df = pd.DataFrame([(d.stock, d.close, d.timestamp, d.volume) for d in q], columns=['stock', 'price', 'timestamp', 'volume'])
-        df = df[df.stock.isin(symbols)]
+        if symbols:
+            df = df[df.stock.isin(symbols)]
         return df
 
     def getTimeRangePlus(self, stock, start, end, plus=(60*30)):
