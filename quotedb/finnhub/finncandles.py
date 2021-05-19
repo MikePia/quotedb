@@ -5,6 +5,7 @@ import requests
 # import datetime as dt
 import threading
 import pandas as pd
+import time
 
 from quotedb.models.candlesmodel import CandlesModel
 from quotedb.models.managecandles import ManageCandles
@@ -237,6 +238,7 @@ class FinnCandles:
         print(f'Going to retrieve data from finnhub for {len(self.tickers)} stocks, and place them in {model.__tablename__}')
         while True and self.keepGoing:
             for i, ticker in enumerate(self.tickers):
+                time.sleep(0.1)
                 if not self.keepGoing:
                     return
                 print(f'\n{i+1}/{len(self.tickers)}: ', end='')
