@@ -24,12 +24,14 @@ def getFirstQuoteData(timestamp, tablename="allquotes", thestocks=None):
 
     with getEngine().connect() as con:
         statement = text(f"""
-            SELECT s1.*
-                FROM {tablename} s1
-                    inner join  (SELECT *, max(timestamp) as mts
-                        FROM {tablename}
-                        WHERE timestamp <= {timestamp} GROUP BY stock) s2
-                on s2.stock = s1.stock and s1.timestamp = s2.mts """)
+        SELECT s1.* FROM allquotes s1
+            inner join (
+            SELECT stock, max(timestamp) as mts
+                FROM {tablename} 
+                WHERE timestamp <= {timestamp} 
+                GROUP BY stock) s2
+            ON s2.stock = s1.stock and s1.timestamp = s2.mts
+            ORDER BY stock """)
         q = con.execute(statement).fetchall()
     stocks = []
     ret = []
