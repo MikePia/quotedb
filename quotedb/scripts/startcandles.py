@@ -3,19 +3,19 @@
 Run this using the runscript command with arguments presented as a dictionary
 and the keys -s, -m -d stocks, model and date
 """
+import argparse
 import logging
 import os
-import argparse
 import sys
+
 import pandas as pd
 from quotedb import sp500
 # from quotedb.utils import util
-import pandas as pd
 from quotedb.getdata import startCandles
-from quotedb.models.candlesmodel import CandlesModel
 from quotedb.models.allquotes_candlemodel import AllquotesModel
+from quotedb.models.candlesmodel import CandlesModel
 # from quotedb.models.topquotes_candlemodel import TopquotesModel
-from quotedb.utils import util 
+from quotedb.utils import util
 
 p = argparse.ArgumentParser()
 p.add_argument('-s', '--stocks', type=str, nargs='?', help="""

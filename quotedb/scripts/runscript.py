@@ -3,6 +3,7 @@ The scripts in this directory will create a pid file in {RUNDIR}/{filename}.pid
 and can be killed using killFromPid(pidfile)
 """
 import os
+import sys
 import subprocess
 import time
 
@@ -17,7 +18,7 @@ def runScript(fn, kwargs=None):
         print(f'file not found {os}')
         return
     
-    args = ["python", fn]
+    args = [sys.executable, fn]
     for key in kwargs.keys():
         args.append(key)
         args.append(kwargs[key])
@@ -26,7 +27,8 @@ def runScript(fn, kwargs=None):
 
     # code = subprocess.Popen(arg, shell=True)
     # code = subprocess.Popen(args, shell=True, start_new_session=True, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
-    code = subprocess.Popen(args)
+    my_env = os.environ
+    code = subprocess.Popen(args, env=my_env)
     print(f'\n============================================== {code} =====================================')
     # subprocess.Popen(arg, shell=True, stdout=None, stdin=None, stderr=None)
     # print(f'code is {code}')
