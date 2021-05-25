@@ -22,9 +22,11 @@ def runScript(fn, kwargs=None):
         args.append(key)
         args.append(kwargs[key])
 
+    # args = ' '.join(args)
+
     # code = subprocess.Popen(arg, shell=True)
     # code = subprocess.Popen(args, shell=True, start_new_session=True, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
-    code = subprocess.Popen(args, shell=True)
+    code = subprocess.Popen(args)
     print(f'\n============================================== {code} =====================================')
     # subprocess.Popen(arg, shell=True, stdout=None, stdin=None, stderr=None)
     # print(f'code is {code}')
