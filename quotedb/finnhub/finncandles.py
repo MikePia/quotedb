@@ -1,6 +1,7 @@
 import csv
 import json
 import logging
+import os
 import requests
 # import datetime as dt
 import threading
@@ -12,6 +13,17 @@ from quotedb.models.managecandles import ManageCandles
 from quotedb.models.managetopquotes import ManageTopQuote
 from quotedb.dbconnection import getFhToken, getSaConn, getCsvDirectory
 from quotedb.utils.util import dt2unix  # , unix2date
+
+
+def keepGoing(p):
+    fn = os.path.join(os.environ['RUNDIR'], p)
+    return os.path.exists(fn)
+
+
+def stopProcess(p):
+    fn = os.path.join(os.environ['RUNDIR'], p)
+    if os.path.exists(fn):
+        os.remove(os)
 
 
 class FinnCandles:
@@ -32,7 +44,6 @@ class FinnCandles:
         self.tickers = tickers
         self.limit = limit
         self.cycle = {k: 0 for k in tickers}
-        self.keepGoing = False
 
     def wrapStoreCandles(self, args):
         '''
@@ -223,7 +234,10 @@ class FinnCandles:
         --------
             This argument will be used to install a Firstquote if the model is Topquotes
         """
-        self.keepGoing = True
+        rfile = "startcandles.pid"
+        fn = os.path.join(os.environ.get('RUNDIR'), rfile)
+        with open(fn, 'w') as f:
+            f.write(str(os.getpid()))
         mc = self.getManageCandles(model, reinit=True, fq_time=fq_time)
         # start = dt2unix(start, unit='s') if start else 0
         end = dt2unix(pd.Timestamp.now(tz="UTC").replace(tzinfo=None), unit='s')
@@ -236,10 +250,10 @@ class FinnCandles:
         for t in self.cycle:
             self.cycle[t] = start if not latest else max(startTimes.get(t, 0), start)
         print(f'Going to retrieve data from finnhub for {len(self.tickers)} stocks, and place them in {model.__tablename__}')
-        while True and self.keepGoing:
+        while True and keepGoing(rfile):
             for i, ticker in enumerate(self.tickers):
                 time.sleep(0.1)
-                if not self.keepGoing:
+                if not keepGoing(rfile):
                     return
                 print(f'\n{i+1}/{len(self.tickers)}: ', end='')
                 self.storeCandles(ticker, end, model=model, store=["db"], manager=mc)
