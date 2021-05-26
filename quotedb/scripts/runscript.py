@@ -17,7 +17,7 @@ def runScript(fn, kwargs=None):
     if not os.path.exists(fn):
         print(f'file not found {os}')
         return
-    
+
     args = [sys.executable, fn]
     for key in kwargs.keys():
         args.append(key)
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     Serves as a test. The python continues after starting the script. But if
     this script were to end, the process would also end.
     """
-    from quotedb.scripts.kill_from_pid import  killFromPid
+    from quotedb.scripts.kill_from_pid import killFromPid
     fn = 'startcandles.py'
     kwargs = {"-s": "nasdaq100", "-m": "allquotes", "-d": "5-17-2021 9:30"}
     # -n = 0, -l = True

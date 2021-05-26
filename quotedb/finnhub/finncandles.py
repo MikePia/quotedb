@@ -312,7 +312,7 @@ class FinnCandles:
 
             if response.status_code != 200:
                 retries -= 1
-                
+
                 logging.error(f"ERROR while processing symbols request: {response.status_code}: {response.reason}: {retries}")
                 logging.error(response.url)
                 logging.error(self.HEADERS)
