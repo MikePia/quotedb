@@ -6,7 +6,6 @@ that do the work. These functions will be the published API for the client to us
 import datetime as dt
 import json
 import logging
-import os
 import time
 
 import pandas as pd
@@ -170,8 +169,8 @@ def getJustGainersLosers(start, end,  stocks, numrec, model=AllquotesModel, loca
 
     gainers.extend(losers[1:])
     if fulldata:
-        return gainers [1:]
-    
+        return gainers[1:]
+
     return [x[0] for x in gainers][1:]
 
 
@@ -236,8 +235,6 @@ def startCandles(stocks, start, model=CandlesModel, latest=False, numcycles=9999
         the start value, begin collection ther instead of start
     :params numcycles: int: Will stop execution upon completion of cycles.
     """
-    print("pid", os.getpid())
-
     if isinstance(start, dt.datetime):
         start = util.dt2unix(start)
     fc = FinnCandles(stocks)

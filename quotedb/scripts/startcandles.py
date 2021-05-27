@@ -65,10 +65,7 @@ if not os.environ.get('RUNDIR'):
         logging.error('Failed to load the working environment')
         sys.exit()
 
-fn = os.path.join(os.environ.get('RUNDIR'), os.path.splitext(os.path.split(__file__)[1])[0] + ".pid")
-with open(fn, 'w') as f:
-    f.write(str(os.getpid()))
+fn = os.path.splitext(os.path.split(__file__)[1])[0] + ".pid"
+util.startRunning(fn)
 
-
-print(os.getpid())
 startCandles(stocks, start, model, latest=True, numcycles=args.numcycles)

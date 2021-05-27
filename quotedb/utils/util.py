@@ -205,6 +205,23 @@ def getPrevTuesWed(td):
     return before
 
 
+def isRunning(p):
+    fn = os.path.join(os.environ['RUNDIR'], p)
+    return os.path.exists(fn)
+
+
+def stopRunning(p):
+    fn = os.path.join(os.environ['RUNDIR'], p)
+    if os.path.exists(fn):
+        os.remove(os)
+
+
+def startRunning(p):
+    fn = os.path.join(os.environ['RUNDIR'], p)
+    with open(fn, 'w') as f:
+        f.write(str(os.getpid()))
+
+
 if __name__ == '__main__':
     # assert dt2unix(dt.datetime(2021, 2, 13)) == 1613174400
     # assert dt2unix(dt.datetime(2021, 2, 11)) == 1613001600
