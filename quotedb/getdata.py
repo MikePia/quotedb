@@ -165,6 +165,7 @@ def getJustGainersLosers(start, end,  stocks, numrec, model=AllquotesModel, loca
         df = getCandles(stocks, start, end, model=model)
         gainers, losers = localFilterStocks(df, stocks, (start, numrec))
     else:
+        print('begin getGainersLosers')
         gainers, losers = getGainersLosers(stocks, start, numrec, model=model)
 
     gainers.extend(losers[1:])

@@ -211,6 +211,7 @@ class ManageCandles:
         df = self.getTimeRangeMultipleVpts(tickers, start, end)
         gainers = []
         losers = []
+        print('Filtering stuff in python')
         for tick in df.stock.unique():
             t = df[df.stock == tick]
             t = t.copy()
@@ -230,6 +231,7 @@ class ManageCandles:
         losers = losers[:numstocks]
         gainers.insert(0, ['stock', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
         losers.insert(0, ['stock', 'pricediff', 'percentage', 'firstprice', 'lastprice'])
+        print('done w gainerslosers')
         return gainers, losers
 
     def addCandles(self, stock, arr, session):
@@ -337,8 +339,10 @@ class ManageCandles:
         :params return: DataFrame, columns = [stock, pricd, timestamp, volume]
         """
         s = self.session
+        print('here is the query')
         q = s.query(self.model.stock, self.model.close, self.model.timestamp, self.model.volume).filter(
             self.model.timestamp >= start).filter(self.model.timestamp <= end).all()
+        print('done with the query')
         df = pd.DataFrame([(d.stock, d.close, d.timestamp, d.volume) for d in q], columns=['stock', 'price', 'timestamp', 'volume'])
         if symbols:
             df = df[df.stock.isin(symbols)]
