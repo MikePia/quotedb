@@ -213,7 +213,7 @@ def isRunning(p):
 def stopRunning(p):
     fn = os.path.join(os.environ['RUNDIR'], p)
     if os.path.exists(fn):
-        os.remove(os)
+        os.remove(fn)
 
 
 def startRunning(p):
