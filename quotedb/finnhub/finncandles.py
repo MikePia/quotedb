@@ -199,7 +199,7 @@ class FinnCandles:
                 self.manageCandles = ManageCandles(getSaConn(), model, create=True)
         return self.manageCandles
 
-    def cycleStockCandles(self, start=0, model=CandlesModel, latest=False, numcycles=999999999, fq_time=None):
+    def cycleStockCandles(self, start=0, model=CandlesModel, latest=False, numcycles=999999999, rfile="startcandles.pid", fq_time=None):
         """
         Explanation
         -----------
@@ -222,7 +222,6 @@ class FinnCandles:
         --------
             This argument will be used to install a Firstquote if the model is Topquotes
         """
-        rfile = "startcandles.pid"
         util.startRunning(rfile)
         mc = self.getManageCandles(model, reinit=True, fq_time=fq_time)
         # start = util.dt2unix(start, unit='s') if start else 0
