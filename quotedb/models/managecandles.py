@@ -341,7 +341,8 @@ class ManageCandles:
         s = self.session
         print('here is the query')
         q = s.query(self.model.stock, self.model.close, self.model.timestamp, self.model.volume).filter(
-            self.model.timestamp >= start).filter(self.model.timestamp <= end).all()
+            self.model.timestamp >= start).filter(self.model.timestamp <= end)
+        q = q.all()
         print('done with the query')
         df = pd.DataFrame([(d.stock, d.close, d.timestamp, d.volume) for d in q], columns=['stock', 'price', 'timestamp', 'volume'])
         if symbols:

@@ -68,4 +68,6 @@ class ManageHolidayModel:
 
 
 if __name__ == '__main__':
-    pass
+    # import os
+    d = pd.Timestamp(2021, 7, 5)
+    print(HolidayModel.isHoliday(d,  getSession()))
