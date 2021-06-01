@@ -216,10 +216,11 @@ def stopRunning(p):
         os.remove(fn)
 
 
-def startRunning(p):
+def startRunning(p, altcontents=None):
     fn = os.path.join(os.environ['RUNDIR'], p)
+    contents = str(os.getpid()) if not altcontents else altcontents
     with open(fn, 'w') as f:
-        f.write(str(os.getpid()))
+        f.write(contents)
 
 
 if __name__ == '__main__':

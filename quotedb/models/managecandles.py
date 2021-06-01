@@ -2,7 +2,7 @@ import csv
 import datetime as dt
 import pandas as pd
 
-from quotedb.utils.util import dt2unix, unix2date, unix2date_ny, resample
+from quotedb.utils.util import dt2unix, dt2unix_ny, unix2date, unix2date_ny, resample
 from quotedb.models.metamod import getSession, init, cleanup, getEngine
 from quotedb.dbconnection import getSaConn, getCsvDirectory
 from quotedb.polygon.polytrade import isMarketOpen
@@ -405,6 +405,19 @@ class ManageCandles:
         tickers = [x[0] for x in tickers]
         return tickers
 
+    def getTickersSinceDate(self, date):
+        """
+        Explanation
+        -----------
+        Get a list of the stocks in the table self.model since the given time
+        Select distinct stocks from {table}. Return as a list
+        """
+        s = self.session
+
+        tickers = s.query(distinct(self.model.stock)).filter(self.model.timestamp >= date).all()
+        tickers = [x[0] for x in tickers]
+        return tickers
+
     def cleanDuplicatesFromResults(self, stock, arr, session):
         """
         Explanation
@@ -575,12 +588,18 @@ if __name__ == '__main__':
     # mc = ManageCandles(getSaConn())
     # df = CandlesModel.getTimeRangeMultipleVpts(stocks, start, end, mc.session)
     #############################################
-    from quotedb.models.candlesmodel import CandlesModel
-    from quotedb.models.allquotes_candlemodel import AllquotesModel
-    mc = ManageCandles(getSaConn(), model=AllquotesModel,  create=True)
-    mc = ManageCandles(getSaConn(), model=CandlesModel,  create=True)
+    # from quotedb.models.candlesmodel import CandlesModel
+    # from quotedb.models.allquotes_candlemodel import AllquotesModel
+    # mc = ManageCandles(getSaConn(), model=AllquotesModel,  create=True)
+    # mc = ManageCandles(getSaConn(), model=CandlesModel,  create=True)
     # start = dt2unix(pd.Timestamp(2021,  3, 12, 12, 0, 0).tz_localize("US/Eastern").tz_convert("UTC").replace(tzinfo=None))
     # end = dt2unix(pd.Timestamp.utcnow().replace(tzinfo=None))
     # x = mc.getFilledData('AAPL', start, end)
     #############################################
-    pass
+    from quotedb.models.candlesmodel import CandlesModel
+    s = dt.datetime.now()
+    s = dt.datetime(s.year, s.month, s.day-2, 12, 0)
+    start = dt2unix_ny(s)
+    mc = ManageCandles(getSaConn(), CandlesModel, start)
+    tickers = mc.getTickersSinceDate(start)
+    print(tickers)

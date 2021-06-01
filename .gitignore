@@ -9,4 +9,4 @@ build/*
 quotedb.egg*
 .env
 NotesNo_git.md
-
+run/*

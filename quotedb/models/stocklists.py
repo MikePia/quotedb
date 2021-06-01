@@ -53,7 +53,10 @@ class Sp500(mm.Base):
     @classmethod
     def getSp500(cls):
         s = mm.getSession()
-        q = s.query(Sp500.stock).all()
+        try:
+            q = s.query(Sp500.stock).all()
+        except Exception:
+            return None
         return [x[0] for x in q]
 
 
